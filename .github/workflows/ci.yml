@@ -1,12 +1,84 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+env:
+  APP_SECRET: ci-only-secret-value-at-least-32-characters
+  DATABASE_URL: postgresql://nutricore:nutricore@127.0.0.1:5432/nutricore?schema=public
+  TEST_DATABASE_URL: postgresql://nutricore:nutricore@127.0.0.1:5432/nutricore?schema=public
+
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: nutricore
+          POSTGRES_USER: nutricore
+          POSTGRES_PASSWORD: nutricore
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U nutricore"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
-        with: {node-version: 22, cache: npm}
+        with:
+          node-version: 22
+          cache: npm
+
       - run: npm ci
-      - run: npm run check
-      - run: npm run build
+
+      - run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e
+        env:
+          APP_URL: http://127.0.0.1:3100
+          PORT: 3100
+          E2E_PORT: 3100
+          # Open Food Facts is not called from CI.
+          OPENFOODFACTS_ENABLED: "false"
+          # The suite registers one account per test from a single address.
+          RATE_LIMIT_MULTIPLIER: "50"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Proves the production image still builds, which is what deployment runs.
+      - run: docker build -t nutricore:ci .
