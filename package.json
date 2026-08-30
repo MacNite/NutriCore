@@ -1,1 +1,47 @@
-{"name":"nutricore","version":"0.1.0","private":true,"scripts":{"dev":"next dev","build":"next build","start":"next start","lint":"eslint .","typecheck":"tsc --noEmit","test":"vitest run","check":"npm run lint && npm run typecheck && npm test","test:e2e":"playwright test","db:seed":"tsx prisma/seed.ts"},"dependencies":{"@prisma/client":"6.15.0","argon2":"0.44.0","jose":"6.1.0","next":"^15.5.24","next-intl":"4.3.5","react":"19.1.1","react-dom":"19.1.1","sharp":"^0.34.4","zod":"4.1.5"},"devDependencies":{"@eslint/eslintrc":"3.3.1","@playwright/test":"1.55.0","@types/node":"22.18.0","@types/react":"19.1.12","@types/react-dom":"19.1.9","eslint":"9.35.0","eslint-config-next":"^15.5.24","prisma":"6.15.0","tsx":"4.20.5","typescript":"5.9.2","vitest":"3.2.4"},"prisma":{"seed":"tsx prisma/seed.ts"}}
+{
+  "name": "nutricore",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "6.15.0",
+    "argon2": "0.44.0",
+    "jose": "6.1.0",
+    "next": "^15.5.24",
+    "next-intl": "4.3.5",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "sharp": "^0.34.4",
+    "zod": "4.1.5"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "3.3.1",
+    "@playwright/test": "1.55.0",
+    "@types/node": "22.18.0",
+    "@types/react": "19.1.12",
+    "@types/react-dom": "19.1.9",
+    "eslint": "9.35.0",
+    "eslint-config-next": "^15.5.24",
+    "prisma": "6.15.0",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2",
+    "vitest": "3.2.4"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}
