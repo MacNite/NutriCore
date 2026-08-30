@@ -33,9 +33,11 @@ COPY --from=build --chown=nutricore:nutricore /app/.next/standalone ./
 COPY --from=build --chown=nutricore:nutricore /app/.next/static ./.next/static
 COPY --from=build --chown=nutricore:nutricore /app/public ./public
 COPY --from=build --chown=nutricore:nutricore /app/prisma ./prisma
-# The Prisma CLI and engines are needed at start-up to apply migrations.
-COPY --from=prod-deps --chown=nutricore:nutricore /app/node_modules/prisma ./node_modules/prisma
-COPY --from=prod-deps --chown=nutricore:nutricore /app/node_modules/@prisma ./node_modules/@prisma
+# Overlay the complete production dependency tree. Prisma's CLI loads
+# transitive packages such as `effect` from the top-level node_modules folder
+# while applying migrations, so selectively copying only its scoped packages
+# produces an incomplete runtime even though the application bundle is present.
+COPY --from=prod-deps --chown=nutricore:nutricore /app/node_modules ./node_modules
 COPY --chown=nutricore:nutricore docker/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
