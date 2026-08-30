@@ -206,6 +206,13 @@ The container runs `prisma migrate deploy` at start-up. It deliberately does
 **not** run `prisma db push`, which can drop columns to force the live database
 to match the schema.
 
+Migrations also install the nutrient catalogue, which is reference data rather
+than demo data: every stored nutrient value has a foreign key onto it, so a
+database without it cannot hold a single food. Adding a nutrient means adding it
+to `src/lib/nutrients.ts` **and** shipping a migration; a test fails if the two
+drift apart. The optional development seed is only ever about sample foods,
+diary entries and a demo account.
+
 ```sh
 # Upgrade
 docker compose pull && docker compose up -d --build
