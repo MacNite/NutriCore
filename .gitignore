@@ -1,0 +1,9 @@
+node_modules
+.next
+.env
+*.tsbuildinfo
+artifacts
+playwright-report
+test-results
+data
+backups
