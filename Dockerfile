@@ -36,7 +36,6 @@ COPY --from=build --chown=nutricore:nutricore /app/prisma ./prisma
 # The Prisma CLI and engines are needed at start-up to apply migrations.
 COPY --from=prod-deps --chown=nutricore:nutricore /app/node_modules/prisma ./node_modules/prisma
 COPY --from=prod-deps --chown=nutricore:nutricore /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=prod-deps --chown=nutricore:nutricore /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 COPY --chown=nutricore:nutricore docker/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
