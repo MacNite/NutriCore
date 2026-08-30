@@ -25,6 +25,10 @@ services:
       - "5432"
 
   app:
+    # Published by .github/workflows/publish.yml. Pin a version tag in .env for
+    # a reproducible deployment; `latest` only ever points at a release.
+    image: ${APP_IMAGE:-ghcr.io/macnite/nutricore:latest}
+    # Kept so `docker compose up -d --build` still builds locally from source.
     build:
       context: .
       dockerfile: Dockerfile
@@ -33,6 +37,15 @@ services:
     environment:
       # Built from the compose credentials so the URL cannot drift from them.
       DATABASE_URL: postgresql://${POSTGRES_USER:-nutricore}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-nutricore}?schema=public
+
+      # --- AI -------------------------------------------------------------
+      # Ollama is NOT started by this stack: it already runs elsewhere on the
+      # network. Only the connection details live here. Models are pulled on
+      # the Ollama host (`ollama pull deepseek-r1`), never by NutriCore.
+      AI_ENABLED: ${AI_ENABLED:-true}
+      AI_PROVIDER: ${AI_PROVIDER:-ollama}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-deepseek-r1}
     ports:
       - "${APP_PORT:-3000}:3000"
     depends_on:
@@ -46,3 +59,13 @@ services:
       start_period: 40s
     security_opt:
       - no-new-privileges:true
+    # Uncomment together with the networks block below when Ollama runs in a
+    # different compose stack, so `OLLAMA_BASE_URL` can use its service name.
+    # networks:
+    #   - default
+    #   - ollama
+
+# networks:
+#   ollama:
+#     external: true
+#     name: <name of the network the Ollama container is attached to>

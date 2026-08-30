@@ -81,11 +81,44 @@ has a user relation. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 ```sh
 cp .env.example .env
 # Set APP_SECRET (openssl rand -base64 48) and POSTGRES_PASSWORD
-docker compose up -d --build
+docker compose up -d
 ```
 
 Open <http://localhost:3000> and create the first account. Health is at
 `/api/health`. No demo account is ever created automatically.
+
+### Prebuilt image or local build
+
+`docker compose up -d` pulls the prebuilt image named by `APP_IMAGE`
+(`ghcr.io/macnite/nutricore:latest` by default). To build from source instead:
+
+```sh
+docker compose up -d --build
+```
+
+Images are published to the GitHub Container Registry by the
+[Publish image](.github/workflows/publish.yml) workflow:
+
+| Tag | Points at |
+| --- | --- |
+| `latest` | the most recent `v*.*.*` release |
+| `v1.2.3`, `1.2`, `1` | a specific release |
+| `main` | the tip of `main` — development, may be unstable |
+| `sha-abc1234` | one exact commit |
+
+Pin a version tag in `.env` for a reproducible deployment:
+
+```env
+APP_IMAGE=ghcr.io/macnite/nutricore:v0.1.0
+```
+
+Releases build for `linux/amd64` and `linux/arm64`; pushes to `main` build
+`amd64` only. If the package is private, authenticate first with a personal
+access token that has `read:packages`:
+
+```sh
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u <username> --password-stdin
+```
 
 ## TrueNAS SCALE
 
@@ -105,6 +138,7 @@ All variables are documented inline in [`.env.example`](.env.example).
 
 | Variable | Required | Notes |
 | --- | --- | --- |
+| `APP_IMAGE` | no | Prebuilt image to run; ignored when building locally |
 | `APP_URL` | yes | Drives the `Secure` cookie flag and origin checks |
 | `APP_SECRET` | yes | Minimum 32 characters; validated at start-up |
 | `POSTGRES_PASSWORD` | yes | Compose builds `DATABASE_URL` from it |
@@ -122,8 +156,8 @@ invalid. Secrets are read from the environment only and are redacted from logs.
 
 ### Ollama and DeepSeek
 
-Ollama is **not** started by this compose stack; point NutriCore at your
-existing instance by hostname:
+Ollama is **not** started by this compose stack — it already runs elsewhere on
+your network. NutriCore only stores the connection details:
 
 ```env
 AI_ENABLED=true
@@ -131,10 +165,31 @@ OLLAMA_BASE_URL=http://ollama:11434
 OLLAMA_MODEL=deepseek-r1
 ```
 
-If the Ollama container is on another compose network, attach that network to
-the `app` service. Do not hardcode IP addresses. Setting `AI_ENABLED=false`, or
-turning AI off per user in Settings, means no request ever leaves the server for
-AI purposes.
+**Models are pulled on the Ollama host, never by NutriCore:**
+
+```sh
+ollama pull deepseek-r1
+```
+
+`OLLAMA_MODEL` selects one model, by name, from those already installed there.
+There is no list of models in the compose file because NutriCore neither
+downloads nor manages them; adding one would only duplicate state that lives on
+the Ollama host. Settings → Diagnostics reports whether the configured model is
+actually installed on the instance NutriCore can reach.
+
+Any Ollama model works. `deepseek-r1` is only the default; a smaller instruct
+model is often a better fit, because the research workflow needs reliable
+structured JSON rather than long reasoning.
+
+If the Ollama container lives in a different compose stack, attach its network
+to the `app` service — see the commented `networks` block in
+`docker-compose.yml`. Do not hardcode IP addresses.
+
+Setting `AI_ENABLED=false`, or turning AI off per user in Settings, means no
+request ever leaves the server for AI purposes. **No model is called during
+normal use today**: the adapter, schema, state machine and confidence scoring
+exist and are unit-tested, but the research flow that would invoke a model is
+still [deferred to Phase 2](#deferred-to-phase-2).
 
 ### Web research
 

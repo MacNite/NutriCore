@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { env, hasSecret } from "@/lib/env";
+import { OllamaProvider } from "@/providers/ollama";
+import { AIUnavailableError } from "@/providers/ai";
 
 export type CheckStatus = "ok" | "error" | "disabled" | "unknown";
 
@@ -56,8 +58,27 @@ export async function runDiagnostics(): Promise<Check[]> {
       }
     : { key: "ollama", status: "disabled" };
 
+  // Ask the adapter whether the configured model is actually installed, rather
+  // than reporting the configured name as if it were a successful check.
   const model: Check = config.AI_ENABLED
-    ? { key: "model", status: "ok", detail: config.OLLAMA_MODEL }
+    ? await (async (): Promise<Check> => {
+        if (ollama.status !== "ok") {
+          return { key: "model", status: "unknown", detail: config.OLLAMA_MODEL };
+        }
+        try {
+          const capabilities = await new OllamaProvider().capabilities();
+          return { key: "model", status: "ok", detail: capabilities.model };
+        } catch (error) {
+          return {
+            key: "model",
+            status: "error",
+            detail:
+              error instanceof AIUnavailableError
+                ? `${config.OLLAMA_MODEL} — not installed on this Ollama instance`
+                : config.OLLAMA_MODEL,
+          };
+        }
+      })()
     : { key: "model", status: "disabled" };
 
   const usda: Check = config.USDA_ENABLED
