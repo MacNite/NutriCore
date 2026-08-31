@@ -219,9 +219,8 @@
     "providerRateLimitedRetry": "{provider} begrenzt Anfragen. Bitte in {seconds} Sekunden erneut versuchen.",
     "providerHttpError": "{provider} hat einen Fehler gemeldet. Lokale Treffer bleiben verfügbar.",
     "researchUnavailable": {
-      "USER_DISABLED": "KI-Recherche ist in den Einstellungen deaktiviert.",
-      "SERVER_DISABLED": "Web-Recherche ist auf diesem Server nicht konfiguriert.",
-      "AI_DISABLED": "KI ist in den Einstellungen deaktiviert."
+      "SERVER_DISABLED": "KI ist auf diesem Server deaktiviert.",
+      "AI_DISABLED": "KI-Funktionen sind in deinen Einstellungen deaktiviert."
     }
   },
   "nutrients": {
@@ -289,7 +288,7 @@
     "aiEnabled": "KI-Funktionen aktivieren",
     "aiEnabledHint": "Ist die Option aus, verlässt für KI-Zwecke keine Anfrage diesen Server.",
     "researchEnabled": "Web-Recherche erlauben",
-    "researchEnabledHint": "Erlaubt der KI-Recherche das Abrufen öffentlicher Webseiten. Erfordert einen konfigurierten Recherche-Anbieter.",
+    "researchEnabledHint": "Erlaubt der KI-Recherche, öffentliche Webseiten als Quelle abzurufen. Ohne diese Option schätzt die KI weiterhin ohne Webzugriff.",
     "providers": "Datenanbieter",
     "diagnostics": "Diagnose",
     "dataExport": "Daten exportieren",
@@ -357,7 +356,6 @@
     "start": "KI-Recherche starten",
     "startHint": "NutriCore rekonstruiert Zutaten und berechnet Nährwerte aus passenden lokalen Lebensmitteln. Ohne Quelle ist das Ergebnis klar als Schätzung gekennzeichnet.",
     "query": "Lebensmittel oder Rezept",
-    "sourceUrl": "Quell-URL (optional)",
     "sourceHint": "Eine öffentliche HTTP/HTTPS-Seite. Sie wird sicher abgerufen und vor der KI-Verarbeitung bereinigt.",
     "review": "Recherche prüfen",
     "status": "Status: {status}",
@@ -366,16 +364,38 @@
     "confidence": "Vertrauen",
     "ingredients": "Zutaten und Zuordnung",
     "unresolved": "Nicht aufgelöst",
-    "nutrition": "Berechnete Nährwerte je 100 g",
+    "nutrition": "Nährwerte je 100 g",
     "sources": "Quellen",
     "noSources": "Keine Webquelle – KI-Schätzung.",
     "assumptions": "Annahmen",
     "accept": "Annehmen",
     "reject": "Ablehnen",
     "unavailable": {
-      "USER_DISABLED": "KI-Recherche ist in den Einstellungen deaktiviert.",
-      "SERVER_DISABLED": "Web-Recherche ist auf diesem Server nicht konfiguriert.",
-      "AI_DISABLED": "KI ist auf diesem Server deaktiviert."
-    }
+      "SERVER_DISABLED": "KI ist auf diesem Server deaktiviert.",
+      "AI_DISABLED": "KI-Funktionen sind in deinen Einstellungen deaktiviert."
+    },
+    "rateLimited": "Zu viele Recherchen. Bitte später erneut versuchen.",
+    "rateLimitedRetry": "Zu viele Recherchen. Bitte in {seconds} Sekunden erneut versuchen.",
+    "running": "Recherche läuft …",
+    "runningHint": "Das Modell antwortet je nach Hardware in einigen Sekunden bis zu zwei Minuten. Bitte nicht neu laden.",
+    "sourceUrlN": "Quell-URL {n} (optional)",
+    "webSourcesUnavailable": "Web-Recherche ist nicht aktiv. Die Schätzung entsteht ohne Webseitenabruf allein aus dem Modell.",
+    "portionWeight": "Portionsgewicht",
+    "noNutrition": "Keine Nährwerte ermittelt.",
+    "cannotAccept": "Ohne Nährwerte kann dieses Ergebnis nicht übernommen werden – es würde als Eintrag mit 0 kcal im Tagebuch landen. Lege das Lebensmittel stattdessen selbst an.",
+    "nutritionSource": {
+      "INGREDIENTS": "Aus allen zugeordneten Lebensmitteln der Datenbank berechnet.",
+      "MODEL": "Vom Modell geschätzt, weil nicht alle Zutaten in der Datenbank vorhanden sind.",
+      "PARTIAL_INGREDIENTS": "Nur aus den zugeordneten Zutaten berechnet; nicht zugeordnete Zutaten fehlen.",
+      "NONE": "Keine Nährwerte ermittelt."
+    },
+    "sourceError": {
+      "blocked": "Quelle abgelehnt (keine öffentliche HTTP(S)-Adresse): {url}",
+      "unreachable": "Quelle nicht erreichbar: {url}",
+      "tooLarge": "Quelle zu groß: {url}",
+      "redirects": "Zu viele Weiterleitungen: {url}",
+      "http": "Quelle antwortete mit einem Fehler: {url}"
+    },
+    "rateLimitedRetryMinutes": "Zu viele Recherchen. Bitte in {minutes} Minuten erneut versuchen."
   }
 }

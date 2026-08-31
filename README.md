@@ -42,13 +42,18 @@ Implemented and covered by tests:
 - **Light / dark / system themes**, responsive layout with bottom navigation on
   mobile, PWA manifest.
 
+- **AI food search** — when a search finds nothing, a local Ollama model
+  reconstructs the dish, ingredients are matched against the database, and the
+  result is reviewed and confirmed before anything is stored. See
+  [AI food search](#ai-food-search).
+- **Web research** — optional, off by default: an AI run may be given source
+  URLs, fetched through an SSRF guard and sanitised before the model sees them.
+
 Designed and unit-tested, but not yet wired into the UI — see
 [Deferred to Phase 2](#deferred-to-phase-2):
 
-- Ollama adapter with schema-validated structured output
-- Research state machine, strict result schema and confidence scoring
-- SSRF guard and HTML sanitising for web research
-- Recipes (schema, nutrition maths and list view exist; the editor does not)
+- Recipes (an AI run creates one and a loggable food from it; the editor and a
+  recipe detail page do not exist)
 - USDA FoodData Central adapter
 
 ## Architecture
@@ -148,7 +153,8 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `OPENFOODFACTS_USER_AGENT` | recommended | OFF asks for contact details |
 | `AI_ENABLED` / `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | no | See below |
 | `USDA_ENABLED` / `USDA_API_KEY` | no | Phase 2 |
-| `RESEARCH_*` / `SEARCH_API_*` | no | Phase 2 |
+| `RESEARCH_ENABLED` | no | Default `false`; only enables web sources for AI research |
+| `RESEARCH_PROVIDER` / `SEARCH_API_*` | no | Phase 2 |
 | `LOG_LEVEL` | no | `debug`, `info` (default), `warn`, `error` |
 
 Start-up fails fast with a clear message if a required variable is missing or
@@ -186,15 +192,38 @@ to the `app` service — see the commented `networks` block in
 `docker-compose.yml`. Do not hardcode IP addresses.
 
 Setting `AI_ENABLED=false`, or turning AI off per user in Settings, means no
-request ever leaves the server for AI purposes. **No model is called during
-normal use today**: the adapter, schema, state machine and confidence scoring
-exist and are unit-tested, but the research flow that would invoke a model is
-still [deferred to Phase 2](#deferred-to-phase-2).
+request ever leaves the server for AI purposes.
+
+### AI food search
+
+When a search finds nothing, food search offers **Start AI research**. The model
+reconstructs the dish as a list of ingredients with quantities and states the
+nutrition of the finished dish per 100 g. Nutrition is then resolved in this
+order, and the review screen always says which of the three it used:
+
+1. **Calculated** from database foods, when every ingredient resolved. These are
+   real values from real foods and are preferred whenever they are available.
+2. **Model-estimated**, when an ingredient is not in the database. Stored as an
+   estimate with a reduced confidence score.
+3. **Partially calculated**, only when the model supplied no nutrition of its
+   own. Per-100 g values then describe the matched part of the dish alone.
+
+A result that yields no nutrition at all cannot be accepted: it would land in
+the diary as a 0 kcal entry. Nothing is ever stored without confirmation, and an
+accepted result is always marked as an AI estimate.
+
+AI food search needs `AI_ENABLED` (default `true`), a reachable Ollama with the
+configured model, and the per-user AI switch in Settings. It does **not** need
+`RESEARCH_ENABLED`: estimating from the model alone sends nothing to the web.
+Runs are rate-limited per user.
 
 ### Web research
 
-Disabled by default (`RESEARCH_ENABLED=false`). The application is fully usable
-without it. When enabled, retrieved pages are treated as untrusted data: only
+Disabled by default (`RESEARCH_ENABLED=false`), and additionally requires the
+per-user "Allow web research" switch. It only adds the ability to give a run
+source URLs — AI food search works without it. A source that cannot be fetched
+is reported on the review screen and the run continues with the remaining
+sources. When enabled, retrieved pages are treated as untrusted data: only
 HTTP(S) URLs on standard ports, DNS resolved and checked against loopback,
 private, link-local and carrier-grade-NAT ranges, size- and time-limited,
 stripped of scripts and markup, and delimited so page text is never read as
@@ -302,7 +331,7 @@ ever exposed (this invalidates existing sessions).
 ## Deferred to Phase 2
 
 These have interfaces, schemas and unit tests, but no user-facing flow yet:
-the AI research UI (the state machine, strict schema, confidence scoring and
-Ollama adapter exist), web research providers, the recipe editor, the USDA
-adapter, browser barcode scanning (manual entry works), adaptive TDEE,
-photo/voice input, meal planning, household sharing and offline sync.
+web research provider search (source URLs are supplied by hand today), the
+recipe editor and recipe detail page, the USDA adapter, browser barcode
+scanning (manual entry works), adaptive TDEE, photo/voice input, meal planning,
+household sharing and offline sync.

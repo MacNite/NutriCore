@@ -1,4 +1,22 @@
 import { z } from "zod";
+import type { Nutrients } from "./nutrition";
+
+/**
+ * Nutrition the model may state directly, per 100 g of the finished dish. It is
+ * a fallback for dishes whose ingredients are not in the local database, never
+ * a replacement for values calculated from real foods, and every value that
+ * comes from here is stored as an estimate.
+ */
+export const modelNutritionSchema = z.object({
+  energyKcal: z.number().min(0).max(900),
+  protein: z.number().min(0).max(100),
+  carbohydrate: z.number().min(0).max(100),
+  fat: z.number().min(0).max(100),
+  saturatedFat: z.number().min(0).max(100).optional(),
+  sugar: z.number().min(0).max(100).optional(),
+  fiber: z.number().min(0).max(100).optional(),
+  salt: z.number().min(0).max(100).optional(),
+});
 
 /**
  * The contract an AI research result must satisfy before it is ever shown to a
@@ -22,7 +40,13 @@ export const researchResultSchema = z.object({
     .min(1)
     .max(60),
   servings: z.number().positive().max(100),
+  /** Weight of ONE serving, not of the whole yield. */
   estimatedServingWeightG: z.number().positive().max(100_000).optional(),
+  /**
+   * Optional: omitting it costs nothing, because a result is still usable when
+   * every ingredient resolves against the local database.
+   */
+  nutritionPer100g: modelNutritionSchema.optional(),
   assumptions: z.array(z.string().max(500)).max(20).default([]),
   sources: z.array(z.object({ title: z.string().max(300), url: z.url() })).max(10).default([]),
   confidence: z.number().min(0).max(1),
@@ -31,6 +55,44 @@ export const researchResultSchema = z.object({
 });
 
 export type ResearchResult = z.infer<typeof researchResultSchema>;
+
+/**
+ * The model states the weight of a single serving, while recipe maths needs the
+ * weight of everything that came out of the pot. Feeding one to the other makes
+ * per-100 g values wrong by exactly the number of servings.
+ */
+export function totalYieldWeightG(servings: number, estimatedServingWeightG?: number): number | undefined {
+  if (estimatedServingWeightG === undefined) return undefined;
+  if (!Number.isFinite(servings) || servings <= 0) return estimatedServingWeightG;
+  return estimatedServingWeightG * servings;
+}
+
+/** Where the nutrition shown for a research result came from. */
+export type NutritionSource = "INGREDIENTS" | "MODEL" | "PARTIAL_INGREDIENTS" | "NONE";
+
+export const hasAnyNutrient = (values: Nutrients | null | undefined) =>
+  Boolean(values && Object.values(values).some((value) => value !== null && value !== undefined));
+
+/**
+ * Calculated values win whenever every ingredient resolved against a real food.
+ * They are not mixed with model numbers: the two use different denominators, so
+ * a blend would be neither. A partial ingredient calculation is only used when
+ * the model supplied nothing at all, because dividing by the matched weight
+ * silently assumes the unmatched rest has the same nutrition.
+ */
+export function chooseNutrition(input: {
+  calculatedPer100g: Nutrients | null;
+  modelPer100g?: Nutrients;
+  matchedIngredientRatio: number;
+}): { per100g: Nutrients; source: NutritionSource } {
+  const calculated = hasAnyNutrient(input.calculatedPer100g) ? input.calculatedPer100g! : null;
+  const model = hasAnyNutrient(input.modelPer100g) ? input.modelPer100g! : null;
+
+  if (calculated && input.matchedIngredientRatio >= 1) return { per100g: calculated, source: "INGREDIENTS" };
+  if (model) return { per100g: model, source: "MODEL" };
+  if (calculated) return { per100g: calculated, source: "PARTIAL_INGREDIENTS" };
+  return { per100g: {}, source: "NONE" };
+}
 
 export type ResearchStatus =
   | "REQUESTED"

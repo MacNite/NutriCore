@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { mayTransition, researchResultSchema, scoreConfidence, type ResearchStatus } from "./research";
+import {
+  chooseNutrition,
+  mayTransition,
+  researchResultSchema,
+  scoreConfidence,
+  totalYieldWeightG,
+  type ResearchStatus,
+} from "./research";
 
 const valid = {
   kind: "recipe" as const,
@@ -121,5 +128,70 @@ describe("confidence scoring", () => {
     const agree = scoreConfidence({ ...base, sourceCount: 3, sourcesAgree: true });
     const conflict = scoreConfidence({ ...base, sourceCount: 3, sourcesAgree: false });
     expect(agree.score).toBeGreaterThan(conflict.score);
+  });
+});
+
+describe("yield weight", () => {
+  it("multiplies the serving weight by the number of servings", () => {
+    // A 2-serving dish at 360 g per serving weighs 720 g in total; using 360 g
+    // as the yield made every per-100 g value twice as large as it should be.
+    expect(totalYieldWeightG(2, 360)).toBe(720);
+    expect(totalYieldWeightG(1, 360)).toBe(360);
+  });
+
+  it("returns nothing when the model did not state a serving weight", () => {
+    expect(totalYieldWeightG(4, undefined)).toBeUndefined();
+  });
+
+  it("falls back to the serving weight for an impossible serving count", () => {
+    expect(totalYieldWeightG(0, 250)).toBe(250);
+    expect(totalYieldWeightG(Number.NaN, 250)).toBe(250);
+  });
+});
+
+describe("choosing where nutrition comes from", () => {
+  const calculated = { energyKcal: 125.7, protein: 11.2 };
+  const model = { energyKcal: 250, protein: 9 };
+
+  it("prefers the database calculation when every ingredient resolved", () => {
+    const chosen = chooseNutrition({ calculatedPer100g: calculated, modelPer100g: model, matchedIngredientRatio: 1 });
+    expect(chosen).toEqual({ per100g: calculated, source: "INGREDIENTS" });
+  });
+
+  it("uses the model when ingredients are missing, rather than an empty result", () => {
+    const chosen = chooseNutrition({ calculatedPer100g: null, modelPer100g: model, matchedIngredientRatio: 0 });
+    expect(chosen).toEqual({ per100g: model, source: "MODEL" });
+  });
+
+  it("does not blend a partial calculation with model numbers", () => {
+    const chosen = chooseNutrition({ calculatedPer100g: calculated, modelPer100g: model, matchedIngredientRatio: 0.5 });
+    expect(chosen.source).toBe("MODEL");
+    expect(chosen.per100g).toEqual(model);
+  });
+
+  it("falls back to a partial calculation when the model supplied nothing", () => {
+    const chosen = chooseNutrition({ calculatedPer100g: calculated, matchedIngredientRatio: 0.5 });
+    expect(chosen.source).toBe("PARTIAL_INGREDIENTS");
+  });
+
+  it("reports NONE instead of inventing zeroes", () => {
+    expect(chooseNutrition({ calculatedPer100g: { energyKcal: null }, matchedIngredientRatio: 0 })).toEqual({ per100g: {}, source: "NONE" });
+    expect(chooseNutrition({ calculatedPer100g: null, modelPer100g: {}, matchedIngredientRatio: 0 }).source).toBe("NONE");
+  });
+});
+
+describe("model-supplied nutrition schema", () => {
+  it("accepts a result that carries per-100 g values", () => {
+    const parsed = researchResultSchema.safeParse({ ...valid, nutritionPer100g: { energyKcal: 215, protein: 12, carbohydrate: 20, fat: 9 } });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("stays optional so a model that omits it still produces a usable result", () => {
+    expect(researchResultSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("rejects impossible energy densities", () => {
+    const parsed = researchResultSchema.safeParse({ ...valid, nutritionPer100g: { energyKcal: 5000, protein: 12, carbohydrate: 20, fat: 9 } });
+    expect(parsed.success).toBe(false);
   });
 });

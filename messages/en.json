@@ -219,9 +219,8 @@
     "providerRateLimitedRetry": "{provider} is rate limiting requests. Try again in {seconds} seconds.",
     "providerHttpError": "{provider} returned an error. Local results remain available.",
     "researchUnavailable": {
-      "USER_DISABLED": "AI research is disabled in settings.",
-      "SERVER_DISABLED": "Research is not configured on this server.",
-      "AI_DISABLED": "AI is disabled in settings."
+      "SERVER_DISABLED": "AI is disabled on this server.",
+      "AI_DISABLED": "AI features are disabled in your settings."
     }
   },
   "nutrients": {
@@ -289,7 +288,7 @@
     "aiEnabled": "Enable AI features",
     "aiEnabledHint": "When off, no request ever leaves this server for AI purposes.",
     "researchEnabled": "Allow web research",
-    "researchEnabledHint": "Lets AI research fetch public web pages. Requires a configured research provider.",
+    "researchEnabledHint": "Lets AI research fetch public web pages as sources. Without it, AI still estimates without any web access.",
     "providers": "Data providers",
     "diagnostics": "Diagnostics",
     "dataExport": "Export data",
@@ -357,7 +356,6 @@
     "start": "Start AI research",
     "startHint": "NutriCore reconstructs ingredients and calculates nutrition from matching local foods. Without a source, the result is clearly marked as an estimate.",
     "query": "Food or recipe",
-    "sourceUrl": "Source URL (optional)",
     "sourceHint": "A public HTTP/HTTPS page. It is fetched safely and sanitized before AI processing.",
     "review": "Review research",
     "status": "Status: {status}",
@@ -366,16 +364,38 @@
     "confidence": "Confidence",
     "ingredients": "Ingredients and matches",
     "unresolved": "Unresolved",
-    "nutrition": "Calculated nutrition per 100 g",
+    "nutrition": "Nutrition per 100 g",
     "sources": "Sources",
     "noSources": "No web source — AI estimate.",
     "assumptions": "Assumptions",
     "accept": "Accept",
     "reject": "Reject",
     "unavailable": {
-      "USER_DISABLED": "AI research is disabled in settings.",
-      "SERVER_DISABLED": "Research is not configured on this server.",
-      "AI_DISABLED": "AI is disabled on this server."
-    }
+      "SERVER_DISABLED": "AI is disabled on this server.",
+      "AI_DISABLED": "AI features are disabled in your settings."
+    },
+    "rateLimited": "Too many research runs. Please try again later.",
+    "rateLimitedRetry": "Too many research runs. Please try again in {seconds} seconds.",
+    "running": "Researching …",
+    "runningHint": "Depending on your hardware the model takes a few seconds up to two minutes. Please do not reload.",
+    "sourceUrlN": "Source URL {n} (optional)",
+    "webSourcesUnavailable": "Web research is not active. The estimate comes from the model alone, without fetching any page.",
+    "portionWeight": "Portion weight",
+    "noNutrition": "No nutrition could be determined.",
+    "cannotAccept": "Without nutrition values this result cannot be accepted – it would land in the diary as a 0 kcal entry. Create the food manually instead.",
+    "nutritionSource": {
+      "INGREDIENTS": "Calculated from database foods matched for every ingredient.",
+      "MODEL": "Estimated by the model, because not every ingredient exists in the database.",
+      "PARTIAL_INGREDIENTS": "Calculated from the matched ingredients only; unmatched ingredients are missing.",
+      "NONE": "No nutrition could be determined."
+    },
+    "sourceError": {
+      "blocked": "Source rejected (not a public HTTP(S) address): {url}",
+      "unreachable": "Source could not be reached: {url}",
+      "tooLarge": "Source too large: {url}",
+      "redirects": "Too many redirects: {url}",
+      "http": "Source responded with an error: {url}"
+    },
+    "rateLimitedRetryMinutes": "Too many research runs. Please try again in {minutes} minutes."
   }
 }
