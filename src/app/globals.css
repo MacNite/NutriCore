@@ -316,6 +316,21 @@ a:hover {
   margin: 0;
 }
 
+.nutrition-subtitle { margin: -8px 0 16px; }
+.progress-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; }
+.progress-tabs .btn { padding: 7px 13px; }
+.progress-tabs [aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-soft-text); }
+.progress-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+.progress-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text-muted); cursor: pointer; font-size: 13px; }
+.progress-chip[aria-pressed="true"] { border-color: var(--line-strong); background: var(--surface-2); color: var(--text); }
+.series-mark { width: 9px; height: 9px; border-radius: 50%; }
+.progress-chip[aria-pressed="false"] .series-mark { background: transparent !important; border: 2px solid var(--text-muted); }
+.progress-score { display: flex; justify-content: space-between; gap: 8px 18px; flex-wrap: wrap; padding: 10px 12px; margin: 0 0 10px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-soft-text); font-size: 13px; }
+.nutrition-chart { margin: 0; }
+.nutrition-chart circle { cursor: pointer; }
+.chart-detail { min-height: 48px; display: grid; gap: 2px; padding-top: 8px; color: var(--text-muted); font-size: 13px; }
+.chart-detail strong { color: var(--text); }
+
 /* ------------------------------------------------------------------- Controls */
 
 .btn {
