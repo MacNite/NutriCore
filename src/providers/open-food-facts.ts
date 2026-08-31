@@ -88,6 +88,16 @@ const UNIT_SCALE: Record<string, number> = {
 const number = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
 
+/**
+ * Country tags as the taxonomy writes them: `en:germany`. Both backends send a
+ * list, but a stray comma-separated string costs nothing to accept.
+ */
+const countryTags = (value: unknown): string[] | undefined => {
+  const raw = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
+  const tags = raw.map((entry) => text(entry)?.toLowerCase()).filter((entry): entry is string => Boolean(entry));
+  return tags.length > 0 ? tags : undefined;
+};
+
 /** A comma-separated string over the REST API, a taxonomy list in the index. */
 const brandName = (value: unknown): string | undefined =>
   Array.isArray(value) ? text(value.map((entry) => text(entry)).filter(Boolean).join(", ")) : text(value);
@@ -343,6 +353,7 @@ export class OpenFoodFactsProvider implements FoodProvider {
       name: name ?? code,
       brand: brandName(product.brands),
       locale: lang === "de" || lang === "en" ? lang : undefined,
+      countries: countryTags(product.countries_tags),
       basisAmount: 100,
       basisUnit,
       servingAmount: serving?.amount,

@@ -1,7 +1,7 @@
 import { Prisma, type BasisUnit, type Food, type SourceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizeName } from "@/lib/units";
-import { SOURCE_TRUST, completeness, rankFood, textSimilarity } from "@/lib/ranking";
+import { SOURCE_TRUST, completeness, inMarket, rankFood, textSimilarity } from "@/lib/ranking";
 import { OpenFoodFactsProvider } from "@/providers/open-food-facts";
 import {
   ProviderUnavailableError,
@@ -27,6 +27,8 @@ export interface FoodResult {
   name: string;
   brand: string | null;
   barcode: string | null;
+  locale: string | null;
+  countries: string[];
   sourceType: SourceType;
   basisAmount: number;
   basisUnit: BasisUnit;
@@ -55,6 +57,8 @@ export function toFoodResult(food: FoodWithRelations, score = 0, favorite = fals
     name: food.name,
     brand: food.brand,
     barcode: food.barcode,
+    locale: food.locale,
+    countries: food.countries,
     sourceType: food.sourceType,
     basisAmount: Number(food.basisAmount),
     basisUnit: food.basisUnit,
@@ -128,6 +132,77 @@ export function hasStrongLocalMatch(matches: LocalMatch[]): boolean {
   return hasIdentityMatch(matches) || matches.some((match) => match.previouslyUsed && match.textMatch >= 0.75);
 }
 
+/** The subset of a food that ranking reads, from a stored row or a fresh fetch. */
+interface Rankable {
+  id: string;
+  name: string;
+  brand: string | null;
+  barcode: string | null;
+  locale: string | null;
+  countries: string[];
+  sourceType: SourceType;
+  ownerId?: string | null;
+  servingSize: number | null;
+  servingCount: number;
+  dataConfidence: number | null;
+  nutrients: Record<string, number | null>;
+}
+
+interface RankContext {
+  query: string;
+  normalized: string;
+  barcode: string | null;
+  locale: Locale;
+  meal?: string;
+  favoriteIds: Set<string>;
+  usageById: Map<string, { count: number; lastUsedAt: Date | null; usualMeals: string[] }>;
+}
+
+/**
+ * One scoring path for every candidate, wherever it came from. Provider results
+ * used to bypass this with a flat score, which left them in whatever order the
+ * provider sent and made every local signal - market, locale, prior use -
+ * invisible on exactly the results a remote search returns.
+ */
+function scoreFood(food: Rankable, ctx: RankContext): { score: number; match: LocalMatch } {
+  const stats = ctx.usageById.get(food.id);
+  const haystack = [food.name, food.brand].filter(Boolean).join(" ");
+  const textMatch =
+    ctx.query.length === 0
+      ? 0
+      : Math.max(textSimilarity(ctx.query, food.name), food.brand ? textSimilarity(ctx.query, haystack) : 0);
+
+  const match: LocalMatch = {
+    barcodeMatch: ctx.barcode !== null && food.barcode === ctx.barcode,
+    exactNameMatch: ctx.query.length > 0 && normalizeName(food.name) === ctx.normalized,
+    exactNameBrandMatch: ctx.query.length > 0 && Boolean(food.brand && normalizeName(haystack) === ctx.normalized),
+    textMatch,
+    previouslyUsed: Boolean(stats && stats.count > 0),
+  };
+
+  const score = rankFood({
+    barcodeMatch: match.barcodeMatch,
+    exactNameMatch: match.exactNameMatch || match.exactNameBrandMatch,
+    textMatch,
+    brandMatch: Boolean(food.brand && normalizeName(food.brand).includes(ctx.normalized)),
+    localeMatch: food.locale === ctx.locale,
+    marketMatch: inMarket(food.countries),
+    favorite: ctx.favoriteIds.has(food.id),
+    daysSinceUse: stats?.lastUsedAt ? (Date.now() - stats.lastUsedAt.getTime()) / 86_400_000 : undefined,
+    usageFrequency: stats?.count ?? 0,
+    sameMealContext: Boolean(ctx.meal && stats?.usualMeals.some((m) => m === ctx.meal)),
+    customFood: food.ownerId != null && food.sourceType === "USER",
+    personalRecipe: food.sourceType === "RECIPE",
+    dataCompleteness: completeness(food.nutrients),
+    sourceTrust: SOURCE_TRUST[food.sourceType] ?? 0.5,
+    servingAvailability: food.servingSize !== null || food.servingCount > 0,
+    isAI: food.sourceType === "AI_RESEARCH",
+    aiConfidence: food.dataConfidence ?? undefined,
+  });
+
+  return { score, match };
+}
+
 /**
  * The local-first search pipeline: barcode, then everything already stored,
  * and only then a remote provider. Remote lookups never block local results.
@@ -147,42 +222,32 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
   ]);
 
   const favoriteIds = new Set(favorites.map((f) => f.foodId));
-  const usageById = new Map(usage.map((u) => [u.foodId, u]));
+
+  const context: RankContext = {
+    query,
+    normalized,
+    barcode,
+    locale,
+    meal: options.meal,
+    favoriteIds,
+    usageById: new Map(
+      usage.map((u) => [u.foodId, { count: u.count, lastUsedAt: u.lastUsedAt, usualMeals: u.usualMeals as string[] }]),
+    ),
+  };
 
   const localMatches: LocalMatch[] = [];
   const scored = localFoods.map((food) => {
-    const stats = usageById.get(food.id);
-    const nutrients = Object.fromEntries(food.nutrients.map((n) => [n.nutrientKey, toNumber(n.value)]));
-    const haystack = [food.name, food.brand].filter(Boolean).join(" ");
-    const textMatch = query.length === 0 ? 0 : Math.max(textSimilarity(query, food.name), food.brand ? textSimilarity(query, haystack) : 0);
-    const match = {
-      barcodeMatch: barcode !== null && food.barcode === barcode,
-      exactNameMatch: query.length > 0 && normalizeName(food.name) === normalized,
-      exactNameBrandMatch: query.length > 0 && Boolean(food.brand && normalizeName(haystack) === normalized),
-      textMatch,
-      previouslyUsed: Boolean(stats && stats.count > 0),
-    };
+    const { score, match } = scoreFood(
+      {
+        ...food,
+        servingSize: toNumber(food.servingSize),
+        servingCount: food.servings.length,
+        dataConfidence: toNumber(food.dataConfidence),
+        nutrients: Object.fromEntries(food.nutrients.map((n) => [n.nutrientKey, toNumber(n.value)])),
+      },
+      context,
+    );
     localMatches.push(match);
-
-    const score = rankFood({
-      barcodeMatch: match.barcodeMatch,
-      exactNameMatch: match.exactNameMatch || match.exactNameBrandMatch,
-      textMatch,
-      brandMatch: Boolean(food.brand && normalizeName(food.brand).includes(normalized)),
-      localeMatch: food.locale === locale,
-      favorite: favoriteIds.has(food.id),
-      daysSinceUse: stats?.lastUsedAt ? (Date.now() - stats.lastUsedAt.getTime()) / 86_400_000 : undefined,
-      usageFrequency: stats?.count ?? 0,
-      sameMealContext: Boolean(options.meal && stats?.usualMeals.some((m) => m === options.meal)),
-      customFood: food.ownerId !== null && food.sourceType === "USER",
-      personalRecipe: food.sourceType === "RECIPE",
-      dataCompleteness: completeness(nutrients),
-      sourceTrust: SOURCE_TRUST[food.sourceType] ?? 0.5,
-      servingAvailability: food.servingSize !== null || food.servings.length > 0,
-      isAI: food.sourceType === "AI_RESEARCH",
-      aiConfidence: toNumber(food.dataConfidence) ?? undefined,
-    });
-
     return toFoodResult(food, score, favoriteIds.has(food.id));
   });
 
@@ -204,7 +269,8 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
       const remote = await fetchRemote(query, barcode, locale);
       for (const food of remote) {
         if (scored.some((r) => r.barcode && r.barcode === food.barcode)) continue;
-        scored.push(food);
+        const { score } = scoreFood({ ...food, servingCount: food.servings.length, dataConfidence: null }, context);
+        scored.push({ ...food, score, favorite: favoriteIds.has(food.id) });
       }
       scored.sort((a, b) => b.score - a.score);
     } catch (error) {
@@ -351,7 +417,11 @@ export async function upsertProviderFood(product: NormalizedFood, locale: Locale
     normalizedName,
     brand: product.brand ?? null,
     barcode: product.barcode ?? null,
-    locale: product.locale ?? locale,
+    // An unknown source language stays unknown. Substituting the searching
+    // user's locale here used to mark every foreign product as German, which
+    // made the locale signal fire for almost every row and rank nothing.
+    locale: product.locale ?? null,
+    countries: product.countries ?? [],
     foodType: "PACKAGED" as const,
     sourceType: "OPEN_FOOD_FACTS" as const,
     externalProvider: product.provenance.provider,
@@ -369,7 +439,10 @@ export async function upsertProviderFood(product: NormalizedFood, locale: Locale
   // update an unknown value is omitted rather than written as empty. A create
   // has nothing to lose and stores the row as it came.
   const update = product.partial
-    ? (Object.fromEntries(Object.entries(base).filter(([, value]) => value !== null)) as Partial<typeof base>)
+    ? (Object.fromEntries(
+        // An empty list is "this source did not say", not "no countries".
+        Object.entries(base).filter(([, value]) => value !== null && !(Array.isArray(value) && value.length === 0)),
+      ) as Partial<typeof base>)
     : base;
 
   // Prefer the provider identity, then reuse an ownerless row with the same

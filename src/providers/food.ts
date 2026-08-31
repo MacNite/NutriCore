@@ -16,6 +16,8 @@ export const normalizedFoodSchema = z.object({
   name: z.string(),
   brand: z.string().optional(),
   locale: z.enum(["de", "en"]).optional(),
+  /** Open Food Facts country tags, e.g. ["en:germany"]. */
+  countries: z.array(z.string()).optional(),
   basisAmount: z.number().positive(),
   basisUnit: z.enum(["G", "ML"]),
   servingAmount: z.number().positive().optional(),

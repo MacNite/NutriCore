@@ -4,6 +4,8 @@ export interface RankSignals {
   textMatch: number;
   brandMatch?: boolean;
   localeMatch?: boolean;
+  /** The product is sold in the market this instance serves. */
+  marketMatch?: boolean;
   favorite?: boolean;
   daysSinceUse?: number;
   usageFrequency?: number;
@@ -16,6 +18,15 @@ export interface RankSignals {
   aiConfidence?: number;
   isAI?: boolean;
 }
+
+/**
+ * The market this instance serves, as Open Food Facts country tags. Search
+ * prefers products sold here; it never restricts results to them, because the
+ * tags are crowdsourced and a missing one would otherwise hide a real product.
+ */
+export const MARKET_COUNTRIES = ["en:germany"];
+
+export const inMarket = (countries: string[]) => countries.some((tag) => MARKET_COUNTRIES.includes(tag));
 
 /** A barcode hit is an identity match, so it outranks every scored result. */
 export const BARCODE_SCORE = 1_000_000;
@@ -31,6 +42,10 @@ export function rankFood(s: RankSignals) {
   if (s.exactNameMatch) score += 500;
   if (s.brandMatch) score += 80;
   if (s.localeMatch) score += 25;
+  // Enough to lift a German product above an equally good foreign one, and
+  // well short of overturning a better name match. Products Open Food Facts
+  // has no country tag for are simply not boosted, never demoted.
+  if (s.marketMatch) score += 120;
   if (s.favorite) score += 180;
   // Recency decays smoothly; a food used today beats one used last month.
   if (s.daysSinceUse !== undefined) score += 100 * Math.exp(-s.daysSinceUse / 14);

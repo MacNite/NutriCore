@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BARCODE_SCORE, completeness, rankFood, textSimilarity } from "./ranking";
+import { BARCODE_SCORE, completeness, rankFood, textSimilarity, inMarket } from "./ranking";
 
 const base = { textMatch: 0.8, dataCompleteness: 0.8, sourceTrust: 0.8 };
 
@@ -48,6 +48,34 @@ describe("ranking", () => {
   it("is deterministic", () => {
     const signals = { ...base, favorite: true, daysSinceUse: 3, usageFrequency: 7 };
     expect(rankFood(signals)).toBe(rankFood(signals));
+  });
+});
+
+describe("market preference", () => {
+  const base = { textMatch: 0.8, dataCompleteness: 1, sourceTrust: 0.85 };
+
+  it("recognizes the market from an Open Food Facts country tag", () => {
+    expect(inMarket(["en:germany"])).toBe(true);
+    expect(inMarket(["en:france", "en:germany"])).toBe(true);
+    expect(inMarket(["en:france"])).toBe(false);
+    expect(inMarket([])).toBe(false);
+  });
+
+  it("lifts a local product above an equally good foreign one", () => {
+    expect(rankFood({ ...base, marketMatch: true })).toBeGreaterThan(rankFood({ ...base, marketMatch: false }));
+  });
+
+  it("never outweighs a better name match", () => {
+    // Preference, not restriction: a product that is what the user typed still
+    // wins over a German product that merely resembles it.
+    const foreignExact = rankFood({ ...base, textMatch: 1, exactNameMatch: true, marketMatch: false });
+    const localPartial = rankFood({ ...base, textMatch: 0.6, marketMatch: true });
+    expect(foreignExact).toBeGreaterThan(localPartial);
+  });
+
+  it("leaves an untagged product where it was rather than demoting it", () => {
+    // Country tags are crowdsourced; a missing one must not be read as "foreign".
+    expect(rankFood({ ...base, marketMatch: false })).toBe(rankFood(base));
   });
 });
 

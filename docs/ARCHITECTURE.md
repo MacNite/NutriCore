@@ -69,10 +69,15 @@ food data that was correct yesterday is a better answer than a banner. Only a
 query that has never been answered surfaces the outage to the user, and even
 then the local results stay on screen.
 
-Ranking is a deterministic weighted sum, not a model. A barcode match is an
+Ranking is a deterministic weighted sum, not a model, and every candidate goes
+through it - a provider result is scored on the same signals as a stored one,
+not pinned to a flat value. A barcode match is an
 identity match and short-circuits everything. An AI estimate always carries a
 penalty scaled by its confidence, so it can never outrank a good exact match
-from a trusted database.
+from a trusted database. Products sold in the market this instance serves
+(`MARKET_COUNTRIES` in `src/lib/ranking.ts`, matched against Open Food Facts
+country tags stored on the food) are preferred, never required: the tags are
+crowdsourced, so an untagged product keeps its place rather than being demoted.
 
 ## AI and research trust boundary
 

@@ -18,7 +18,7 @@ const { prismaMock, searchQueryCache } = vi.hoisted(() => {
 
 const foodRow = {
   id: "food-1", ownerId: null, name: "Müller Milchreis Original", normalizedName: "muller milchreis original",
-  brand: "Müller", barcode: "4000000000001", locale: "de", foodType: "PACKAGED", sourceType: "OPEN_FOOD_FACTS",
+  brand: "Müller", barcode: "4000000000001", locale: "de", countries: ["en:germany"], foodType: "PACKAGED", sourceType: "OPEN_FOOD_FACTS",
   externalProvider: "OPEN_FOOD_FACTS", externalId: "4000000000001", basisAmount: 100, basisUnit: "G",
   servingSize: 200, servingUnit: "g", densityGPerMl: null, dataConfidence: 0.9, isEstimated: false,
   rawState: null, createdAt: new Date(), updatedAt: new Date(),
@@ -46,7 +46,9 @@ const cacheRow = (expiresAt: Date) => ({
 
 describe("remote food search cache", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // reset, not clear: `clearAllMocks` leaves queued `mockResolvedValueOnce`
+    // responses in place, so one test's unconsumed queue answers the next.
+    vi.resetAllMocks();
     searchQueryCache.findUnique.mockResolvedValue(null);
     prismaMock.food.findUnique.mockResolvedValue(null);
     prismaMock.food.findFirst.mockResolvedValue(null);
@@ -113,6 +115,38 @@ describe("remote food search cache", () => {
     expect(prismaMock.foodNutrient.createMany).toHaveBeenCalled();
     expect(prismaMock.foodServing.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ label: "Becher (200 g)" }) }));
     expect(prismaMock.foodSource.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ url: product.provenance.url }) }));
+  });
+
+  it("stores the country tags a search can prefer, and no invented locale", async () => {
+    prismaMock.food.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(foodRow);
+    const product = {
+      externalId: "3017620422003", name: "Nutella", locale: undefined,
+      countries: ["en:germany", "en:france"],
+      basisAmount: 100, basisUnit: "G" as const, nutrients: { energyKcal: 539 },
+      provenance: { provider: "OPEN_FOOD_FACTS", retrievedAt: new Date(), estimated: false },
+    };
+
+    await upsertProviderFood(product, "de");
+
+    const { data } = prismaMock.food.create.mock.calls[0][0];
+    expect(data.countries).toEqual(["en:germany", "en:france"]);
+    // An unknown source language must not inherit the searching user's locale.
+    expect(data.locale).toBeNull();
+  });
+
+  it("does not let a partial product clear country tags it never mentioned", async () => {
+    prismaMock.food.findUnique.mockResolvedValueOnce({ id: "food-1" }).mockResolvedValueOnce(foodRow);
+    const partial = {
+      externalId: "4000000000001", name: "Müller Milchreis Original",
+      basisAmount: 100, basisUnit: "G" as const, nutrients: { energyKcal: 130 },
+      partial: true,
+      provenance: { provider: "OPEN_FOOD_FACTS", retrievedAt: new Date(), estimated: false },
+    };
+
+    await upsertProviderFood(partial, "de");
+
+    const { data } = prismaMock.food.update.mock.calls[0][0];
+    expect(data).not.toHaveProperty("countries");
   });
 
   it("lets a partial product add nutrients without erasing the ones it omits", async () => {
