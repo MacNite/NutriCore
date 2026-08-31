@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { env, hasSecret } from "@/lib/env";
 import { OllamaProvider } from "@/providers/ollama";
+import { userAgentLooksAnonymous } from "@/providers/open-food-facts";
 import { AIUnavailableError } from "@/providers/ai";
 
 export type CheckStatus = "ok" | "error" | "disabled" | "unknown";
@@ -81,6 +82,14 @@ export async function runDiagnostics(): Promise<Check[]> {
       })()
     : { key: "model", status: "disabled" };
 
+  // The most common cause of Open Food Facts errors on a fresh install: the
+  // service blocks callers that do not identify themselves with a contact.
+  const openFoodFactsIdentity: Check = config.OPENFOODFACTS_ENABLED
+    ? userAgentLooksAnonymous(config.OPENFOODFACTS_USER_AGENT)
+      ? { key: "openFoodFactsUserAgent", status: "error", detail: "set OPENFOODFACTS_USER_AGENT to an app name and contact address" }
+      : { key: "openFoodFactsUserAgent", status: "ok", detail: config.OPENFOODFACTS_USER_AGENT }
+    : { key: "openFoodFactsUserAgent", status: "disabled" };
+
   const usda: Check = config.USDA_ENABLED
     ? {
         key: "usda",
@@ -95,7 +104,7 @@ export async function runDiagnostics(): Promise<Check[]> {
     ? { key: "research", status: "unknown", detail: config.RESEARCH_PROVIDER || "not selected" }
     : { key: "research", status: "disabled" };
 
-  return [database, ollama, model, openFoodFacts, usda, research];
+  return [database, ollama, model, openFoodFacts, openFoodFactsIdentity, usda, research];
 }
 
 const safeHost = (value: string) => {

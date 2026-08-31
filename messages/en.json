@@ -218,6 +218,8 @@
     "startResearch": "Start AI research",
     "providerRateLimitedRetry": "{provider} is rate limiting requests. Try again in {seconds} seconds.",
     "providerHttpError": "{provider} returned an error. Local results remain available.",
+    "providerDegraded": "{provider} is not responding right now — showing local and cached results.",
+    "retrySearch": "Try again",
     "researchUnavailable": {
       "SERVER_DISABLED": "AI is disabled on this server.",
       "AI_DISABLED": "AI features are disabled in your settings."
@@ -312,6 +314,7 @@
     "ollama": "Ollama",
     "model": "AI model",
     "openFoodFacts": "Open Food Facts",
+    "openFoodFactsUserAgent": "Open Food Facts user agent",
     "usda": "USDA FoodData Central",
     "research": "Research provider",
     "status": {
@@ -342,7 +345,6 @@
     "validation": "Please check your input.",
     "rateLimited": "Too many requests. Please wait a moment.",
     "providerDown": "An external service is unavailable. Your data is unaffected.",
-    "manualFallback": "You can always create the food manually instead.",
     "portion": {
       "unknown-unit": "Unknown unit. Use a metric unit or a defined serving.",
       "density-required": "A stored density is required for this conversion.",

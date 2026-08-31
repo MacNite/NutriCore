@@ -33,6 +33,8 @@ interface Outcome {
 
 const DEBOUNCE_MS = 500;
 
+const providerName = (provider: string) => (provider === "OPEN_FOOD_FACTS" ? "Open Food Facts" : provider);
+
 export function FoodSearch({
   meal,
   date,
@@ -49,7 +51,6 @@ export function FoodSearch({
   researchUnavailableReason?: "SERVER_DISABLED" | "AI_DISABLED";
 }) {
   const t = useTranslations("foods");
-  const errors = useTranslations("errors");
   const [query, setQuery] = useState("");
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [loading, setLoading] = useState(false);
@@ -108,7 +109,7 @@ export function FoodSearch({
 
   const providerErrorMessage = useCallback(
     (error: NonNullable<Outcome["providerError"]>) => {
-      const provider = error.provider === "OPEN_FOOD_FACTS" ? "Open Food Facts" : error.provider;
+      const provider = providerName(error.provider);
       if (error.reason === "RATE_LIMITED") return error.retryAfterSeconds
         ? t("providerRateLimitedRetry", { provider, seconds: error.retryAfterSeconds })
         : t("providerRateLimited", { provider });
@@ -159,17 +160,21 @@ export function FoodSearch({
         </form>
       </section>
 
+      {/* A provider outage with results in hand is a footnote, not a warning:
+          the list is usable, so it gets one quiet line and a way to retry. */}
       {outcome?.providerError && outcome.results.length > 0 ? (
-        <div className="notice notice-warn" style={{ marginBottom: 16 }}>
-          <span className="notice-icon" aria-hidden="true">
-            !
-          </span>
-          <span>
-            {providerErrorMessage(outcome.providerError)}
-            <br />
-            <span className="muted">{errors("manualFallback")}</span>
-          </span>
-        </div>
+        <p className="muted" style={{ margin: "0 0 16px", fontSize: 13 }}>
+          {t("providerDegraded", { provider: providerName(outcome.providerError.provider) })}{" "}
+          <button
+            type="button"
+            className="btn btn-quiet"
+            style={{ padding: "2px 8px", fontSize: 13 }}
+            disabled={loading}
+            onClick={() => void run(query, true)}
+          >
+            {t("retrySearch")}
+          </button>
+        </p>
       ) : null}
 
       <section className="card">
@@ -193,6 +198,11 @@ export function FoodSearch({
                 <Link className="btn btn-primary" href={`/foods/new?meal=${meal}&date=${date}&name=${encodeURIComponent(query)}`}>
                   {t("createCustom")}
                 </Link>
+                {outcome?.providerError ? (
+                  <button type="button" className="btn" style={{ marginLeft: 8 }} disabled={loading} onClick={() => void run(query, true)}>
+                    {t("retrySearch")}
+                  </button>
+                ) : null}
                 {outcome?.suggestResearch ? (
                   researchAvailable ? (
                     <Link className="btn" style={{ marginLeft: 8 }} href={`/research/new?q=${encodeURIComponent(query)}&meal=${meal}&date=${date}`}>
