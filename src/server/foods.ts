@@ -346,7 +346,7 @@ export async function upsertProviderFood(product: NormalizedFood, locale: Locale
     .filter(([, value]) => value !== null)
     .map(([nutrientKey, value]) => ({ nutrientKey, value: value as number }));
 
-  const data = {
+  const base = {
     name: product.name,
     normalizedName,
     brand: product.brand ?? null,
@@ -364,6 +364,14 @@ export async function upsertProviderFood(product: NormalizedFood, locale: Locale
     isEstimated: product.provenance.estimated,
   };
 
+  // A partial source may simply not carry a field. Writing its absence as null
+  // would drop detail an earlier, fuller lookup had already recorded, so on an
+  // update an unknown value is omitted rather than written as empty. A create
+  // has nothing to lose and stores the row as it came.
+  const update = product.partial
+    ? (Object.fromEntries(Object.entries(base).filter(([, value]) => value !== null)) as Partial<typeof base>)
+    : base;
+
   // Prefer the provider identity, then reuse an ownerless row with the same
   // barcode. This keeps diary foreign keys stable if OFF exposes the same
   // product through a refreshed external identifier.
@@ -376,16 +384,26 @@ export async function upsertProviderFood(product: NormalizedFood, locale: Locale
     : null;
   const identity = providerIdentity ?? barcodeIdentity;
   const food = identity
-    ? await prisma.food.update({ where: { id: identity.id }, data, include: INCLUDE })
-    : await prisma.food.create({ data: { ...data, ownerId: null }, include: INCLUDE });
+    ? await prisma.food.update({ where: { id: identity.id }, data: update, include: INCLUDE })
+    : await prisma.food.create({ data: { ...base, ownerId: null }, include: INCLUDE });
+
+  // A partial source knows about some nutrients, not all of them: it replaces
+  // the values it carries and leaves the rest alone. Replacing wholesale would
+  // let a search hit, which knows only macronutrients, erase the vitamins a
+  // barcode lookup had already established for the same product.
+  const nutrientScope = product.partial
+    ? { foodId: food.id, nutrientKey: { in: nutrientRows.map((row) => row.nutrientKey) } }
+    : { foodId: food.id };
+  // The same applies to servings: keep the known one rather than drop it.
+  const replaceServings = Boolean(product.servingAmount && product.servingUnit) || !product.partial;
 
   await prisma.$transaction([
-    prisma.foodNutrient.deleteMany({ where: { foodId: food.id } }),
+    prisma.foodNutrient.deleteMany({ where: nutrientScope }),
     prisma.foodNutrient.createMany({
       data: nutrientRows.map((row) => ({ foodId: food.id, ...row })),
       skipDuplicates: true,
     }),
-    prisma.foodServing.deleteMany({ where: { foodId: food.id } }),
+    ...(replaceServings ? [prisma.foodServing.deleteMany({ where: { foodId: food.id } })] : []),
     ...(product.servingAmount && product.servingUnit
       ? [prisma.foodServing.create({
           data: {

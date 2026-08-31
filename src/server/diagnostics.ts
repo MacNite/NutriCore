@@ -82,6 +82,18 @@ export async function runDiagnostics(): Promise<Check[]> {
       })()
     : { key: "model", status: "disabled" };
 
+  // Text search and barcode lookup run on separate infrastructure and fail
+  // independently, so a single "Open Food Facts" row cannot say which is down.
+  const openFoodFactsSearch: Check = config.OPENFOODFACTS_ENABLED
+    ? config.OPENFOODFACTS_SEARCH_BACKEND === "legacy"
+      ? { key: "openFoodFactsSearch", status: "unknown", detail: "pinned to the legacy /cgi/search.pl endpoint" }
+      : {
+          key: "openFoodFactsSearch",
+          status: await timed(() => probe(`${config.OPENFOODFACTS_SEARCH_URL}/health`)),
+          detail: safeHost(config.OPENFOODFACTS_SEARCH_URL),
+        }
+    : { key: "openFoodFactsSearch", status: "disabled" };
+
   // The most common cause of Open Food Facts errors on a fresh install: the
   // service blocks callers that do not identify themselves with a contact.
   const openFoodFactsIdentity: Check = config.OPENFOODFACTS_ENABLED
@@ -104,7 +116,7 @@ export async function runDiagnostics(): Promise<Check[]> {
     ? { key: "research", status: "unknown", detail: config.RESEARCH_PROVIDER || "not selected" }
     : { key: "research", status: "disabled" };
 
-  return [database, ollama, model, openFoodFacts, openFoodFactsIdentity, usda, research];
+  return [database, ollama, model, openFoodFacts, openFoodFactsSearch, openFoodFactsIdentity, usda, research];
 }
 
 const safeHost = (value: string) => {

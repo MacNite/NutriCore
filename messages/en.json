@@ -314,6 +314,7 @@
     "ollama": "Ollama",
     "model": "AI model",
     "openFoodFacts": "Open Food Facts",
+    "openFoodFactsSearch": "Open Food Facts search",
     "openFoodFactsUserAgent": "Open Food Facts user agent",
     "usda": "USDA FoodData Central",
     "research": "Research provider",

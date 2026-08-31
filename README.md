@@ -151,6 +151,8 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `DEFAULT_LOCALE` | no | `de` (default) or `en` |
 | `OPENFOODFACTS_ENABLED` | no | Default `true` |
 | `OPENFOODFACTS_USER_AGENT` | recommended | App name plus a real contact address, e.g. `NutriCore/0.1 (you@example.com)`. OFF answers 403 to callers it cannot identify; `/settings/diagnostics` flags a placeholder value |
+| `OPENFOODFACTS_SEARCH_URL` | no | Search-a-licious service; default `https://search.openfoodfacts.org` |
+| `OPENFOODFACTS_SEARCH_BACKEND` | no | `search-a-licious` (default) or `legacy` to pin `/cgi/search.pl` |
 | `AI_ENABLED` / `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | no | See below |
 | `OLLAMA_TIMEOUT_SECONDS` | no | Model generation timeout; default `600` seconds |
 | `USDA_ENABLED` / `USDA_API_KEY` | no | Phase 2 |

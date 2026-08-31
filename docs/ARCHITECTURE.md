@@ -52,6 +52,15 @@ matches, and only then a remote provider — which is skipped entirely when a
 strong local result already exists. Queries are debounced client-side and
 cached server-side for a day. `pg_trgm` GIN indexes back the fuzzy match.
 
+Text search and barcode lookup hit different Open Food Facts services. Search
+goes to Search-a-licious (`search.openfoodfacts.org`), the Elasticsearch
+service that replaces the legacy `/cgi/search.pl`; barcode lookups go to the
+REST API. The legacy endpoint remains as an automatic fallback, and
+`OPENFOODFACTS_SEARCH_BACKEND=legacy` pins it. The search index carries only
+macronutrients, so its results are marked partial: a partial product adds the
+values it knows and never overwrites the ones it does not, which keeps a search
+hit from erasing micronutrients an earlier barcode lookup established.
+
 Remote calls are treated as unreliable by design. Outbound requests are paced
 below the provider's published per-minute limits (`src/lib/rate-gate.ts`), a
 transient failure is retried with a jittered backoff, and when the provider is

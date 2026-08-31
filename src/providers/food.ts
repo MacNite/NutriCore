@@ -23,6 +23,12 @@ export const normalizedFoodSchema = z.object({
   servingLabel: z.string().optional(),
   /** null means "unknown". It is never coerced to zero. */
   nutrients: z.record(z.string(), z.number().nullable()),
+  /**
+   * True when the source carries only part of the nutrient set it could have.
+   * A partial product adds to what is already stored and never replaces it,
+   * so a search hit cannot erase values a barcode lookup established.
+   */
+  partial: z.boolean().optional(),
   provenance: provenanceSchema,
   raw: z.unknown().optional(),
 });

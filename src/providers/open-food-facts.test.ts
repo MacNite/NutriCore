@@ -1,10 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { OpenFoodFactsProvider, resetOpenFoodFactsThrottle, userAgentLooksAnonymous } from "./open-food-facts";
+import {
+  OpenFoodFactsProvider,
+  resetOpenFoodFactsThrottle,
+  userAgentLooksAnonymous,
+  type OpenFoodFactsOptions,
+} from "./open-food-facts";
 import { ProviderUnavailableError } from "./food";
 
 /** No retry backoff and an empty request schedule keep the suite instant. */
-const provider = (retryDelaysMs: number[] = [], maxQueueMs = 8000) =>
-  new OpenFoodFactsProvider("https://example.test", "NutriCore test (dev@example.net)", true, 8000, 15_000, retryDelaysMs, maxQueueMs);
+const provider = (options: OpenFoodFactsOptions = {}) =>
+  new OpenFoodFactsProvider("https://example.test", "NutriCore test (dev@example.net)", true, {
+    // No retry backoff and a pinned backend keep the suite instant and honest
+    // about which endpoint each test exercises.
+    retryDelaysMs: [],
+    searchUrl: "https://search.example.test",
+    ...options,
+  });
+
+/** The legacy CGI endpoint, which several tests still cover directly. */
+const legacy = (options: OpenFoodFactsOptions = {}) => provider({ searchBackend: "legacy", ...options });
 
 // A fresh Response per call: a body may only be read once.
 const json = (body: unknown, status = 200) =>
@@ -121,7 +135,7 @@ describe("Open Food Facts adapter", () => {
   it("searches by free text rather than by category tag", async () => {
     const fetchMock = json({ products: [{ code: "1", product_name: "Skyr", nutriments: {} }] });
     vi.stubGlobal("fetch", fetchMock);
-    const results = await provider().search("skyr natur");
+    const results = await legacy().search("skyr natur");
     const [url] = fetchMock.mock.calls[0];
     expect(url).toContain("search_terms=skyr+natur");
     expect(url).not.toContain("categories_tags");
@@ -131,7 +145,7 @@ describe("Open Food Facts adapter", () => {
   it("uses the documented search mode, popularity ranking, locale, and limits above 25", async () => {
     const fetchMock = json({ products: [] });
     vi.stubGlobal("fetch", fetchMock);
-    await provider().search("milka alpenmilch", { limit: 40, locale: "de" });
+    await legacy().search("milka alpenmilch", { limit: 40, locale: "de" });
 
     const [rawUrl] = fetchMock.mock.calls[0];
     const url = new URL(rawUrl);
@@ -145,23 +159,23 @@ describe("Open Food Facts adapter", () => {
 
   it("identifies rate limits, timeouts, and other outages", async () => {
     vi.stubGlobal("fetch", json({}, 429));
-    await expect(provider().search("milka")).rejects.toMatchObject({
+    await expect(legacy().search("milka")).rejects.toMatchObject({
       name: "ProviderUnavailableError",
       reason: "RATE_LIMITED",
     });
 
     vi.unstubAllGlobals();
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("timed out", "AbortError")));
-    await expect(provider().search("milka")).rejects.toMatchObject({ reason: "TIMEOUT" });
+    await expect(legacy().search("milka")).rejects.toMatchObject({ reason: "TIMEOUT" });
 
     vi.unstubAllGlobals();
     vi.stubGlobal("fetch", json({}, 503));
-    await expect(provider().search("milka")).rejects.toMatchObject({ reason: "HTTP_ERROR", upstreamStatus: 503 });
+    await expect(legacy().search("milka")).rejects.toMatchObject({ reason: "HTTP_ERROR", upstreamStatus: 503 });
   });
 
   it("preserves Retry-After from a rate-limited response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 429, headers: { "Retry-After": "42" } })));
-    await expect(provider().search("milka")).rejects.toMatchObject({ reason: "RATE_LIMITED", retryAfterSeconds: 42 });
+    await expect(legacy().search("milka")).rejects.toMatchObject({ reason: "RATE_LIMITED", retryAfterSeconds: 42 });
   });
 
   it("gives searches a longer timeout than barcode lookups", async () => {
@@ -170,7 +184,7 @@ describe("Open Food Facts adapter", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const timeout = vi.spyOn(AbortSignal, "timeout");
-    const customProvider = new OpenFoodFactsProvider("https://example.test", "NutriCore test (dev@example.net)", true, 1234, 5678, []);
+    const customProvider = provider({ barcodeTimeoutMs: 1234, searchTimeoutMs: 5678 });
 
     await customProvider.getByBarcode("12345678");
     await customProvider.search("milka");
@@ -182,7 +196,7 @@ describe("Open Food Facts adapter", () => {
   it("does not query the API for very short terms", async () => {
     const fetchMock = json({ products: [] });
     vi.stubGlobal("fetch", fetchMock);
-    await expect(provider().search("ei")).resolves.toEqual([]);
+    await expect(legacy().search("ei")).resolves.toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
   it("retries a transient upstream failure and returns the eventual success", async () => {
@@ -192,7 +206,7 @@ describe("Open Food Facts adapter", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ products: [{ code: "1", product_name: "Skyr", nutriments: {} }] })));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(provider([0]).search("skyr")).resolves.toHaveLength(1);
+    await expect(legacy({ retryDelaysMs: [0] }).search("skyr")).resolves.toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -200,7 +214,7 @@ describe("Open Food Facts adapter", () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 502 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(provider([0, 0]).search("skyr")).rejects.toMatchObject({ reason: "HTTP_ERROR", upstreamStatus: 502 });
+    await expect(legacy({ retryDelaysMs: [0, 0] }).search("skyr")).rejects.toMatchObject({ reason: "HTTP_ERROR", upstreamStatus: 502 });
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
@@ -209,7 +223,7 @@ describe("Open Food Facts adapter", () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 403 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(provider([0]).search("skyr")).rejects.toBeInstanceOf(ProviderUnavailableError);
+    await expect(legacy({ retryDelaysMs: [0] }).search("skyr")).rejects.toBeInstanceOf(ProviderUnavailableError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -219,7 +233,7 @@ describe("Open Food Facts adapter", () => {
       .mockResolvedValue(new Response("{}", { status: 429, headers: { "Retry-After": "600" } }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(provider([0]).search("skyr")).rejects.toMatchObject({ reason: "RATE_LIMITED", retryAfterSeconds: 600 });
+    await expect(legacy({ retryDelaysMs: [0] }).search("skyr")).rejects.toMatchObject({ reason: "RATE_LIMITED", retryAfterSeconds: 600 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -236,7 +250,7 @@ describe("Open Food Facts adapter", () => {
   it("waits for a slot rather than earning a 429 upstream", async () => {
     const fetchMock = json({ products: [] });
     vi.stubGlobal("fetch", fetchMock);
-    const paced = provider();
+    const paced = legacy();
     for (let i = 0; i < 5; i += 1) await paced.search(`skyr ${i}`);
 
     vi.useFakeTimers();
@@ -257,11 +271,113 @@ describe("Open Food Facts adapter", () => {
   it("fails fast instead of holding a request open beyond its queue budget", async () => {
     const fetchMock = json({ products: [] });
     vi.stubGlobal("fetch", fetchMock);
-    const paced = provider();
+    const paced = legacy();
     for (let i = 0; i < 5; i += 1) await paced.search(`skyr ${i}`);
 
-    await expect(provider([], 0).search("skyr sieben")).rejects.toMatchObject({ reason: "RATE_LIMITED" });
+    await expect(legacy({ maxQueueMs: 0 }).search("skyr sieben")).rejects.toMatchObject({ reason: "RATE_LIMITED" });
     expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it("searches the Elasticsearch service by default and marks hits partial", async () => {
+    const fetchMock = json({
+      hits: [
+        {
+          code: "4000000000001",
+          product_name: "Milchreis",
+          product_name_de: "Müller Milchreis Original",
+          brands: ["Müller"],
+          nutriments: { "energy-kcal_100g": 130, proteins_100g: 3.7 },
+          nova_group: "4",
+          last_modified_t: "2026-07-01T00:00:00Z",
+        },
+      ],
+      count: 1,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const [food] = await provider().search("milchreis", { limit: 25, locale: "de" });
+
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(url.origin).toBe("https://search.example.test");
+    expect(url.pathname).toBe("/search");
+    expect(url.searchParams.get("q")).toBe("milchreis");
+    expect(url.searchParams.get("page_size")).toBe("25");
+    // List parameters are comma-separated, not repeated.
+    expect(url.searchParams.get("langs")).toBe("de,en");
+
+    // The index carries macronutrients only, so the hit must not be trusted
+    // to speak for the nutrients it does not mention.
+    expect(food.partial).toBe(true);
+    expect(food.nutrients.energyKcal).toBe(130);
+    expect(food.nutrients.protein).toBe(3.7);
+    expect(food.nutrients.calcium).toBeNull();
+  });
+
+  it("reads the shapes the search index differs on", async () => {
+    vi.stubGlobal(
+      "fetch",
+      json({
+        hits: [
+          {
+            code: "4000000000001",
+            product_name: "Milchreis",
+            product_name_de: "Müller Milchreis Original",
+            brands: ["Müller", "Müller Milch"],
+            nutriments: {},
+            nova_group: "4",
+            last_modified_t: "2026-07-01T00:00:00Z",
+          },
+        ],
+      }),
+    );
+
+    const [food] = await provider().search("milchreis", { locale: "de" });
+    // The localised name wins over the product's own language.
+    expect(food.name).toBe("Müller Milchreis Original");
+    // Brands arrive as a taxonomy list here and a joined string over REST.
+    expect(food.brand).toBe("Müller, Müller Milch");
+    // A keyword in the index, a number over REST.
+    expect((food.raw as { novaGroup: number }).novaGroup).toBe(4);
+    // An ISO date in the index, a unix timestamp over REST.
+    expect(food.provenance.providerUpdatedAt).toEqual(new Date("2026-07-01T00:00:00Z"));
+  });
+
+  it("falls back to the legacy endpoint when the search service is down", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ products: [{ code: "1", product_name: "Skyr", nutriments: {} }] })),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await provider().search("skyr");
+
+    expect(results).toHaveLength(1);
+    // A legacy answer is complete, so it must not be marked partial.
+    expect(results[0].partial).toBeUndefined();
+    expect(new URL(fetchMock.mock.calls[0][0]).origin).toBe("https://search.example.test");
+    expect(new URL(fetchMock.mock.calls[1][0]).pathname).toBe("/cgi/search.pl");
+  });
+
+  it("reports the primary backend's failure when the fallback fails too", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 500 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider().search("skyr")).rejects.toMatchObject({ upstreamStatus: 500 });
+  });
+
+  it("honours a pinned legacy backend without calling the search service", async () => {
+    const fetchMock = json({ products: [] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await legacy().search("skyr");
+
+    expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe("/cgi/search.pl");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("recognizes a User-Agent that Open Food Facts cannot attribute", () => {
