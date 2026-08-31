@@ -218,6 +218,8 @@
     "startResearch": "KI-Recherche starten",
     "providerRateLimitedRetry": "{provider} begrenzt Anfragen. Bitte in {seconds} Sekunden erneut versuchen.",
     "providerHttpError": "{provider} hat einen Fehler gemeldet. Lokale Treffer bleiben verfügbar.",
+    "providerDegraded": "{provider} antwortet gerade nicht – angezeigt werden lokale und zwischengespeicherte Treffer.",
+    "retrySearch": "Erneut versuchen",
     "researchUnavailable": {
       "SERVER_DISABLED": "KI ist auf diesem Server deaktiviert.",
       "AI_DISABLED": "KI-Funktionen sind in deinen Einstellungen deaktiviert."
@@ -312,6 +314,7 @@
     "ollama": "Ollama",
     "model": "KI-Modell",
     "openFoodFacts": "Open Food Facts",
+    "openFoodFactsUserAgent": "Open Food Facts – Kennung",
     "usda": "USDA FoodData Central",
     "research": "Recherche-Anbieter",
     "status": {
@@ -342,7 +345,6 @@
     "validation": "Bitte prüfe deine Eingabe.",
     "rateLimited": "Zu viele Anfragen. Bitte einen Moment warten.",
     "providerDown": "Ein externer Dienst ist nicht verfügbar. Deine Daten sind davon nicht betroffen.",
-    "manualFallback": "Du kannst das Lebensmittel stattdessen jederzeit manuell anlegen.",
     "portion": {
       "unknown-unit": "Unbekannte Einheit. Verwende eine metrische Einheit oder eine definierte Portion.",
       "density-required": "Für diese Umrechnung ist eine gespeicherte Dichte erforderlich.",

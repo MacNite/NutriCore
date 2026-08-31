@@ -13,6 +13,12 @@ import { logger } from "@/lib/logger";
 import type { Locale } from "@/i18n/locales";
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * Product data at Open Food Facts changes on a scale of months, so a search
+ * answer stays useful for a day. Anything older is refreshed on the next
+ * search - but is still served if the provider is down (see `fetchRemote`).
+ */
+const SEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FAILED_SEARCH_COOLDOWN_MS = 30_000;
 const failedSearches = new Map<string, { until: number; error: ProviderUnavailableError }>();
 
@@ -278,45 +284,53 @@ export async function fetchRemote(query: string, barcode: string | null, locale:
   }
 
   const cacheKey = normalizeName(query);
-  const cooldown = failedSearches.get(`${provider.name}:${cacheKey}`);
-  if (cooldown && cooldown.until > Date.now()) throw cooldown.error;
-  if (cooldown) failedSearches.delete(`${provider.name}:${cacheKey}`);
-  const cached = await prisma.searchQueryCache.findUnique({
-    where: { provider_queryKey: { provider: provider.name, queryKey: cacheKey } },
-  });
-
-  let products: NormalizedFood[];
-  if (cached && cached.expiresAt > new Date()) {
-    products = (cached.results as unknown as NormalizedFood[]).map((p) => ({
+  const cacheWhere = { provider_queryKey: { provider: provider.name, queryKey: cacheKey } };
+  const cached = await prisma.searchQueryCache.findUnique({ where: cacheWhere });
+  const decode = (row: NonNullable<typeof cached>) =>
+    (row.results as unknown as NormalizedFood[]).map((p) => ({
       ...p,
       provenance: { ...p.provenance, retrievedAt: new Date(p.provenance.retrievedAt) },
     }));
+
+  let products: NormalizedFood[];
+  if (cached && cached.expiresAt > new Date()) {
+    products = decode(cached);
   } else {
+    const cooldownKey = `${provider.name}:${cacheKey}`;
+    const cooldown = failedSearches.get(cooldownKey);
+    const cooling = cooldown && cooldown.until > Date.now() ? cooldown.error : null;
+    if (cooldown && !cooling) failedSearches.delete(cooldownKey);
+
     try {
+      if (cooling) throw cooling;
       products = await provider.search(query, { limit: 25, locale });
-      failedSearches.delete(`${provider.name}:${cacheKey}`);
-    } catch (error) {
-      if (error instanceof ProviderUnavailableError) {
-        const duration = Math.max(FAILED_SEARCH_COOLDOWN_MS, (error.retryAfterSeconds ?? 0) * 1000);
-        failedSearches.set(`${provider.name}:${cacheKey}`, { until: Date.now() + duration, error });
+      failedSearches.delete(cooldownKey);
+
+      // Empty answers may be transient at OFF; leaving them uncached makes retry useful.
+      if (products.length > 0) {
+        const expiresAt = new Date(Date.now() + SEARCH_CACHE_TTL_MS);
+        const results = products as unknown as Prisma.InputJsonValue;
+        await prisma.searchQueryCache.upsert({
+          where: cacheWhere,
+          create: { provider: provider.name, queryKey: cacheKey, results, expiresAt },
+          update: { results, expiresAt },
+        });
       }
-      throw error;
-    }
-    // Empty answers may be transient at OFF; leaving them uncached makes retry useful.
-    if (products.length > 0) await prisma.searchQueryCache.upsert({
-      where: { provider_queryKey: { provider: provider.name, queryKey: cacheKey } },
-      create: {
+    } catch (error) {
+      if (error instanceof ProviderUnavailableError && !cooling) {
+        const duration = Math.max(FAILED_SEARCH_COOLDOWN_MS, (error.retryAfterSeconds ?? 0) * 1000);
+        failedSearches.set(cooldownKey, { until: Date.now() + duration, error });
+      }
+      // An expired answer beats an error message: the data was correct
+      // yesterday and the user gets a usable result list instead of a banner.
+      if (!cached) throw error;
+      logger.info("Serving a stale Open Food Facts search result", {
         provider: provider.name,
-        queryKey: cacheKey,
-        results: products as unknown as Prisma.InputJsonValue,
-        // Short-lived: enough to absorb typing, not enough to go stale.
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-      },
-      update: {
-        results: products as unknown as Prisma.InputJsonValue,
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-      },
-    });
+        expiredAt: cached.expiresAt,
+        reason: error instanceof ProviderUnavailableError ? error.reason : "UNKNOWN",
+      });
+      products = decode(cached);
+    }
   }
 
   const stored = await Promise.all(products.map((product) => upsertProviderFood(product, locale)));

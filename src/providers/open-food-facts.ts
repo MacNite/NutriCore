@@ -2,6 +2,7 @@ import { ProviderUnavailableError, isBarcode, type FoodProvider, type Normalized
 import { normalizeName, parseServingSize } from "@/lib/units";
 import { kjToKcal } from "@/lib/nutrition";
 import { logger } from "@/lib/logger";
+import { RateGate, delay, jitter } from "@/lib/rate-gate";
 
 const FIELDS = [
   "code",
@@ -92,6 +93,47 @@ const text = (value: unknown): string | undefined => {
   return trimmed === "" ? undefined : trimmed;
 };
 
+/**
+ * Open Food Facts documents 10 requests/minute for search and 100/minute for
+ * product reads, per IP, and answers 429 above them. We pace just below both.
+ *
+ * The burst is deliberately generous: a person pressing "search" a few times
+ * in a row is the normal case and must never be slowed down, while sustained
+ * traffic - several household members, or a retry storm - is spread out.
+ * Module scope on purpose: a provider instance is created per request.
+ */
+const SEARCH_GATE = RateGate.perMinute(9, 5);
+const PRODUCT_GATE = RateGate.perMinute(90, 20);
+
+/** Test seam: lets a suite start from an empty schedule. */
+export function resetOpenFoodFactsThrottle() {
+  SEARCH_GATE.reset();
+  PRODUCT_GATE.reset();
+  warnedUserAgents.clear();
+}
+
+/** Statuses worth a second attempt. 403 is not one: it is the User-Agent. */
+const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524]);
+
+const isRetryable = (error: ProviderUnavailableError) =>
+  error.reason === "TIMEOUT" ||
+  error.reason === "NETWORK" ||
+  // A malformed body is usually an upstream error page rendered as HTML.
+  error.reason === "UNAVAILABLE" ||
+  (error.upstreamStatus !== undefined && RETRYABLE_STATUS.has(error.upstreamStatus));
+
+/** One warning per process per User-Agent; this is configuration, not an event. */
+const warnedUserAgents = new Set<string>();
+
+/**
+ * Open Food Facts throttles and blocks anonymous-looking clients, so it asks
+ * every caller to identify itself with an application name and a contact
+ * address. A default or contactless User-Agent is the most common cause of an
+ * otherwise inexplicable 403.
+ */
+export const userAgentLooksAnonymous = (userAgent: string) =>
+  /self-hosted|example\.(invalid|com|org)/i.test(userAgent) || !/[(@].+[@.)]/.test(userAgent);
+
 export class OpenFoodFactsProvider implements FoodProvider {
   readonly name = "OPEN_FOOD_FACTS";
 
@@ -101,18 +143,23 @@ export class OpenFoodFactsProvider implements FoodProvider {
     public readonly enabled = (process.env.OPENFOODFACTS_ENABLED ?? "true") !== "false",
     private barcodeTimeoutMs = 8000,
     private searchTimeoutMs = 15_000,
+    /** Backoff before each retry. Empty disables retrying. */
+    private retryDelaysMs: number[] = [600, 1800],
+    /** Longest a request will sit in the local queue before failing fast. */
+    private maxQueueMs = 8000,
   ) {}
 
   private validateConfiguration() {
-    if (/self-hosted|example\.invalid/i.test(this.userAgent) || !/[(@].+[@.)]/.test(this.userAgent)) {
-      logger.warn("Open Food Facts User-Agent appears to be the default or lacks administrator contact information", {
-        provider: this.name,
-      });
-    }
+    if (!userAgentLooksAnonymous(this.userAgent) || warnedUserAgents.has(this.userAgent)) return;
+    warnedUserAgents.add(this.userAgent);
+    logger.warn(
+      "Open Food Facts User-Agent lacks an application name and contact address; requests may be blocked with 403. Set OPENFOODFACTS_USER_AGENT",
+      { provider: this.name },
+    );
   }
 
-  private async request(path: string, timeoutMs: number): Promise<unknown> {
-    this.validateConfiguration();
+  /** One HTTP round trip. Every failure leaves as a typed provider error. */
+  private async attempt(path: string, timeoutMs: number): Promise<unknown> {
     let response: Response;
     try {
       response = await fetch(`${this.baseUrl}${path}`, {
@@ -151,6 +198,54 @@ export class OpenFoodFactsProvider implements FoodProvider {
     } catch (cause) {
       throw new ProviderUnavailableError(this.name, "Open Food Facts returned malformed JSON", cause);
     }
+  }
+
+  /**
+   * Paces the call against the provider's published limit, then retries a
+   * transient failure a couple of times. Most Open Food Facts errors are a
+   * momentarily overloaded backend, so a short backoff turns what the user
+   * would have seen as an error into a slightly slower answer.
+   */
+  private async request(path: string, timeoutMs: number, gate: RateGate): Promise<unknown> {
+    this.validateConfiguration();
+
+    let lastError: ProviderUnavailableError | undefined;
+    for (let attempt = 0; attempt <= this.retryDelaysMs.length; attempt += 1) {
+      if (lastError) {
+        // Prefer the provider's own Retry-After, but only while it is short
+        // enough to be worth holding the request open for.
+        const advised = (lastError.retryAfterSeconds ?? 0) * 1000;
+        if (advised > this.maxQueueMs) break;
+        await delay(jitter(Math.max(this.retryDelaysMs[attempt - 1], advised)));
+      }
+
+      const slot = gate.reserve(this.maxQueueMs);
+      if (slot === null) {
+        throw new ProviderUnavailableError(
+          this.name,
+          "Local Open Food Facts request budget is exhausted",
+          undefined,
+          "RATE_LIMITED",
+          Math.ceil(this.maxQueueMs / 1000),
+        );
+      }
+      await delay(slot);
+
+      try {
+        return await this.attempt(path, timeoutMs);
+      } catch (error) {
+        if (!(error instanceof ProviderUnavailableError) || !isRetryable(error)) throw error;
+        lastError = error;
+      }
+    }
+
+    logger.warn("Open Food Facts request failed after retries", {
+      provider: this.name,
+      attempts: this.retryDelaysMs.length + 1,
+      reason: lastError?.reason,
+      status: lastError?.upstreamStatus,
+    });
+    throw lastError;
   }
 
   normalizeProduct(product: Record<string, unknown>): NormalizedFood | null {
@@ -219,7 +314,7 @@ export class OpenFoodFactsProvider implements FoodProvider {
   async getByBarcode(barcode: string): Promise<NormalizedFood | null> {
     const code = barcode.trim();
     if (!isBarcode(code)) return null;
-    const data = (await this.request(`/api/v2/product/${code}.json?fields=${FIELDS}`, this.barcodeTimeoutMs)) as
+    const data = (await this.request(`/api/v2/product/${code}.json?fields=${FIELDS}`, this.barcodeTimeoutMs, PRODUCT_GATE)) as
       | { status?: number; product?: Record<string, unknown> }
       | null;
     if (!data || data.status !== 1 || !data.product) return null;
@@ -246,7 +341,7 @@ export class OpenFoodFactsProvider implements FoodProvider {
       params.set("lc", options.locale);
     }
 
-    const data = (await this.request(`/cgi/search.pl?${params}`, this.searchTimeoutMs)) as
+    const data = (await this.request(`/cgi/search.pl?${params}`, this.searchTimeoutMs, SEARCH_GATE)) as
       | { products?: Record<string, unknown>[] }
       | null;
     return (data?.products ?? [])

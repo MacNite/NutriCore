@@ -30,7 +30,19 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { OpenFoodFactsProvider } from "@/providers/open-food-facts";
+import { ProviderUnavailableError } from "@/providers/food";
 import { fetchRemote, hasIdentityMatch, hasStrongLocalMatch, upsertProviderFood } from "./foods";
+
+const cachedProduct = {
+  externalId: "4000000000001", barcode: "4000000000001", name: "Müller Milchreis Original", brand: "Müller",
+  basisAmount: 100, basisUnit: "G", nutrients: { energyKcal: 120 },
+  provenance: { provider: "OPEN_FOOD_FACTS", retrievedAt: new Date().toISOString(), estimated: false },
+};
+
+const cacheRow = (expiresAt: Date) => ({
+  id: "cache-1", provider: "OPEN_FOOD_FACTS", queryKey: "milchreis",
+  results: [cachedProduct], expiresAt, createdAt: new Date(),
+});
 
 describe("remote food search cache", () => {
   beforeEach(() => {
@@ -51,6 +63,36 @@ describe("remote food search cache", () => {
 
     expect(search).toHaveBeenCalledWith("unknown product", { limit: 25, locale: "de" });
     expect(searchQueryCache.upsert).not.toHaveBeenCalled();
+  });
+
+  it("serves an expired cached answer when the provider is down", async () => {
+    // The data was right yesterday; an error banner would be worse than stale.
+    searchQueryCache.findUnique.mockResolvedValue(cacheRow(new Date(Date.now() - 60_000)));
+    const search = vi
+      .spyOn(OpenFoodFactsProvider.prototype, "search")
+      .mockRejectedValue(new ProviderUnavailableError("OPEN_FOOD_FACTS", "down", undefined, "HTTP_ERROR"));
+    prismaMock.food.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(foodRow);
+
+    await expect(fetchRemote("Milchreis", null, "de")).resolves.toMatchObject([{ id: "food-1" }]);
+    expect(search).toHaveBeenCalled();
+    expect(searchQueryCache.upsert).not.toHaveBeenCalled();
+  });
+
+  it("propagates the outage when nothing was ever cached for the query", async () => {
+    searchQueryCache.findUnique.mockResolvedValue(null);
+    vi.spyOn(OpenFoodFactsProvider.prototype, "search")
+      .mockRejectedValue(new ProviderUnavailableError("OPEN_FOOD_FACTS", "down", undefined, "HTTP_ERROR"));
+
+    await expect(fetchRemote("etwas ganz neues", null, "de")).rejects.toBeInstanceOf(ProviderUnavailableError);
+  });
+
+  it("does not call the provider again while a fresh answer is cached", async () => {
+    searchQueryCache.findUnique.mockResolvedValue(cacheRow(new Date(Date.now() + 60_000)));
+    const search = vi.spyOn(OpenFoodFactsProvider.prototype, "search");
+    prismaMock.food.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(foodRow);
+
+    await expect(fetchRemote("Milchreis", null, "de")).resolves.toHaveLength(1);
+    expect(search).not.toHaveBeenCalled();
   });
 
   it("persists provider identity, nutrition, serving and provenance", async () => {

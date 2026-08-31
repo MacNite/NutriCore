@@ -1,12 +1,18 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { OpenFoodFactsProvider } from "./open-food-facts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OpenFoodFactsProvider, resetOpenFoodFactsThrottle, userAgentLooksAnonymous } from "./open-food-facts";
 import { ProviderUnavailableError } from "./food";
 
-const provider = () => new OpenFoodFactsProvider("https://example.test", "NutriCore test");
+/** No retry backoff and an empty request schedule keep the suite instant. */
+const provider = (retryDelaysMs: number[] = [], maxQueueMs = 8000) =>
+  new OpenFoodFactsProvider("https://example.test", "NutriCore test (dev@example.net)", true, 8000, 15_000, retryDelaysMs, maxQueueMs);
 
+// A fresh Response per call: a body may only be read once.
 const json = (body: unknown, status = 200) =>
-  vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
+  vi.fn().mockImplementation(async () =>
+    new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }),
+  );
 
+beforeEach(() => resetOpenFoodFactsThrottle());
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Open Food Facts adapter", () => {
@@ -27,7 +33,7 @@ describe("Open Food Facts adapter", () => {
     await provider().getByBarcode("12345678");
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toContain("/api/v2/product/12345678.json?fields=");
-    expect(init.headers["User-Agent"]).toBe("NutriCore test");
+    expect(init.headers["User-Agent"]).toBe("NutriCore test (dev@example.net)");
   });
 
   it("converts mineral and vitamin grams to mg and µg", async () => {
@@ -164,7 +170,7 @@ describe("Open Food Facts adapter", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const timeout = vi.spyOn(AbortSignal, "timeout");
-    const customProvider = new OpenFoodFactsProvider("https://example.test", "NutriCore test", true, 1234, 5678);
+    const customProvider = new OpenFoodFactsProvider("https://example.test", "NutriCore test (dev@example.net)", true, 1234, 5678, []);
 
     await customProvider.getByBarcode("12345678");
     await customProvider.search("milka");
@@ -178,5 +184,90 @@ describe("Open Food Facts adapter", () => {
     vi.stubGlobal("fetch", fetchMock);
     await expect(provider().search("ei")).resolves.toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("retries a transient upstream failure and returns the eventual success", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ products: [{ code: "1", product_name: "Skyr", nutriments: {} }] })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider([0]).search("skyr")).resolves.toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up after the configured attempts and reports the last failure", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider([0, 0]).search("skyr")).rejects.toMatchObject({ reason: "HTTP_ERROR", upstreamStatus: 502 });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry a rejection the provider will repeat", async () => {
+    // 403 is a blocked User-Agent: a second identical request cannot help.
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 403 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider([0]).search("skyr")).rejects.toBeInstanceOf(ProviderUnavailableError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops retrying when the provider asks for longer than a request may wait", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response("{}", { status: 429, headers: { "Retry-After": "600" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider([0]).search("skyr")).rejects.toMatchObject({ reason: "RATE_LIMITED", retryAfterSeconds: 600 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not delay a normal run of searches", async () => {
+    const fetchMock = json({ products: [] });
+    vi.stubGlobal("fetch", fetchMock);
+    const paced = provider();
+
+    // Several searches in a row are the normal case, not a burst to throttle.
+    for (let i = 0; i < 5; i += 1) await paced.search(`skyr ${i}`);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it("waits for a slot rather than earning a 429 upstream", async () => {
+    const fetchMock = json({ products: [] });
+    vi.stubGlobal("fetch", fetchMock);
+    const paced = provider();
+    for (let i = 0; i < 5; i += 1) await paced.search(`skyr ${i}`);
+
+    vi.useFakeTimers();
+    try {
+      const pending = paced.search("skyr sechs");
+      await Promise.resolve();
+      expect(fetchMock).toHaveBeenCalledTimes(5);
+
+      // One slot per ~6.7s at the paced rate: the request is held, not failed.
+      await vi.advanceTimersByTimeAsync(7000);
+      await expect(pending).resolves.toEqual([]);
+      expect(fetchMock).toHaveBeenCalledTimes(6);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("fails fast instead of holding a request open beyond its queue budget", async () => {
+    const fetchMock = json({ products: [] });
+    vi.stubGlobal("fetch", fetchMock);
+    const paced = provider();
+    for (let i = 0; i < 5; i += 1) await paced.search(`skyr ${i}`);
+
+    await expect(provider([], 0).search("skyr sieben")).rejects.toMatchObject({ reason: "RATE_LIMITED" });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it("recognizes a User-Agent that Open Food Facts cannot attribute", () => {
+    expect(userAgentLooksAnonymous("NutriCore/0.1 (self-hosted)")).toBe(true);
+    expect(userAgentLooksAnonymous("NutriCore/0.1 (admin@example.invalid)")).toBe(true);
+    expect(userAgentLooksAnonymous("NutriCore/0.1")).toBe(true);
+    expect(userAgentLooksAnonymous("NutriCore/0.1 (maxi@nutricore.test)")).toBe(false);
   });
 });

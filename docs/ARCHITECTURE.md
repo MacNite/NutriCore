@@ -50,7 +50,15 @@ The pipeline is local-first: barcode, exact local match, favourites, recent and
 frequent foods, personal recipes and custom foods, cached external foods, fuzzy
 matches, and only then a remote provider — which is skipped entirely when a
 strong local result already exists. Queries are debounced client-side and
-cached server-side for 15 minutes. `pg_trgm` GIN indexes back the fuzzy match.
+cached server-side for a day. `pg_trgm` GIN indexes back the fuzzy match.
+
+Remote calls are treated as unreliable by design. Outbound requests are paced
+below the provider's published per-minute limits (`src/lib/rate-gate.ts`), a
+transient failure is retried with a jittered backoff, and when the provider is
+still unreachable an expired cache entry is served in preference to an error:
+food data that was correct yesterday is a better answer than a banner. Only a
+query that has never been answered surfaces the outage to the user, and even
+then the local results stay on screen.
 
 Ranking is a deterministic weighted sum, not a model. A barcode match is an
 identity match and short-circuits everything. An AI estimate always carries a
