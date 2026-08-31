@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { MealType } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -59,7 +60,7 @@ export async function addEntryAction(_state: FormState, formData: FormData): Pro
   }
 
   refresh(parsed.data.date);
-  return { ok: true };
+  redirect(`/foods?meal=${parsed.data.meal}&date=${parsed.data.date}`);
 }
 
 const updateSchema = z.object({
