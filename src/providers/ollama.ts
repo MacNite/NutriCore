@@ -24,8 +24,8 @@ export class OllamaProvider implements AIProvider {
   readonly name = "ollama";
 
   constructor(
-    private baseUrl = process.env.OLLAMA_BASE_URL ?? "http://ollama:11434",
-    private model = process.env.OLLAMA_MODEL ?? "deepseek-r1",
+    private baseUrl = process.env.AI_BASE_URL ?? process.env.OLLAMA_BASE_URL ?? "http://ollama:11434",
+    private model = process.env.AI_MODEL ?? process.env.OLLAMA_MODEL ?? "qwen3.5:4b",
     public readonly enabled = (process.env.AI_ENABLED ?? "true") !== "false",
     private timeoutMs = ollamaTimeoutMs(),
   ) {}

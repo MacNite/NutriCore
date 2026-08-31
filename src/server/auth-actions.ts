@@ -51,14 +51,14 @@ export async function loginAction(_state: AuthState, formData: FormData): Promis
   const hash = user?.passwordHash ?? "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHR2YWx1ZQ$0000000000000000000000000000000000000000000";
   const valid = await verifyPassword(hash, parsed.data.password);
 
-  if (!user || !valid) {
+  if (!user || !valid || !user.active) {
     logger.warn("Failed sign-in attempt", { email: "[redacted]" });
     return { error: "invalidCredentials" };
   }
 
   await startSession(user.id);
   const profile = await prisma.userProfile.findUnique({ where: { userId: user.id } });
-  redirect(profile?.onboardedAt ? "/" : "/onboarding");
+  redirect(user.mustChangePassword ? "/change-password" : profile?.onboardedAt ? "/" : "/onboarding");
 }
 
 export async function registerAction(_state: AuthState, formData: FormData): Promise<AuthState> {
@@ -78,6 +78,7 @@ export async function registerAction(_state: AuthState, formData: FormData): Pro
   if (problem === "too-common") return { error: "tooCommon" };
 
   const passwordHash = await hashPassword(parsed.data.password);
+  const firstAccount = (await prisma.user.count()) === 0;
 
   let userId: string;
   try {
@@ -86,6 +87,7 @@ export async function registerAction(_state: AuthState, formData: FormData): Pro
         email: parsed.data.email,
         username: parsed.data.username,
         passwordHash,
+        role: firstAccount ? "ADMIN" : "USER",
         profile: {
           create: {
             displayName: parsed.data.displayName,

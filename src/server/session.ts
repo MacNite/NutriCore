@@ -15,6 +15,8 @@ export interface SessionUser {
   onboarded: boolean;
   aiEnabled: boolean;
   researchEnabled: boolean;
+  role: "USER" | "ADMIN";
+  mustChangePassword: boolean;
 }
 
 /**
@@ -30,7 +32,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     include: { user: { include: { profile: true } } },
   });
 
-  if (!session || session.expiresAt <= new Date()) return null;
+  if (!session || session.expiresAt <= new Date() || !session.user.active) return null;
 
   const { user } = session;
   return {
@@ -43,12 +45,20 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     onboarded: Boolean(user.profile?.onboardedAt),
     aiEnabled: user.profile?.aiEnabled ?? true,
     researchEnabled: user.profile?.researchEnabled ?? false,
+    role: user.role,
+    mustChangePassword: user.mustChangePassword,
   };
 });
 
 export async function requireUser(): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user) throw new UnauthorizedError();
+  return user;
+}
+
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== "ADMIN") throw new ForbiddenError();
   return user;
 }
 
@@ -73,6 +83,8 @@ export async function startSession(userId: string) {
     path: "/",
     expires: expiresAt,
   });
+  const account = await prisma.user.findUnique({ where: { id: userId }, select: { mustChangePassword: true } });
+  if (account?.mustChangePassword) (await cookies()).set("nutricore_password_change", "1", { httpOnly: true, sameSite: "lax", path: "/", expires: expiresAt });
 
   // Opportunistic cleanup keeps the session table from growing unbounded.
   await prisma.session.deleteMany({ where: { userId, expiresAt: { lte: new Date() } } });
@@ -84,6 +96,7 @@ export async function endSession() {
   const token = store.get(SESSION_COOKIE)?.value;
   if (token) await prisma.session.deleteMany({ where: { tokenHash: hashSessionToken(token) } });
   store.delete(SESSION_COOKIE);
+  store.delete("nutricore_password_change");
 }
 
 /**

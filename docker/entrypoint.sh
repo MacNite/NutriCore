@@ -12,5 +12,9 @@ echo "Applying database migrations..."
 # its WASM assets in `.bin` instead of in the package's build directory.
 node ./node_modules/prisma/build/index.js migrate deploy
 
+if [ "${NUTRICORE_PROCESS:-app}" = "worker" ]; then
+  echo "Starting NutriCore AI worker..."
+  exec node --import tsx ./src/worker.ts
+fi
 echo "Starting NutriCore..."
 exec node server.js

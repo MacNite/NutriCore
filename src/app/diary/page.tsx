@@ -11,6 +11,7 @@ import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
 import { getCurrentTarget } from "@/server/targets";
 import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
 import { shiftDateKey, validDateKey } from "@/lib/date";
+import { queueMealInputAction } from "@/server/meal-ai-actions";
 
 export async function generateMetadata() {
   const t = await getTranslations("diary");
@@ -91,6 +92,11 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="card" style={{ marginBottom: 20 }}>
+        <div className="card-head"><div><h2>Quick meal with AI</h2><p className="muted" style={{margin:0}}>Saved immediately; enrichment runs in the worker.</p></div><span className="ai-badge">AI</span></div>
+        <form action={queueMealInputAction}><input type="hidden" name="date" value={date}/><div className="field"><label htmlFor="mealText">Describe your meal</label><textarea id="mealText" name="text" required maxLength={2000} placeholder="2 slices rye bread with butter, 2 fried eggs and 1 banana"/></div><div className="field"><label htmlFor="sourceUrl">Recipe URL (optional)</label><input id="sourceUrl" name="sourceUrl" type="url" placeholder="https://…"/></div><div className="field"><label htmlFor="mealType">Meal</label><select id="mealType" name="meal">{MEALS.map(m=><option value={m} key={m}>{t(`meals.${m}`)}</option>)}</select></div><button className="btn btn-primary">Save and queue enrichment</button></form>
       </section>
 
       <details className="card micro-panel" style={{ marginBottom: 20 }} open>
