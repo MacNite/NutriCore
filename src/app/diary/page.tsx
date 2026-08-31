@@ -93,15 +93,20 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
         </div>
       </section>
 
-      <section className="card" style={{ marginBottom: 20 }} aria-labelledby="micronutrients-heading">
-        <h2 id="micronutrients-heading">{t("micronutrients")}</h2>
-        <MicronutrientSummary
-          totals={day.totals}
-          knownTotals={day.knownTotals}
-          coverage={day.coverage}
-          locale={locale}
-        />
-      </section>
+      <details className="card micro-panel" style={{ marginBottom: 20 }} open>
+        <summary className="micro-panel-toggle">
+          <h2 id="micronutrients-heading">{t("micronutrients")}</h2>
+          <span className="micro-panel-chevron" aria-hidden="true" />
+        </summary>
+        <div className="micro-panel-content" aria-labelledby="micronutrients-heading">
+          <MicronutrientSummary
+            totals={day.totals}
+            knownTotals={day.knownTotals}
+            coverage={day.coverage}
+            locale={locale}
+          />
+        </div>
+      </details>
 
       <div className="stack">
         {MEALS.map((meal) => {

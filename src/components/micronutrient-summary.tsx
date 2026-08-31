@@ -35,6 +35,12 @@ export async function MicronutrientSummary({
           const value = completeValue ?? knownTotals[nutrient.key] ?? null;
           const nutrientCoverage = coverage[nutrient.key] ?? null;
           const partial = value !== null && completeValue === null && nutrientCoverage !== null;
+          const coveragePercent = nutrientCoverage === null
+            ? null
+            : Math.min(100, Math.max(0, nutrientCoverage * 100));
+          const coverageLabel = nutrientCoverage === null
+            ? null
+            : t("coverage", { percent: formatPercent(nutrientCoverage, locale) });
 
           return (
             <div className="micro-item" key={nutrient.key}>
@@ -46,7 +52,15 @@ export async function MicronutrientSummary({
                   <>{formatNutrient(value, locale)} <small>{nutrient.unit}</small></>
                 )}
               </strong>
-              {partial ? <small className="micro-coverage">{t("coverage", { percent: formatPercent(nutrientCoverage, locale) })}</small> : null}
+              {coveragePercent !== null ? (
+                <progress
+                  className="micro-indicator"
+                  value={coveragePercent}
+                  max="100"
+                  aria-label={coverageLabel ?? undefined}
+                />
+              ) : null}
+              {partial ? <small className="micro-coverage">{coverageLabel}</small> : null}
             </div>
           );
         })}
