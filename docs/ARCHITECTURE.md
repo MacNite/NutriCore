@@ -66,10 +66,16 @@ Reasoning-model `<think>` blocks are stripped before parsing.
 
 Research is a persisted state machine. Every path to `ACCEPTED` runs through
 `AWAITING_CONFIRMATION`, so nothing is stored without the user confirming it.
-The model reconstructs a dish from ingredients with explicit quantities;
-nutrition is then calculated deterministically from resolved database foods
-rather than invented by the model. Confidence is an interpretable sum of named
-signals, and the reasons are shown to the user.
+The model reconstructs a dish from ingredients with explicit quantities, and
+nutrition is calculated deterministically from resolved database foods whenever
+every ingredient resolves. Only when one does not — the case the feature exists
+for — are the model's own per-100 g figures used, and then the result is stored
+as an estimate and scored down for it. The two are never blended: they use
+different denominators, so a mixture would describe neither dish. Which of the
+two produced the numbers is shown on the review screen, and a result that yields
+no nutrition at all cannot be accepted, because it would log as 0 kcal.
+Confidence is an interpretable sum of named signals, and the reasons are shown
+to the user.
 
 Retrieved web content is untrusted input. `checkUrl` allows only HTTP(S) on
 standard ports, rejects embedded credentials, resolves DNS and blocks loopback,
