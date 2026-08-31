@@ -342,7 +342,13 @@
     "validation": "Please check your input.",
     "rateLimited": "Too many requests. Please wait a moment.",
     "providerDown": "An external service is unavailable. Your data is unaffected.",
-    "manualFallback": "You can always create the food manually instead."
+    "manualFallback": "You can always create the food manually instead.",
+    "portion": {
+      "unknown-unit": "Unknown unit. Use a metric unit or a defined serving.",
+      "density-required": "A stored density is required for this conversion.",
+      "invalid-amount": "Enter a valid positive amount.",
+      "unknown-serving": "This named serving has no resolved weight or volume."
+    }
   },
   "a11y": {
     "openMenu": "Open menu",
@@ -397,5 +403,36 @@
       "http": "Source responded with an error: {url}"
     },
     "rateLimitedRetryMinutes": "Too many research runs. Please try again in {minutes} minutes."
+  },
+  "recipes": {
+    "create": "Create recipe",
+    "edit": "Edit recipe",
+    "name": "Name",
+    "description": "Description",
+    "servings": "Servings",
+    "serving": "serving",
+    "yieldWeight": "Yield weight",
+    "yieldHint": "Cooking loss is represented only by the finished yield weight in grams.",
+    "instructions": "Instructions",
+    "tags": "Tags (comma-separated)",
+    "ingredients": "Ingredients",
+    "searchFood": "Search existing foods",
+    "noIngredients": "Add at least one food.",
+    "amount": "Amount",
+    "unit": "Unit",
+    "nutritionPerServing": "Nutrition per serving",
+    "nutritionPer100g": "Nutrition per 100 g",
+    "portionWeight": "Portion weight",
+    "coverage": "Nutrition coverage",
+    "servingsToLog": "Number of servings",
+    "meal": "Meal",
+    "date": "Date",
+    "log": "Log recipe",
+    "deleteConfirm": "Delete this recipe? Existing diary snapshots will remain unchanged.",
+    "provenance": "Provenance",
+    "source": {
+      "RECIPE": "Calculated from your ingredients.",
+      "AI_RESEARCH": "Created from confirmed AI research."
+    }
   }
 }

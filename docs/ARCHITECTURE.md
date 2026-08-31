@@ -93,3 +93,13 @@ not hand out live sessions. `Secure` follows from `APP_URL`, which keeps a
 plain-HTTP LAN deployment usable while an HTTPS deployment always gets it.
 Server actions carry their own origin validation; route handlers that mutate
 state call `assertSameOrigin`.
+
+## Recipes
+
+Recipes are personal records and expose a synchronised personal `Food` for the
+local-first search pipeline. Ingredient portions are resolved through the same
+unit boundary as diary portions. Recipe totals use their resolved weights;
+optional `yieldWeightG` is the only representation of cooking loss. Logging a
+recipe writes nutrition and provenance directly into an immutable diary
+snapshot. Deleting the recipe nulls the diary reference while preserving that
+snapshot.

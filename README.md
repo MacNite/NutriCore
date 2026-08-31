@@ -31,6 +31,8 @@ Implemented and covered by tests:
   full provenance, graceful degradation when unreachable.
 - **Custom foods** — user-created foods with an explicit basis, servings and
   optional density. Empty fields stay unknown.
+- **Recipes** — create and edit recipes from existing foods, inspect nutrition
+  per serving and per 100 g with coverage, and log immutable recipe snapshots.
 - **Weight tracking** — entries, chart with a 7-day moving average and goal
   line, plus an accessible text summary and table.
 - **Settings and diagnostics** — profile, target override, language, AI and
@@ -52,8 +54,6 @@ Implemented and covered by tests:
 Designed and unit-tested, but not yet wired into the UI — see
 [Deferred to Phase 2](#deferred-to-phase-2):
 
-- Recipes (an AI run creates one and a loggable food from it; the editor and a
-  recipe detail page do not exist)
 - USDA FoodData Central adapter
 
 ## Architecture
@@ -332,6 +332,6 @@ ever exposed (this invalidates existing sessions).
 
 These have interfaces, schemas and unit tests, but no user-facing flow yet:
 web research provider search (source URLs are supplied by hand today), the
-recipe editor and recipe detail page, the USDA adapter, browser barcode
+USDA adapter, browser barcode
 scanning (manual entry works), adaptive TDEE, photo/voice input, meal planning,
 household sharing and offline sync.

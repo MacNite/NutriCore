@@ -17,6 +17,7 @@ interface Result {
   basisUnit: string;
   nutrients: Record<string, number | null>;
   favorite: boolean;
+  recipeId: string | null;
 }
 
 interface Outcome {
@@ -223,7 +224,7 @@ export function FoodSearch({
 
               <SourceBadge source={result.sourceType} />
 
-              <Link className="btn btn-primary" href={`/foods/${result.id}?meal=${meal}&date=${date}`}>
+              <Link className="btn btn-primary" href={result.recipeId ? `/recipes/${result.recipeId}` : `/foods/${result.id}?meal=${meal}&date=${date}`}>
                 {t("servingLabel")}
               </Link>
             </div>

@@ -32,6 +32,7 @@ export interface FoodResult {
   servings: { label: string; amount: number; unit: string; gramEquivalent: number | null; mlEquivalent: number | null }[];
   favorite: boolean;
   score: number;
+  recipeId: string | null;
 }
 
 const toNumber = (value: Prisma.Decimal | null | undefined): number | null =>
@@ -65,6 +66,7 @@ export function toFoodResult(food: FoodWithRelations, score = 0, favorite = fals
     })),
     favorite,
     score,
+    recipeId: food.sourceType === "RECIPE" && food.externalProvider === "NUTRICORE_RECIPE" ? food.externalId : null,
   };
 }
 

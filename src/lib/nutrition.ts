@@ -91,7 +91,7 @@ export function sumWithCoverage(
 }
 
 export function recipeNutrition(
-  ingredients: { nutrients: Nutrients; basisAmount: number; amount: number }[],
+  ingredients: { nutrients: Nutrients; basisAmount: number; amount: number; weightG?: number }[],
   servings: number,
   yieldWeightG?: number,
 ) {
@@ -101,7 +101,7 @@ export function recipeNutrition(
     nutrients: scaleNutrients(i.nutrients, i.basisAmount, i.amount),
   }));
   const { total, known, coverage } = sumWithCoverage(scaled);
-  const ingredientWeightG = ingredients.reduce((sum, i) => sum + i.amount, 0);
+  const ingredientWeightG = ingredients.reduce((sum, i) => sum + (i.weightG ?? i.amount), 0);
   // A recipe that loses water when cooked keeps its nutrients but weighs less,
   // so per-100 g values must use the yield, never the raw ingredient weight.
   const finalWeightG = yieldWeightG ?? ingredientWeightG;
