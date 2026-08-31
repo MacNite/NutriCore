@@ -12,8 +12,9 @@ import { prisma } from "@/lib/db";
 import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
 import { getCurrentTarget } from "@/server/targets";
 import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
+import { shiftDateKey, validDateKey } from "@/lib/date";
 
-export default async function TodayPage() {
+export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   if (!user.onboarded) redirect("/onboarding");
@@ -24,9 +25,10 @@ export default async function TodayPage() {
   const common = await getTranslations("common");
   const locale = user.language;
   const today = formatDateKey(new Date());
+  const selectedDate = validDateKey((await searchParams).date, today);
 
   const [day, target, recent] = await Promise.all([
-    getDiaryDay(user.id, today),
+    getDiaryDay(user.id, selectedDate),
     getCurrentTarget(user.id),
     prisma.foodUsageStats.findMany({
       where: { userId: user.id },
@@ -49,9 +51,15 @@ export default async function TodayPage() {
             {t("subtitle")}
           </p>
         </div>
-        <div className="date-nav">
-          <strong>{formatWeekday(today, locale)}</strong>
-        </div>
+        <nav className="date-nav" aria-label={diaryT("title")}>
+          <Link className="btn btn-quiet" href={`/?date=${shiftDateKey(selectedDate, -1)}`} aria-label={diaryT("previousDay")}>
+            <span aria-hidden="true">‹</span>
+          </Link>
+          <strong>{formatWeekday(selectedDate, locale)}</strong>
+          <Link className="btn btn-quiet" href={`/?date=${shiftDateKey(selectedDate, 1)}`} aria-label={diaryT("nextDay")}>
+            <span aria-hidden="true">›</span>
+          </Link>
+        </nav>
       </div>
 
       <div className="grid-main">
@@ -119,7 +127,7 @@ export default async function TodayPage() {
           <section className="card" aria-labelledby="meals-heading">
             <div className="card-head">
               <h2 id="meals-heading">{diaryT("title")}</h2>
-              <Link href="/diary" className="btn btn-quiet">
+              <Link href={`/diary?date=${selectedDate}`} className="btn btn-quiet">
                 {common("edit")}
               </Link>
             </div>
@@ -140,7 +148,7 @@ export default async function TodayPage() {
                     </span>
                   </div>
                   <span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span>
-                  <QuickAddLink meal={meal} date={today} label={diaryT("addTo", { meal: diaryT(`meals.${meal}`) })} />
+                  <QuickAddLink meal={meal} date={selectedDate} label={diaryT("addTo", { meal: diaryT(`meals.${meal}`) })} />
                 </div>
               );
             })}
@@ -151,15 +159,15 @@ export default async function TodayPage() {
           <section className="card" aria-labelledby="quick-heading">
             <h2 id="quick-heading">{t("quickAdd")}</h2>
             <div className="quick-grid">
-              <Link className="btn" href="/foods">
+              <Link className="btn" href={`/foods?date=${selectedDate}`}>
                 <span aria-hidden="true">⌕</span>
                 {t("searchFood")}
               </Link>
-              <Link className="btn" href="/foods?mode=barcode">
+              <Link className="btn" href={`/foods?mode=barcode&date=${selectedDate}`}>
                 <span aria-hidden="true">▤</span>
                 {t("scanBarcode")}
               </Link>
-              <Link className="btn" href="/foods/new">
+              <Link className="btn" href={`/foods/new?date=${selectedDate}`}>
                 <span aria-hidden="true">＋</span>
                 {common("add")}
               </Link>
@@ -183,7 +191,7 @@ export default async function TodayPage() {
                     </span>
                   </div>
                   <SourceBadge source={item.food.sourceType} />
-                  <QuickAddLink meal="SNACKS" date={today} foodId={item.food.id} label={`${item.food.name}`} />
+                  <QuickAddLink meal="SNACKS" date={selectedDate} foodId={item.food.id} label={`${item.food.name}`} />
                 </div>
               ))
             )}
@@ -191,7 +199,7 @@ export default async function TodayPage() {
         </aside>
       </div>
 
-      <Link className="fab" href="/foods">
+      <Link className="fab" href={`/foods?date=${selectedDate}`}>
         <span aria-hidden="true">＋</span>
         {t("searchFood")}
       </Link>

@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     query: parsed.data.q,
     locale: user.language,
     meal: parsed.data.meal,
-    includeRemote: parsed.data.remote !== "0",
+    includeRemote: parsed.data.remote === "1",
   });
 
   return NextResponse.json(outcome, { headers: { "Cache-Control": "no-store" } });
