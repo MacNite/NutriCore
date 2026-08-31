@@ -115,6 +115,43 @@ describe("remote food search cache", () => {
     expect(prismaMock.foodSource.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ url: product.provenance.url }) }));
   });
 
+  it("lets a partial product add nutrients without erasing the ones it omits", async () => {
+    prismaMock.food.findUnique.mockResolvedValueOnce({ id: "food-1" }).mockResolvedValueOnce(foodRow);
+    const partial = {
+      externalId: "4000000000001", name: "Müller Milchreis Original",
+      basisAmount: 100, basisUnit: "G" as const, nutrients: { energyKcal: 130, calcium: null },
+      partial: true,
+      provenance: { provider: "OPEN_FOOD_FACTS", retrievedAt: new Date(), estimated: false },
+    };
+
+    await upsertProviderFood(partial, "de");
+
+    // Only the keys this source actually carries are cleared and rewritten;
+    // a vitamin an earlier barcode lookup stored has to survive.
+    expect(prismaMock.foodNutrient.deleteMany).toHaveBeenCalledWith({
+      where: { foodId: "food-1", nutrientKey: { in: ["energyKcal"] } },
+    });
+    // An unknown serving must not null out a known one either.
+    expect(prismaMock.foodServing.deleteMany).not.toHaveBeenCalled();
+    expect(prismaMock.food.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.not.objectContaining({ servingSize: null }) }),
+    );
+  });
+
+  it("replaces the whole nutrient set for a complete product", async () => {
+    prismaMock.food.findUnique.mockResolvedValueOnce({ id: "food-1" }).mockResolvedValueOnce(foodRow);
+    const complete = {
+      externalId: "4000000000001", name: "Müller Milchreis Original",
+      basisAmount: 100, basisUnit: "G" as const, nutrients: { energyKcal: 130 },
+      provenance: { provider: "OPEN_FOOD_FACTS", retrievedAt: new Date(), estimated: false },
+    };
+
+    await upsertProviderFood(complete, "de");
+
+    expect(prismaMock.foodNutrient.deleteMany).toHaveBeenCalledWith({ where: { foodId: "food-1" } });
+    expect(prismaMock.foodServing.deleteMany).toHaveBeenCalledWith({ where: { foodId: "food-1" } });
+  });
+
   it("reuses the provider identity rather than creating a duplicate", async () => {
     prismaMock.food.findUnique
       .mockResolvedValueOnce({ id: "food-1" })

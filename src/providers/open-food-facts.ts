@@ -88,6 +88,26 @@ const UNIT_SCALE: Record<string, number> = {
 const number = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
 
+/** A comma-separated string over the REST API, a taxonomy list in the index. */
+const brandName = (value: unknown): string | undefined =>
+  Array.isArray(value) ? text(value.map((entry) => text(entry)).filter(Boolean).join(", ")) : text(value);
+
+/** Some fields the REST API types as numbers are keywords in the search index. */
+const numeric = (value: unknown): number | null => {
+  if (typeof value === "string" && value.trim() !== "") return number(Number(value));
+  return number(value);
+};
+
+/** A unix timestamp over the REST API, an ISO date string in the search index. */
+const modifiedAt = (value: unknown): Date | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) return new Date(value * 1000);
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return undefined;
+};
+
 const text = (value: unknown): string | undefined => {
   const trimmed = typeof value === "string" ? value.trim() : "";
   return trimmed === "" ? undefined : trimmed;
@@ -104,11 +124,18 @@ const text = (value: unknown): string | undefined => {
  */
 const SEARCH_GATE = RateGate.perMinute(9, 5);
 const PRODUCT_GATE = RateGate.perMinute(90, 20);
+/**
+ * Search-a-licious is separate, Elasticsearch-backed infrastructure built to
+ * replace the legacy CGI search, and publishes no limit of its own. Pace it
+ * politely anyway rather than assume none exists.
+ */
+const SEARCHALICIOUS_GATE = RateGate.perMinute(20, 6);
 
 /** Test seam: lets a suite start from an empty schedule. */
 export function resetOpenFoodFactsThrottle() {
   SEARCH_GATE.reset();
   PRODUCT_GATE.reset();
+  SEARCHALICIOUS_GATE.reset();
   warnedUserAgents.clear();
 }
 
@@ -134,20 +161,43 @@ const warnedUserAgents = new Set<string>();
 export const userAgentLooksAnonymous = (userAgent: string) =>
   /self-hosted|example\.(invalid|com|org)/i.test(userAgent) || !/[(@].+[@.)]/.test(userAgent);
 
+/** Tuning knobs. Defaults suit a self-hosted instance; tests override them. */
+export interface OpenFoodFactsOptions {
+  /** Elasticsearch-backed search service; see `search`. */
+  searchUrl?: string;
+  /** `legacy` pins the CGI endpoint; anything else prefers Search-a-licious. */
+  searchBackend?: string;
+  barcodeTimeoutMs?: number;
+  searchTimeoutMs?: number;
+  /** Backoff before each retry. Empty disables retrying. */
+  retryDelaysMs?: number[];
+  /** Longest a request will sit in the local queue before failing fast. */
+  maxQueueMs?: number;
+}
+
 export class OpenFoodFactsProvider implements FoodProvider {
   readonly name = "OPEN_FOOD_FACTS";
+
+  private readonly searchUrl: string;
+  private readonly searchBackend: string;
+  private readonly barcodeTimeoutMs: number;
+  private readonly searchTimeoutMs: number;
+  private readonly retryDelaysMs: number[];
+  private readonly maxQueueMs: number;
 
   constructor(
     private baseUrl = process.env.OPENFOODFACTS_BASE_URL ?? "https://world.openfoodfacts.org",
     private userAgent = process.env.OPENFOODFACTS_USER_AGENT ?? "NutriCore/0.1 (self-hosted)",
     public readonly enabled = (process.env.OPENFOODFACTS_ENABLED ?? "true") !== "false",
-    private barcodeTimeoutMs = 8000,
-    private searchTimeoutMs = 15_000,
-    /** Backoff before each retry. Empty disables retrying. */
-    private retryDelaysMs: number[] = [600, 1800],
-    /** Longest a request will sit in the local queue before failing fast. */
-    private maxQueueMs = 8000,
-  ) {}
+    options: OpenFoodFactsOptions = {},
+  ) {
+    this.searchUrl = options.searchUrl ?? process.env.OPENFOODFACTS_SEARCH_URL ?? "https://search.openfoodfacts.org";
+    this.searchBackend = options.searchBackend ?? process.env.OPENFOODFACTS_SEARCH_BACKEND ?? "search-a-licious";
+    this.barcodeTimeoutMs = options.barcodeTimeoutMs ?? 8000;
+    this.searchTimeoutMs = options.searchTimeoutMs ?? 15_000;
+    this.retryDelaysMs = options.retryDelaysMs ?? [600, 1800];
+    this.maxQueueMs = options.maxQueueMs ?? 8000;
+  }
 
   private validateConfiguration() {
     if (!userAgentLooksAnonymous(this.userAgent) || warnedUserAgents.has(this.userAgent)) return;
@@ -159,10 +209,10 @@ export class OpenFoodFactsProvider implements FoodProvider {
   }
 
   /** One HTTP round trip. Every failure leaves as a typed provider error. */
-  private async attempt(path: string, timeoutMs: number): Promise<unknown> {
+  private async attempt(origin: string, path: string, timeoutMs: number): Promise<unknown> {
     let response: Response;
     try {
-      response = await fetch(`${this.baseUrl}${path}`, {
+      response = await fetch(`${origin}${path}`, {
         headers: { "User-Agent": this.userAgent, Accept: "application/json" },
         signal: AbortSignal.timeout(timeoutMs),
       });
@@ -206,7 +256,7 @@ export class OpenFoodFactsProvider implements FoodProvider {
    * momentarily overloaded backend, so a short backoff turns what the user
    * would have seen as an error into a slightly slower answer.
    */
-  private async request(path: string, timeoutMs: number, gate: RateGate): Promise<unknown> {
+  private async request(origin: string, path: string, timeoutMs: number, gate: RateGate): Promise<unknown> {
     this.validateConfiguration();
 
     let lastError: ProviderUnavailableError | undefined;
@@ -232,7 +282,7 @@ export class OpenFoodFactsProvider implements FoodProvider {
       await delay(slot);
 
       try {
-        return await this.attempt(path, timeoutMs);
+        return await this.attempt(origin, path, timeoutMs);
       } catch (error) {
         if (!(error instanceof ProviderUnavailableError) || !isRetryable(error)) throw error;
         lastError = error;
@@ -248,7 +298,10 @@ export class OpenFoodFactsProvider implements FoodProvider {
     throw lastError;
   }
 
-  normalizeProduct(product: Record<string, unknown>): NormalizedFood | null {
+  normalizeProduct(
+    product: Record<string, unknown>,
+    options: { partial?: boolean; locale?: string } = {},
+  ): NormalizedFood | null {
     const code = text(product.code);
     if (!code) return null;
 
@@ -274,14 +327,21 @@ export class OpenFoodFactsProvider implements FoodProvider {
 
     const servingSize = text(product.serving_size);
     const serving = parseServingSize(servingSize);
-    const name = text(product.product_name) ?? text(product.generic_name);
+    // Search-a-licious flattens its multilingual fields back out, so a hit
+    // carries `product_name` in the product's own language plus a
+    // `product_name_<lang>` sibling per translation. Prefer the user's.
+    const name =
+      (options.locale ? text(product[`product_name_${options.locale}`]) : undefined) ??
+      text(product.product_name) ??
+      (options.locale ? text(product[`generic_name_${options.locale}`]) : undefined) ??
+      text(product.generic_name);
     const lang = text(product.lang);
 
     return {
       externalId: code,
       barcode: code,
       name: name ?? code,
-      brand: text(product.brands),
+      brand: brandName(product.brands),
       locale: lang === "de" || lang === "en" ? lang : undefined,
       basisAmount: 100,
       basisUnit,
@@ -289,12 +349,12 @@ export class OpenFoodFactsProvider implements FoodProvider {
       servingUnit: serving?.unit,
       servingLabel: servingSize,
       nutrients,
+      partial: options.partial,
       provenance: {
         provider: this.name,
         providerId: code,
         retrievedAt: new Date(),
-        providerUpdatedAt:
-          number(product.last_modified_t) !== null ? new Date(Number(product.last_modified_t) * 1000) : undefined,
+        providerUpdatedAt: modifiedAt(product.last_modified_t),
         url: `${this.baseUrl}/product/${code}`,
         confidence: number(product.completeness) ?? undefined,
         estimated: false,
@@ -304,7 +364,7 @@ export class OpenFoodFactsProvider implements FoodProvider {
         ingredientsText: text(product.ingredients_text),
         allergens: text(product.allergens),
         nutritionGrade: text(product.nutrition_grades),
-        novaGroup: number(product.nova_group),
+        novaGroup: numeric(product.nova_group),
         quantity: text(product.quantity),
         countries: product.countries_tags,
       },
@@ -314,22 +374,77 @@ export class OpenFoodFactsProvider implements FoodProvider {
   async getByBarcode(barcode: string): Promise<NormalizedFood | null> {
     const code = barcode.trim();
     if (!isBarcode(code)) return null;
-    const data = (await this.request(`/api/v2/product/${code}.json?fields=${FIELDS}`, this.barcodeTimeoutMs, PRODUCT_GATE)) as
+    const data = (await this.request(this.baseUrl, `/api/v2/product/${code}.json?fields=${FIELDS}`, this.barcodeTimeoutMs, PRODUCT_GATE)) as
       | { status?: number; product?: Record<string, unknown> }
       | null;
     if (!data || data.status !== 1 || !data.product) return null;
     return this.normalizeProduct(data.product);
   }
 
+  /**
+   * Prefers Search-a-licious and falls back to the legacy CGI search.
+   *
+   * The legacy `/cgi/search.pl` is the Perl backend Open Food Facts is
+   * retiring; under load it answers 503 for minutes at a time, which is what
+   * users saw as "Open Food Facts hat einen Fehler gemeldet". Search-a-licious
+   * is the Elasticsearch service built to replace it and runs on separate
+   * infrastructure, so it is both faster and unlikely to be down at the same
+   * moment. The fallback keeps the old path available for the reverse case.
+   */
   async search(query: string, options: { limit?: number; locale?: string } = {}): Promise<NormalizedFood[]> {
     const trimmed = query.trim();
     if (trimmed.length < 3) return [];
+    if (this.searchBackend === "legacy") return this.legacySearch(trimmed, options);
 
-    // `search_terms` is the free-text parameter. The previous implementation
+    try {
+      return await this.searchAlicious(trimmed, options);
+    } catch (error) {
+      if (!(error instanceof ProviderUnavailableError)) throw error;
+      logger.warn("Search-a-licious failed; falling back to the legacy search endpoint", {
+        provider: this.name,
+        reason: error.reason,
+        status: error.upstreamStatus,
+      });
+      try {
+        return await this.legacySearch(trimmed, options);
+      } catch {
+        // The fallback's own failure is noise: report the primary backend's.
+        throw error;
+      }
+    }
+  }
+
+  /** https://search.openfoodfacts.org - `GET /search`, Elasticsearch-backed. */
+  private async searchAlicious(query: string, options: { limit?: number; locale?: string }): Promise<NormalizedFood[]> {
+    // List parameters are comma-separated, not repeated. `fields` is left
+    // unset: the projection also gates the image URLs the service derives
+    // from the barcode, and a search page is small enough not to trim.
+    const params = new URLSearchParams({
+      q: query,
+      page_size: String(Math.min(options.limit ?? 10, 50)),
+      boost_phrase: "true",
+    });
+    // Language drives which localised product name ranks and is returned.
+    params.set("langs", options.locale && options.locale !== "en" ? `${options.locale},en` : "en");
+
+    const data = (await this.request(this.searchUrl, `/search?${params}`, this.searchTimeoutMs, SEARCHALICIOUS_GATE)) as
+      | { hits?: Record<string, unknown>[] }
+      | null;
+
+    // The index carries the macronutrients only - no vitamins or minerals -
+    // so these products must never overwrite a fuller record.
+    return (data?.hits ?? [])
+      .map((hit) => this.normalizeProduct(hit, { partial: true, locale: options.locale }))
+      .filter((food): food is NormalizedFood => food !== null && normalizeName(food.name).length > 0);
+  }
+
+  /** The original Perl endpoint: complete nutriments, unreliable under load. */
+  private async legacySearch(query: string, options: { limit?: number; locale?: string }): Promise<NormalizedFood[]> {
+    // `search_terms` is the free-text parameter. An earlier implementation
     // used `categories_tags_en`, which filters by category tag and therefore
     // returned nothing for ordinary product searches.
     const params = new URLSearchParams({
-      search_terms: trimmed,
+      search_terms: query,
       search_simple: "1",
       action: "process",
       sort_by: "unique_scans_n",
@@ -341,11 +456,11 @@ export class OpenFoodFactsProvider implements FoodProvider {
       params.set("lc", options.locale);
     }
 
-    const data = (await this.request(`/cgi/search.pl?${params}`, this.searchTimeoutMs, SEARCH_GATE)) as
+    const data = (await this.request(this.baseUrl, `/cgi/search.pl?${params}`, this.searchTimeoutMs, SEARCH_GATE)) as
       | { products?: Record<string, unknown>[] }
       | null;
     return (data?.products ?? [])
-      .map((product) => this.normalizeProduct(product))
+      .map((product) => this.normalizeProduct(product, { locale: options.locale }))
       .filter((food): food is NormalizedFood => food !== null && normalizeName(food.name).length > 0);
   }
 }

@@ -13,6 +13,8 @@ const schema = z.object({
   OPENFOODFACTS_ENABLED: bool(true),
   OPENFOODFACTS_BASE_URL: z.string().default("https://world.openfoodfacts.org"),
   OPENFOODFACTS_USER_AGENT: z.string().default("NutriCore/0.1 (self-hosted)"),
+  OPENFOODFACTS_SEARCH_URL: z.string().default("https://search.openfoodfacts.org"),
+  OPENFOODFACTS_SEARCH_BACKEND: z.enum(["search-a-licious", "legacy"]).default("search-a-licious"),
   USDA_ENABLED: bool(false),
   USDA_API_KEY: z.string().optional(),
   AI_ENABLED: bool(true),
