@@ -279,7 +279,24 @@
     "needMoreData": "At least 7 entries are needed for a moving average.",
     "chartSummary": "Weight from {from} to {to}: {count} entries between {min} and {max} kg.",
     "dayToDayNote": "Day-to-day changes are mostly water. The trend line matters more.",
-    "saved": "Weight saved."
+    "saved": "Weight saved.",
+    "nutrition": {
+      "title": "Nutrition",
+      "subtitle": "Daily achievement of your calorie, macro and micronutrient targets.",
+      "calories": "Calories",
+      "macros": "Macros",
+      "micros": "Micros",
+      "chartType": "Chart view",
+      "selectNutrients": "Displayed nutrients",
+      "targetLine": "Daily target",
+      "summary": "Nutrition progress as a percentage of each daily target. The target zone is between 90 and 110 percent.",
+      "todayReached": "Latest day: {reached} of {total} nutrient targets in range",
+      "balancedHint": "90–110% is considered balanced here",
+      "coverage": "{value}% data coverage",
+      "interactionHint": "Touch or focus a data point to show consumption and target.",
+      "empty": "Not enough nutrition data yet.",
+      "noMicroTargets": "No personal daily micronutrient targets are configured yet. Logged values are therefore not shown as misleading 0% values."
+    }
   },
   "settings": {
     "title": "Settings",

@@ -279,7 +279,24 @@
     "needMoreData": "Für einen gleitenden Durchschnitt werden mindestens 7 Einträge benötigt.",
     "chartSummary": "Gewicht von {from} bis {to}: {count} Einträge zwischen {min} und {max} kg.",
     "dayToDayNote": "Schwankungen von Tag zu Tag sind meist Wasser. Entscheidend ist der Trend.",
-    "saved": "Gewicht gespeichert."
+    "saved": "Gewicht gespeichert.",
+    "nutrition": {
+      "title": "Ernährung",
+      "subtitle": "Tägliche Zielerreichung deiner Kalorien, Makro- und Mikronährstoffe.",
+      "calories": "Kalorien",
+      "macros": "Makros",
+      "micros": "Mikros",
+      "chartType": "Diagrammansicht",
+      "selectNutrients": "Angezeigte Nährstoffe",
+      "targetLine": "Tagesziel",
+      "summary": "Ernährungsverlauf in Prozent des jeweiligen Tagesziels. Der Zielbereich liegt zwischen 90 und 110 Prozent.",
+      "todayReached": "Zuletzt {reached} von {total} Nährstoffzielen im Zielbereich",
+      "balancedHint": "90–110 % gelten hier als ausgewogen",
+      "coverage": "{value} % Datenabdeckung",
+      "interactionHint": "Datenpunkt berühren oder fokussieren, um Verbrauch und Ziel anzuzeigen.",
+      "empty": "Noch nicht genügend Ernährungsdaten vorhanden.",
+      "noMicroTargets": "Für Mikronährstoffe sind noch keine persönlichen Tagesziele konfiguriert. Erfasste Werte werden deshalb nicht als irreführende 0 % dargestellt."
+    }
   },
   "settings": {
     "title": "Einstellungen",
