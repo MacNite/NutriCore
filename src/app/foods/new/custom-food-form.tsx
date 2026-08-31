@@ -50,6 +50,11 @@ export function CustomFoodForm({
               <input id="name" name="name" type="text" defaultValue={defaultName} required maxLength={200} autoFocus />
             </div>
 
+            <div className="field">
+              <label htmlFor="sourceUrl">{t("sourceUrl")}</label>
+              <input id="sourceUrl" name="sourceUrl" type="url" maxLength={2000} placeholder="https://…" />
+            </div>
+
             <div className="field-row">
               <div className="field">
                 <label htmlFor="brand">{t("brand")}</label>

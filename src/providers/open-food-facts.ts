@@ -1,6 +1,7 @@
 import { ProviderUnavailableError, isBarcode, type FoodProvider, type NormalizedFood } from "./food";
 import { normalizeName, parseServingSize } from "@/lib/units";
 import { kjToKcal } from "@/lib/nutrition";
+import { logger } from "@/lib/logger";
 
 const FIELDS = [
   "code",
@@ -102,7 +103,16 @@ export class OpenFoodFactsProvider implements FoodProvider {
     private searchTimeoutMs = 15_000,
   ) {}
 
+  private validateConfiguration() {
+    if (/self-hosted|example\.invalid/i.test(this.userAgent) || !/[(@].+[@.)]/.test(this.userAgent)) {
+      logger.warn("Open Food Facts User-Agent appears to be the default or lacks administrator contact information", {
+        provider: this.name,
+      });
+    }
+  }
+
   private async request(path: string, timeoutMs: number): Promise<unknown> {
+    this.validateConfiguration();
     let response: Response;
     try {
       response = await fetch(`${this.baseUrl}${path}`, {
@@ -111,18 +121,28 @@ export class OpenFoodFactsProvider implements FoodProvider {
       });
     } catch (cause) {
       const name = cause instanceof Error ? cause.name : "";
-      const reason = name === "AbortError" || name === "TimeoutError" ? "TIMEOUT" : "UNAVAILABLE";
+      const reason = name === "AbortError" || name === "TimeoutError" ? "TIMEOUT" : "NETWORK";
       throw new ProviderUnavailableError(this.name, "Open Food Facts is unreachable", cause, reason);
     }
 
     // A missing product is a normal answer, not an outage.
     if (response.status === 404) return null;
     if (!response.ok) {
+      const retryAfter = response.headers.get("retry-after");
+      const retryAfterSeconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : undefined;
+      logger.warn("Open Food Facts upstream HTTP error", {
+        provider: this.name,
+        status: response.status,
+        statusText: response.statusText,
+        retryAfterSeconds,
+      });
       throw new ProviderUnavailableError(
         this.name,
         `Open Food Facts responded with ${response.status}`,
         undefined,
-        response.status === 429 ? "RATE_LIMITED" : "UNAVAILABLE",
+        response.status === 429 ? "RATE_LIMITED" : "HTTP_ERROR",
+        retryAfterSeconds,
+        response.status,
       );
     }
 
@@ -224,7 +244,6 @@ export class OpenFoodFactsProvider implements FoodProvider {
     });
     if (options.locale) {
       params.set("lc", options.locale);
-      params.set("cc", options.locale);
     }
 
     const data = (await this.request(`/cgi/search.pl?${params}`, this.searchTimeoutMs)) as

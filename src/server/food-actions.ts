@@ -8,6 +8,7 @@ import { requireUser } from "./session";
 import { normalizeName } from "@/lib/units";
 import { EDITABLE_KEYS } from "@/lib/nutrients";
 import type { FormState } from "./profile-actions";
+import { validateReferenceUrl } from "./research";
 
 const optionalNumber = z
   .string()
@@ -28,6 +29,7 @@ const schema = z.object({
   servingSize: optionalNumber,
   servingUnit: z.string().trim().max(40).optional(),
   densityGPerMl: optionalNumber,
+  sourceUrl: z.string().trim().max(2000).optional(),
 });
 
 export async function createFoodAction(_state: FormState, formData: FormData): Promise<FormState> {
@@ -42,8 +44,11 @@ export async function createFoodAction(_state: FormState, formData: FormData): P
     servingSize: formData.get("servingSize") ?? "",
     servingUnit: formData.get("servingUnit") ?? "",
     densityGPerMl: formData.get("densityGPerMl") ?? "",
+    sourceUrl: formData.get("sourceUrl") ?? "",
   });
   if (!parsed.success) return { error: "validation" };
+  const sourceUrl = validateReferenceUrl(parsed.data.sourceUrl ?? "");
+  if (parsed.data.sourceUrl && !sourceUrl) return { error: "validation" };
 
   // An empty field means "unknown" and is simply not stored - it never becomes
   // a zero value.
@@ -77,6 +82,7 @@ export async function createFoodAction(_state: FormState, formData: FormData): P
           provider: "USER",
           retrievedAt: new Date(),
           estimated: false,
+          url: sourceUrl,
         },
       },
     },

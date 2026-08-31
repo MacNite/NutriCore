@@ -298,8 +298,22 @@ model Recipe {
   owner        User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ingredients  RecipeIngredient[]
   diaryEntries DiaryEntry[]
+  sources      RecipeSource[]
 
   @@index([ownerId, name])
+}
+
+model RecipeSource {
+  id          String   @id @default(cuid())
+  recipeId    String
+  title       String?
+  url         String
+  provider    String?
+  retrievedAt DateTime?
+  metadata    Json?
+  recipe      Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId])
 }
 
 model RecipeIngredient {
@@ -423,6 +437,8 @@ model ResearchJob {
   assumptions        Json?
   structuredResponse Json?
   failureReason      String?
+  meal               MealType?
+  diaryDate          DateTime?      @db.Date
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 

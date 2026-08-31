@@ -133,7 +133,7 @@ describe("Open Food Facts adapter", () => {
     expect(url.searchParams.get("action")).toBe("process");
     expect(url.searchParams.get("sort_by")).toBe("unique_scans_n");
     expect(url.searchParams.get("lc")).toBe("de");
-    expect(url.searchParams.get("cc")).toBe("de");
+    expect(url.searchParams.get("cc")).toBeNull();
     expect(url.searchParams.get("page_size")).toBe("40");
   });
 
@@ -150,7 +150,12 @@ describe("Open Food Facts adapter", () => {
 
     vi.unstubAllGlobals();
     vi.stubGlobal("fetch", json({}, 503));
-    await expect(provider().search("milka")).rejects.toMatchObject({ reason: "UNAVAILABLE" });
+    await expect(provider().search("milka")).rejects.toMatchObject({ reason: "HTTP_ERROR", upstreamStatus: 503 });
+  });
+
+  it("preserves Retry-After from a rate-limited response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 429, headers: { "Retry-After": "42" } })));
+    await expect(provider().search("milka")).rejects.toMatchObject({ reason: "RATE_LIMITED", retryAfterSeconds: 42 });
   });
 
   it("gives searches a longer timeout than barcode lookups", async () => {
