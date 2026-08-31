@@ -5,6 +5,7 @@ import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { EnergyRing } from "@/components/energy-ring";
 import { MacroBar } from "@/components/macro-bar";
+import { MicronutrientSummary } from "@/components/micronutrient-summary";
 import { CoverageNotice } from "@/components/coverage-notice";
 import { SourceBadge } from "@/components/source-badge";
 import { QuickAddLink } from "@/components/quick-add";
@@ -152,6 +153,22 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                 </div>
               );
             })}
+          </section>
+
+          <section className="card" aria-labelledby="micronutrients-heading">
+            <div className="card-head">
+              <h2 id="micronutrients-heading">{diaryT("micronutrients")}</h2>
+              <Link href={`/diary?date=${selectedDate}#micronutrients-heading`} className="btn btn-quiet">
+                {t("allMicronutrients")}
+              </Link>
+            </div>
+            <MicronutrientSummary
+              totals={day.totals}
+              knownTotals={day.knownTotals}
+              coverage={day.coverage}
+              locale={locale}
+              compact
+            />
           </section>
         </div>
 

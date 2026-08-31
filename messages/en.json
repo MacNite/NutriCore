@@ -144,7 +144,8 @@
     "noRecent": "Nothing logged yet. Search for a food to get started.",
     "coverage": "{nutrient} coverage today: {percent}",
     "coverageHint": "Missing values are not counted as zero.",
-    "energyRing": "Energy consumed compared with the daily target"
+    "energyRing": "Energy consumed compared with the daily target",
+    "allMicronutrients": "View all"
   },
   "diary": {
     "title": "Diary",
@@ -168,7 +169,12 @@
     "copyMeal": "Copy meal",
     "copyPreviousDay": "Copy yesterday",
     "totals": "Day total",
-    "snapshotNote": "Entries keep the nutrition values from the moment they were logged."
+    "snapshotNote": "Entries keep the nutrition values from the moment they were logged.",
+    "micronutrients": "Micronutrients"
+  },
+  "micronutrients": {
+    "hint": "A dash means that no values are available for the foods you logged.",
+    "coverage": "{percent} of intake covered"
   },
   "foods": {
     "title": "Foods",
