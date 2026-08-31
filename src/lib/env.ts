@@ -19,6 +19,7 @@ const schema = z.object({
   AI_PROVIDER: z.string().default("ollama"),
   OLLAMA_BASE_URL: z.string().default("http://ollama:11434"),
   OLLAMA_MODEL: z.string().default("deepseek-r1"),
+  OLLAMA_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(600),
   RESEARCH_ENABLED: bool(false),
   RESEARCH_PROVIDER: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),

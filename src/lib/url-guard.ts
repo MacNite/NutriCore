@@ -31,7 +31,10 @@ export function isPrivateAddress(address: string): boolean {
     if (a === 172 && b >= 16 && b <= 31) return true;
     if (a === 192 && b === 168) return true;
     if (a === 100 && b >= 64 && b <= 127) return true; // carrier-grade NAT
-    if (a === 192 && b === 0) return true; // IETF protocol assignments
+    // Only 192.0.0.0/24 is reserved for IETF protocol assignments. Public
+    // services also use other 192.0.x.x ranges (for example 192.0.66.0/24), so
+    // rejecting the entire 192.0.0.0/16 would block legitimate research URLs.
+    if (a === 192 && b === 0 && parts[2] === 0) return true;
     if (a >= 224) return true; // multicast and reserved
     return false;
   }

@@ -6,6 +6,15 @@ const chatResponse = z.object({
   response: z.string().optional(),
 });
 
+const DEFAULT_TIMEOUT_MS = 600_000;
+
+/** Convert the runtime setting defensively for callers that do not parse env(). */
+export function ollamaTimeoutMs(value = process.env.OLLAMA_TIMEOUT_SECONDS): number {
+  if (value === undefined || value.trim() === "") return DEFAULT_TIMEOUT_MS;
+  const seconds = Number(value);
+  return Number.isInteger(seconds) && seconds > 0 ? seconds * 1000 : DEFAULT_TIMEOUT_MS;
+}
+
 /**
  * Ollama adapter. It asks for schema-constrained JSON where the model supports
  * it and always validates the result, so a malformed answer is rejected rather
@@ -18,7 +27,7 @@ export class OllamaProvider implements AIProvider {
     private baseUrl = process.env.OLLAMA_BASE_URL ?? "http://ollama:11434",
     private model = process.env.OLLAMA_MODEL ?? "deepseek-r1",
     public readonly enabled = (process.env.AI_ENABLED ?? "true") !== "false",
-    private timeoutMs = 120_000,
+    private timeoutMs = ollamaTimeoutMs(),
   ) {}
 
   async capabilities(): Promise<AICapabilities> {
