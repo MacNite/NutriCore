@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { SourceBadge } from "@/components/source-badge";
 import { DiaryEntryRow } from "@/components/diary-entry-row";
 import { CopyPreviousDay } from "@/components/copy-previous-day";
+import { MicronutrientSummary } from "@/components/micronutrient-summary";
 import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
 import { getCurrentTarget } from "@/server/targets";
 import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
@@ -90,6 +91,16 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="card" style={{ marginBottom: 20 }} aria-labelledby="micronutrients-heading">
+        <h2 id="micronutrients-heading">{t("micronutrients")}</h2>
+        <MicronutrientSummary
+          totals={day.totals}
+          knownTotals={day.knownTotals}
+          coverage={day.coverage}
+          locale={locale}
+        />
       </section>
 
       <div className="stack">

@@ -144,7 +144,8 @@
     "noRecent": "Noch nichts eingetragen. Suche ein Lebensmittel, um zu beginnen.",
     "coverage": "{nutrient}-Abdeckung heute: {percent}",
     "coverageHint": "Fehlende Werte werden nicht als null gezählt.",
-    "energyRing": "Aufgenommene Energie im Vergleich zum Tagesziel"
+    "energyRing": "Aufgenommene Energie im Vergleich zum Tagesziel",
+    "allMicronutrients": "Alle anzeigen"
   },
   "diary": {
     "title": "Tagebuch",
@@ -168,7 +169,12 @@
     "copyMeal": "Mahlzeit kopieren",
     "copyPreviousDay": "Gestern übernehmen",
     "totals": "Tagessumme",
-    "snapshotNote": "Einträge behalten die Nährwerte vom Zeitpunkt der Eintragung."
+    "snapshotNote": "Einträge behalten die Nährwerte vom Zeitpunkt der Eintragung.",
+    "micronutrients": "Mikronährstoffe"
+  },
+  "micronutrients": {
+    "hint": "Ein Strich bedeutet, dass für die eingetragenen Lebensmittel keine Werte vorliegen.",
+    "coverage": "{percent} der Aufnahmemenge erfasst"
   },
   "foods": {
     "title": "Lebensmittel",

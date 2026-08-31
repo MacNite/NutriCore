@@ -268,6 +268,8 @@ export interface DiaryDayView {
     totals: Nutrients;
   }[];
   totals: Nutrients;
+  /** Sums of the available values, even when some entries lack that nutrient. */
+  knownTotals: Nutrients;
   coverage: Record<string, number | null>;
 }
 
@@ -305,10 +307,10 @@ export async function getDiaryDay(userId: string, date: string): Promise<DiaryDa
     return { meal, entries: mealEntries, totals: total };
   });
 
-  const { total, coverage } = sumWithCoverage(
+  const { known, total, coverage } = sumWithCoverage(
     entries.map((e) => ({ amount: e.amount, nutrients: e.nutrients })),
     NUTRIENT_KEYS,
   );
 
-  return { date, meals, totals: total, coverage };
+  return { date, meals, totals: total, knownTotals: known, coverage };
 }

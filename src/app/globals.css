@@ -555,6 +555,62 @@ legend {
   background: var(--fat);
 }
 
+/* ---------------------------------------------------------- Micronutrients */
+
+.micro-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line);
+}
+
+.micro-item {
+  min-width: 0;
+  min-height: 76px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+}
+
+.micro-item > span,
+.micro-item > strong {
+  display: block;
+}
+
+.micro-item > span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.micro-item > strong {
+  margin-top: 4px;
+  font-size: 16px;
+}
+
+.micro-item > strong small {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.micro-coverage {
+  display: block;
+  margin-top: 3px;
+  color: var(--warn-text);
+  font-size: 11px;
+}
+
+.micro-hint {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 /* --------------------------------------------------------------------- Lists */
 
 .row {
@@ -803,6 +859,10 @@ legend {
 }
 
 @media (max-width: 720px) {
+  .micro-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .shell {
     /* Clears both the bottom navigation and the floating action button, so the
        last row of a list is never permanently hidden behind them. */
