@@ -342,7 +342,13 @@
     "validation": "Bitte prüfe deine Eingabe.",
     "rateLimited": "Zu viele Anfragen. Bitte einen Moment warten.",
     "providerDown": "Ein externer Dienst ist nicht verfügbar. Deine Daten sind davon nicht betroffen.",
-    "manualFallback": "Du kannst das Lebensmittel stattdessen jederzeit manuell anlegen."
+    "manualFallback": "Du kannst das Lebensmittel stattdessen jederzeit manuell anlegen.",
+    "portion": {
+      "unknown-unit": "Unbekannte Einheit. Verwende eine metrische Einheit oder eine definierte Portion.",
+      "density-required": "Für diese Umrechnung ist eine gespeicherte Dichte erforderlich.",
+      "invalid-amount": "Gib eine gültige positive Menge ein.",
+      "unknown-serving": "Für diese benannte Portion ist kein Gewicht oder Volumen hinterlegt."
+    }
   },
   "a11y": {
     "openMenu": "Menü öffnen",
@@ -397,5 +403,36 @@
       "http": "Quelle antwortete mit einem Fehler: {url}"
     },
     "rateLimitedRetryMinutes": "Zu viele Recherchen. Bitte in {minutes} Minuten erneut versuchen."
+  },
+  "recipes": {
+    "create": "Rezept erstellen",
+    "edit": "Rezept bearbeiten",
+    "name": "Name",
+    "description": "Beschreibung",
+    "servings": "Portionen",
+    "serving": "Portion",
+    "yieldWeight": "Endgewicht",
+    "yieldHint": "Garverlust wird ausschließlich durch das Endgewicht in Gramm abgebildet.",
+    "instructions": "Zubereitung",
+    "tags": "Schlagwörter (kommagetrennt)",
+    "ingredients": "Zutaten",
+    "searchFood": "Vorhandene Lebensmittel suchen",
+    "noIngredients": "Mindestens ein Lebensmittel hinzufügen.",
+    "amount": "Menge",
+    "unit": "Einheit",
+    "nutritionPerServing": "Nährwerte pro Portion",
+    "nutritionPer100g": "Nährwerte pro 100 g",
+    "portionWeight": "Portionsgewicht",
+    "coverage": "Nährwertabdeckung",
+    "servingsToLog": "Anzahl Portionen",
+    "meal": "Mahlzeit",
+    "date": "Datum",
+    "log": "Rezept eintragen",
+    "deleteConfirm": "Dieses Rezept löschen? Bestehende Tagebuch-Schnappschüsse bleiben unverändert.",
+    "provenance": "Herkunft",
+    "source": {
+      "RECIPE": "Aus deinen Zutaten berechnet.",
+      "AI_RESEARCH": "Aus bestätigter KI-Recherche erstellt."
+    }
   }
 }

@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { prisma } from "@/lib/db";
+import Link from "next/link";
 
 export async function generateMetadata() {
   const t = await getTranslations("nav");
@@ -27,6 +28,7 @@ export default async function RecipesPage() {
         <div>
           <h1>{t("recipes")}</h1>
         </div>
+        <Link className="btn btn-primary" href="/recipes/new">{common("add")}</Link>
       </div>
 
       <section className="card">
@@ -36,7 +38,7 @@ export default async function RecipesPage() {
           recipes.map((recipe) => (
             <div className="row" key={recipe.id}>
               <div className="row-body">
-                <strong>{recipe.name}</strong>
+                <strong><Link href={`/recipes/${recipe.id}`}>{recipe.name}</Link></strong>
                 <span>
                   {String(recipe.servings)} × {common("of")} {recipe._count.ingredients}
                 </span>

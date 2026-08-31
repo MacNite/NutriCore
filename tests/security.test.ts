@@ -129,6 +129,18 @@ describeDb("cross-user authorization", () => {
     expect((await prisma.weightEntry.findMany({ where: { userId: alice } })).length).toBeGreaterThan(0);
   });
 
+  it("keeps a recipe diary snapshot when the recipe is deleted", async () => {
+    const recipe = await prisma.recipe.create({ data: { ownerId: alice, name: "Snapshot recipe", servings: 2 } });
+    const day = await prisma.diaryDay.findFirstOrThrow({ where: { userId: alice } });
+    const snapshot = { nutrients: { energyKcal: 250, protein: null }, basisAmount: 1, basisUnit: "SERVING", amount: 1 };
+    const entry = await prisma.diaryEntry.create({ data: { diaryDayId: day.id, recipeId: recipe.id, meal: "DINNER", label: recipe.name, quantity: 1, unit: "serving", nutritionSnapshot: snapshot, provenanceSnapshot: { sourceType: "RECIPE", externalId: recipe.id } } });
+
+    await prisma.recipe.delete({ where: { id: recipe.id } });
+    const preserved = await prisma.diaryEntry.findUniqueOrThrow({ where: { id: entry.id } });
+    expect(preserved.recipeId).toBeNull();
+    expect(preserved.nutritionSnapshot).toEqual(snapshot);
+  });
+
   it("removes every personal record when an account is deleted", async () => {
     const stamp = `${Date.now().toString(36)}-cascade`;
     const doomed = await prisma.user.create({
