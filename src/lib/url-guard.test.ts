@@ -13,6 +13,8 @@ describe("private address detection", () => {
       "192.168.1.1",
       "169.254.169.254", // cloud metadata
       "100.64.0.1",
+      "192.0.0.1",
+      "192.0.0.255",
       "0.0.0.0",
       "::1",
       "fe80::1",
@@ -24,7 +26,14 @@ describe("private address detection", () => {
   });
 
   it("allows ordinary public addresses", () => {
-    for (const address of ["1.1.1.1", "8.8.8.8", "172.32.0.1", "192.169.0.1", "2606:4700::1111"]) {
+    for (const address of [
+      "1.1.1.1",
+      "8.8.8.8",
+      "172.32.0.1",
+      "192.0.66.173",
+      "192.169.0.1",
+      "2606:4700::1111",
+    ]) {
       expect(isPrivateAddress(address), address).toBe(false);
     }
   });

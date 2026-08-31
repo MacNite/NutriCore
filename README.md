@@ -152,6 +152,7 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `OPENFOODFACTS_ENABLED` | no | Default `true` |
 | `OPENFOODFACTS_USER_AGENT` | recommended | OFF asks for contact details |
 | `AI_ENABLED` / `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | no | See below |
+| `OLLAMA_TIMEOUT_SECONDS` | no | Model generation timeout; default `600` seconds |
 | `USDA_ENABLED` / `USDA_API_KEY` | no | Phase 2 |
 | `RESEARCH_ENABLED` | no | Default `false`; only enables web sources for AI research |
 | `RESEARCH_PROVIDER` / `SEARCH_API_*` | no | Phase 2 |
@@ -169,6 +170,7 @@ your network. NutriCore only stores the connection details:
 AI_ENABLED=true
 OLLAMA_BASE_URL=http://ollama:11434
 OLLAMA_MODEL=deepseek-r1
+OLLAMA_TIMEOUT_SECONDS=600
 ```
 
 **Models are pulled on the Ollama host, never by NutriCore:**

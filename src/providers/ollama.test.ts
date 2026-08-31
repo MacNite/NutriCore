@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { OllamaProvider } from "./ollama";
+import { OllamaProvider, ollamaTimeoutMs } from "./ollama";
 import { AIInvalidOutputError, AIUnavailableError } from "./ai";
 
 const schema = z.object({ name: z.string(), kcal: z.number() });
@@ -12,6 +12,16 @@ const reply = (content: string, status = 200) =>
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Ollama adapter", () => {
+  it("uses a 600 second default timeout and accepts a configured override", () => {
+    expect(ollamaTimeoutMs(undefined)).toBe(600_000);
+    expect(ollamaTimeoutMs("45")).toBe(45_000);
+  });
+
+  it("falls back safely for invalid timeout values", () => {
+    expect(ollamaTimeoutMs("0")).toBe(600_000);
+    expect(ollamaTimeoutMs("not-a-number")).toBe(600_000);
+  });
+
   it("returns validated structured output", async () => {
     vi.stubGlobal("fetch", reply('{"name":"Rice","kcal":130}'));
     await expect(provider().complete({ system: "s", prompt: "p", schema })).resolves.toEqual({
