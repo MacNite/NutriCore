@@ -37,6 +37,9 @@ Implemented and covered by tests:
   line, plus an accessible text summary and table.
 - **Settings and diagnostics** — profile, target override, language, AI and
   research toggles, service reachability. Secrets are never displayed.
+- **Administration** — for the `ADMIN` role only: invite users with single-use
+  links, activate and deactivate accounts, and watch the AI job queue with its
+  retries and errors. Reachable from Settings → Administration.
 - **Export** — versioned JSON of all personal records, plus diary and weight
   CSV. Credentials are excluded.
 - **German and English** throughout, with locale-correct number formatting
@@ -91,8 +94,15 @@ docker compose up -d
 
 Open <http://localhost:3000> and create the first account. Health is at
 `/api/health`. The first registered account becomes the administrator; later
-accounts should normally be invited from `/admin`. No demo account is ever
-created automatically.
+accounts should normally be invited. No demo account is ever created
+automatically.
+
+**Administration** lives at `/admin`, reachable from Settings → Administration
+for accounts with the `ADMIN` role. It invites users, activates and deactivates
+accounts, and shows the AI job queue. NutriCore sends no email: creating an
+invitation shows the single-use link once, on that page, for the administrator
+to pass on themselves. If the link is lost, "Resend" issues a new one and
+revokes the old.
 
 ### Prebuilt image or local build
 
@@ -194,11 +204,20 @@ npm run dev
 npm run worker
 ```
 
-Compose starts both `app` and `worker`. SearXNG is intentionally not bundled:
+Compose starts both `app` and `worker`; the worker is the same image started
+with `NUTRICORE_PROCESS=worker`, and without it queued meals stay queued.
+SearXNG is intentionally not bundled:
 point `SEARXNG_URL` at the operator's existing instance with JSON output enabled.
 Saving a free-text meal only inserts `MealInput` and `AiJob`; it never waits for
 Ollama or SearXNG. The worker performs local canonical matching first, uses
 SearXNG only for source discovery, and stores a pending human-review proposal.
+
+Nothing reaches the diary until a human approves it. On approval, only the
+components matched to a food already in the database are logged, each freezing
+its own nutrition snapshot; a component the matcher could not resolve is
+reported as skipped rather than guessed at. A job that fails is retried up to
+`maxRetries` times (2 by default) before it is marked failed, and an
+administrator can hand it a fresh budget from `/admin`.
 
 `OLLAMA_MODEL` selects one model, by name, from those already installed there.
 There is no list of models in the compose file because NutriCore neither

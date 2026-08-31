@@ -24,7 +24,9 @@ test("the interface can be switched between German and English", async ({ page }
 
   await page.goto("/diary");
   await expect(page.getByRole("heading", { name: /^diary$/i })).toBeVisible();
-  await expect(page.getByText(/breakfast/i).first()).toBeVisible();
+  // The meal heading, not the meal <option> in the quick-add form: options in a
+  // collapsed <select> are never visible, and they precede the headings in the DOM.
+  await expect(page.getByRole("heading", { name: /^breakfast$/i })).toBeVisible();
 });
 
 test("the theme can be set to light, dark or system and survives navigation", async ({ page }) => {
