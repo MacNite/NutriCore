@@ -98,24 +98,32 @@ export class OpenFoodFactsProvider implements FoodProvider {
     private baseUrl = process.env.OPENFOODFACTS_BASE_URL ?? "https://world.openfoodfacts.org",
     private userAgent = process.env.OPENFOODFACTS_USER_AGENT ?? "NutriCore/0.1 (self-hosted)",
     public readonly enabled = (process.env.OPENFOODFACTS_ENABLED ?? "true") !== "false",
-    private timeoutMs = 8000,
+    private barcodeTimeoutMs = 8000,
+    private searchTimeoutMs = 15_000,
   ) {}
 
-  private async request(path: string): Promise<unknown> {
+  private async request(path: string, timeoutMs: number): Promise<unknown> {
     let response: Response;
     try {
       response = await fetch(`${this.baseUrl}${path}`, {
         headers: { "User-Agent": this.userAgent, Accept: "application/json" },
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (cause) {
-      throw new ProviderUnavailableError(this.name, "Open Food Facts is unreachable", cause);
+      const name = cause instanceof Error ? cause.name : "";
+      const reason = name === "AbortError" || name === "TimeoutError" ? "TIMEOUT" : "UNAVAILABLE";
+      throw new ProviderUnavailableError(this.name, "Open Food Facts is unreachable", cause, reason);
     }
 
     // A missing product is a normal answer, not an outage.
     if (response.status === 404) return null;
     if (!response.ok) {
-      throw new ProviderUnavailableError(this.name, `Open Food Facts responded with ${response.status}`);
+      throw new ProviderUnavailableError(
+        this.name,
+        `Open Food Facts responded with ${response.status}`,
+        undefined,
+        response.status === 429 ? "RATE_LIMITED" : "UNAVAILABLE",
+      );
     }
 
     try {
@@ -191,14 +199,14 @@ export class OpenFoodFactsProvider implements FoodProvider {
   async getByBarcode(barcode: string): Promise<NormalizedFood | null> {
     const code = barcode.trim();
     if (!isBarcode(code)) return null;
-    const data = (await this.request(`/api/v2/product/${code}.json?fields=${FIELDS}`)) as
+    const data = (await this.request(`/api/v2/product/${code}.json?fields=${FIELDS}`, this.barcodeTimeoutMs)) as
       | { status?: number; product?: Record<string, unknown> }
       | null;
     if (!data || data.status !== 1 || !data.product) return null;
     return this.normalizeProduct(data.product);
   }
 
-  async search(query: string, options: { limit?: number } = {}): Promise<NormalizedFood[]> {
+  async search(query: string, options: { limit?: number; locale?: string } = {}): Promise<NormalizedFood[]> {
     const trimmed = query.trim();
     if (trimmed.length < 3) return [];
 
@@ -207,12 +215,21 @@ export class OpenFoodFactsProvider implements FoodProvider {
     // returned nothing for ordinary product searches.
     const params = new URLSearchParams({
       search_terms: trimmed,
+      search_simple: "1",
+      action: "process",
+      sort_by: "unique_scans_n",
       fields: FIELDS,
-      page_size: String(Math.min(options.limit ?? 10, 25)),
+      page_size: String(Math.min(options.limit ?? 10, 50)),
       json: "1",
     });
+    if (options.locale) {
+      params.set("lc", options.locale);
+      params.set("cc", options.locale);
+    }
 
-    const data = (await this.request(`/cgi/search.pl?${params}`)) as { products?: Record<string, unknown>[] } | null;
+    const data = (await this.request(`/cgi/search.pl?${params}`, this.searchTimeoutMs)) as
+      | { products?: Record<string, unknown>[] }
+      | null;
     return (data?.products ?? [])
       .map((product) => this.normalizeProduct(product))
       .filter((food): food is NormalizedFood => food !== null && normalizeName(food.name).length > 0);

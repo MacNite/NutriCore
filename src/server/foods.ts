@@ -3,7 +3,12 @@ import { prisma } from "@/lib/db";
 import { normalizeName } from "@/lib/units";
 import { SOURCE_TRUST, completeness, rankFood, textSimilarity } from "@/lib/ranking";
 import { OpenFoodFactsProvider } from "@/providers/open-food-facts";
-import { ProviderUnavailableError, isBarcode, type NormalizedFood } from "@/providers/food";
+import {
+  ProviderUnavailableError,
+  isBarcode,
+  type NormalizedFood,
+  type ProviderFailureReason,
+} from "@/providers/food";
 import { logger } from "@/lib/logger";
 import type { Locale } from "@/i18n/locales";
 
@@ -92,7 +97,7 @@ export interface SearchOutcome {
   results: FoodResult[];
   barcode: string | null;
   remoteAttempted: boolean;
-  providerError: string | null;
+  providerError: { provider: string; reason: ProviderFailureReason } | null;
   suggestResearch: boolean;
 }
 
@@ -154,7 +159,7 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
   const strongLocal = scored.some((r) => r.score >= 600);
   const shouldGoRemote = options.includeRemote !== false && !strongLocal && (barcode !== null || query.length >= 3);
 
-  let providerError: string | null = null;
+  let providerError: SearchOutcome["providerError"] = null;
   let remoteAttempted = false;
 
   if (shouldGoRemote) {
@@ -168,8 +173,11 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
       scored.sort((a, b) => b.score - a.score);
     } catch (error) {
       // An outage degrades the result list; it never fails the request.
-      providerError = error instanceof ProviderUnavailableError ? error.provider : "UNKNOWN";
-      logger.warn("Remote food provider failed", { provider: providerError });
+      providerError =
+        error instanceof ProviderUnavailableError
+          ? { provider: error.provider, reason: error.reason }
+          : { provider: "UNKNOWN", reason: "UNAVAILABLE" };
+      logger.warn("Remote food provider failed", providerError);
     }
   }
 
@@ -206,7 +214,7 @@ async function findLocalCandidates(userId: string, normalized: string, barcode: 
  * Queries the cache first, then the provider, and writes what it learns back
  * into the local store so the next search is instant.
  */
-async function fetchRemote(query: string, barcode: string | null, locale: Locale): Promise<FoodResult[]> {
+export async function fetchRemote(query: string, barcode: string | null, locale: Locale): Promise<FoodResult[]> {
   const provider = new OpenFoodFactsProvider();
   if (!provider.enabled) return [];
 
@@ -235,8 +243,9 @@ async function fetchRemote(query: string, barcode: string | null, locale: Locale
       provenance: { ...p.provenance, retrievedAt: new Date(p.provenance.retrievedAt) },
     }));
   } else {
-    products = await provider.search(query, { limit: 10 });
-    await prisma.searchQueryCache.upsert({
+    products = await provider.search(query, { limit: 25, locale });
+    // Empty answers may be transient at OFF; leaving them uncached makes retry useful.
+    if (products.length > 0) await prisma.searchQueryCache.upsert({
       where: { provider_queryKey: { provider: provider.name, queryKey: cacheKey } },
       create: {
         provider: provider.name,

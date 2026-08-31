@@ -181,6 +181,8 @@
     "searching": "Searching…",
     "barcodeNotFound": "No product found for barcode {barcode}.",
     "providerUnavailable": "{provider} is currently unreachable. Local results are still shown.",
+    "providerRateLimited": "{provider} is receiving too many requests right now. The results may be incomplete. Please try again shortly.",
+    "providerTimeout": "The search at {provider} took too long. The results may be incomplete. Please try again.",
     "perBasis": "per {amount} {unit}",
     "servingLabel": "Serving",
     "source": {

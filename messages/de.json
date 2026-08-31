@@ -181,6 +181,8 @@
     "searching": "Suche läuft…",
     "barcodeNotFound": "Kein Produkt zum Barcode {barcode} gefunden.",
     "providerUnavailable": "{provider} ist derzeit nicht erreichbar. Lokale Treffer werden weiterhin angezeigt.",
+    "providerRateLimited": "{provider} erhält gerade zu viele Anfragen. Die Trefferliste kann unvollständig sein. Versuch es bitte gleich noch einmal.",
+    "providerTimeout": "Die Suche bei {provider} hat zu lange gedauert. Die Trefferliste kann unvollständig sein. Versuch es bitte noch einmal.",
     "perBasis": "je {amount} {unit}",
     "servingLabel": "Portion",
     "source": {

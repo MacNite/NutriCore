@@ -29,11 +29,14 @@ export const normalizedFoodSchema = z.object({
 
 export type NormalizedFood = z.infer<typeof normalizedFoodSchema>;
 
+export type ProviderFailureReason = "RATE_LIMITED" | "TIMEOUT" | "UNAVAILABLE";
+
 export class ProviderUnavailableError extends Error {
   constructor(
     public readonly provider: string,
     message: string,
     public readonly cause?: unknown,
+    public readonly reason: ProviderFailureReason = "UNAVAILABLE",
   ) {
     super(message);
     this.name = "ProviderUnavailableError";
