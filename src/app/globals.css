@@ -557,6 +557,43 @@ legend {
 
 /* ---------------------------------------------------------- Micronutrients */
 
+.micro-panel-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.micro-panel-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.card .micro-panel-toggle h2 {
+  margin: 0;
+}
+
+.micro-panel-chevron {
+  width: 12px;
+  height: 12px;
+  margin: 0 5px 5px 0;
+  border-right: 3px solid var(--accent);
+  border-bottom: 3px solid var(--accent);
+  transform: rotate(45deg);
+  transition: transform 160ms ease, margin 160ms ease;
+}
+
+.micro-panel:not([open]) .micro-panel-chevron {
+  margin-top: 6px;
+  margin-bottom: 0;
+  transform: rotate(-135deg);
+}
+
+.micro-panel-content {
+  margin-top: 14px;
+}
+
 .micro-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -596,6 +633,33 @@ legend {
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 500;
+}
+
+.micro-indicator {
+  display: block;
+  width: 100%;
+  height: 5px;
+  margin-top: 8px;
+  overflow: hidden;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.micro-indicator::-webkit-progress-bar {
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.micro-indicator::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.micro-indicator::-moz-progress-bar {
+  border-radius: 999px;
+  background: var(--accent);
 }
 
 .micro-coverage {

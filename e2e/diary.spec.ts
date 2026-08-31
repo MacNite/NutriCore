@@ -29,6 +29,7 @@ test("a user can create a custom food, log it and edit the portion", async ({ pa
   await page.goto("/diary");
   await expect(page.getByText("Testbrot").first()).toBeVisible();
   await expect(page.getByText(/500 kcal/).first()).toBeVisible();
+  await expect(page.locator(".micro-indicator").first()).toBeVisible();
 
   // Editing the amount rescales the entry.
   await page.getByRole("button", { name: /edit|bearbeiten/i }).first().click();
@@ -75,4 +76,16 @@ test("the diary can navigate between days", async ({ page }) => {
 
   await page.getByRole("link", { name: /next day|nächster tag/i }).click();
   await expect(heading).toHaveText(today ?? "");
+});
+
+test("the micronutrient panel can be collapsed", async ({ page }) => {
+  await page.goto("/diary");
+
+  const panel = page.locator("details.micro-panel");
+  await expect(panel).toHaveAttribute("open", "");
+  await expect(panel.getByRole("heading", { name: /micronutrients|mikronährstoffe/i })).toBeVisible();
+
+  await panel.locator("summary").click();
+  await expect(panel).not.toHaveAttribute("open", "");
+  await expect(panel.locator(".micro-grid")).not.toBeVisible();
 });
