@@ -45,7 +45,7 @@ export function FoodSearch({
   locale: Locale;
   autoFocus?: boolean;
   researchAvailable: boolean;
-  researchUnavailableReason?: "USER_DISABLED" | "SERVER_DISABLED" | "AI_DISABLED";
+  researchUnavailableReason?: "SERVER_DISABLED" | "AI_DISABLED";
 }) {
   const t = useTranslations("foods");
   const errors = useTranslations("errors");
