@@ -1,23 +1,121 @@
 "use server";
+
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import { requireUser } from "./session";
+import { addDiaryEntry, formatDateKey } from "./diary";
 import { checkUrl } from "@/lib/url-guard";
 import { validDateKey } from "@/lib/date";
+import { partitionComponents, type AcceptedOutcome, type ProposedComponent } from "./ai-types";
 
-export async function queueMealInputAction(formData:FormData){
-  const user=await requireUser(); const parsed=z.object({text:z.string().trim().min(2).max(2000),sourceUrl:z.string().trim().max(500).optional(),meal:z.enum(["BREAKFAST","LUNCH","DINNER","SNACKS"]),date:z.string()}).parse(Object.fromEntries(formData));
-  if(parsed.sourceUrl){const safe=await checkUrl(parsed.sourceUrl);if(!safe.ok)redirect(`/research/new?error=unsafeUrl`);}
-  const input=await prisma.mealInput.create({data:{userId:user.id,text:parsed.text,sourceUrl:parsed.sourceUrl||null,meal:parsed.meal,diaryDate:new Date(`${validDateKey(parsed.date)}T00:00:00.000Z`)}});
-  await prisma.aiJob.create({data:{userId:user.id,entityType:"MEAL_INPUT",entityId:input.id,mealInputId:input.id,model:process.env.AI_MODEL??process.env.OLLAMA_MODEL??"qwen3.5:4b"}});
+export async function queueMealInputAction(formData: FormData) {
+  const user = await requireUser();
+  const parsed = z
+    .object({
+      text: z.string().trim().min(2).max(2000),
+      sourceUrl: z.string().trim().max(500).optional(),
+      meal: z.enum(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"]),
+      date: z.string(),
+    })
+    .parse(Object.fromEntries(formData));
+
+  const date = validDateKey(parsed.date);
+
+  if (parsed.sourceUrl) {
+    const safe = await checkUrl(parsed.sourceUrl);
+    // Back to where the form was submitted from, not to an unrelated feature.
+    if (!safe.ok) redirect(`/diary?date=${date}&error=unsafeUrl`);
+  }
+
+  const input = await prisma.mealInput.create({
+    data: {
+      userId: user.id,
+      text: parsed.text,
+      sourceUrl: parsed.sourceUrl || null,
+      meal: parsed.meal,
+      diaryDate: new Date(`${date}T00:00:00.000Z`),
+    },
+  });
+  await prisma.aiJob.create({
+    data: {
+      userId: user.id,
+      entityType: "MEAL_INPUT",
+      entityId: input.id,
+      mealInputId: input.id,
+      model: process.env.AI_MODEL ?? process.env.OLLAMA_MODEL ?? "qwen3.5:4b",
+    },
+  });
   redirect(`/ai-review/${input.id}?queued=1`);
 }
 
-export async function reviewAiProposalAction(formData:FormData){
-  const user=await requireUser();const id=String(formData.get("proposalId"));const decision=String(formData.get("decision"));
-  const proposal=await prisma.aiProposal.findFirst({where:{id,job:{userId:user.id}},include:{job:true}});if(!proposal||proposal.approvalStatus!=="PENDING")throw new Error("Proposal is not awaiting review");
-  await prisma.aiProposal.update({where:{id},data:{approvalStatus:decision==="accept"?"ACCEPTED":"REJECTED",accepted:decision==="accept"?proposal.proposed as Prisma.InputJsonValue:Prisma.JsonNull,reviewedAt:new Date()}});
+/**
+ * Approving a proposal is what finally writes to the diary. Only components the
+ * worker matched to a food the user can see are logged, and each one goes
+ * through `addDiaryEntry`, so it freezes a nutrition snapshot exactly like a
+ * manually logged entry. Everything else is reported back as skipped rather
+ * than guessed at.
+ */
+export async function reviewAiProposalAction(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("proposalId"));
+  const decision = String(formData.get("decision"));
+
+  const proposal = await prisma.aiProposal.findFirst({
+    where: { id, job: { userId: user.id } },
+    include: { job: { include: { mealInput: true } } },
+  });
+  if (!proposal || proposal.approvalStatus !== "PENDING") throw new Error("Proposal is not awaiting review");
+
+  if (decision !== "accept") {
+    await prisma.aiProposal.update({
+      where: { id },
+      data: { approvalStatus: "REJECTED", accepted: Prisma.DbNull, reviewedAt: new Date() },
+    });
+    redirect(`/ai-review/${proposal.job.entityId}`);
+  }
+
+  const mealInput = proposal.job.mealInput;
+  if (!mealInput) throw new Error("Proposal has no meal to log against");
+
+  const components = (proposal.proposed as { components?: ProposedComponent[] }).components ?? [];
+  const { loggable, skipped } = partitionComponents(components);
+  const date = formatDateKey(mealInput.diaryDate);
+  const logged: string[] = [];
+
+  for (const component of loggable) {
+    try {
+      await addDiaryEntry({
+        userId: user.id,
+        date,
+        meal: mealInput.meal,
+        foodId: component.canonicalFoodId!,
+        quantity: component.estimatedGrams!,
+        unit: "g",
+      });
+      logged.push(component.name);
+    } catch (error) {
+      // A food deleted since the proposal was made, or a portion that cannot be
+      // resolved, is a skip and not a failed approval.
+      logger.warn("Could not log an approved AI component", {
+        proposalId: id,
+        reason: error instanceof Error ? error.message : "unknown",
+      });
+      skipped.push(component.name);
+    }
+  }
+
+  const outcome: AcceptedOutcome = { logged, skipped, acceptedAt: new Date().toISOString() };
+  await prisma.aiProposal.update({
+    where: { id },
+    data: {
+      approvalStatus: "ACCEPTED",
+      accepted: outcome as unknown as Prisma.InputJsonValue,
+      reviewedAt: new Date(),
+    },
+  });
+
   redirect(`/ai-review/${proposal.job.entityId}`);
 }

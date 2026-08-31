@@ -18,7 +18,7 @@ export async function generateMetadata() {
   return { title: t("title") };
 }
 
-export default async function DiaryPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+export default async function DiaryPage({ searchParams }: { searchParams: Promise<{ date?: string; error?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
@@ -94,9 +94,41 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
         </div>
       </section>
 
-      <section className="card" style={{ marginBottom: 20 }}>
-        <div className="card-head"><div><h2>Quick meal with AI</h2><p className="muted" style={{margin:0}}>Saved immediately; enrichment runs in the worker.</p></div><span className="ai-badge">AI</span></div>
-        <form action={queueMealInputAction}><input type="hidden" name="date" value={date}/><div className="field"><label htmlFor="mealText">Describe your meal</label><textarea id="mealText" name="text" required maxLength={2000} placeholder="2 slices rye bread with butter, 2 fried eggs and 1 banana"/></div><div className="field"><label htmlFor="sourceUrl">Recipe URL (optional)</label><input id="sourceUrl" name="sourceUrl" type="url" placeholder="https://…"/></div><div className="field"><label htmlFor="mealType">Meal</label><select id="mealType" name="meal">{MEALS.map(m=><option value={m} key={m}>{t(`meals.${m}`)}</option>)}</select></div><button className="btn btn-primary">Save and queue enrichment</button></form>
+      <section className="card" style={{ marginBottom: 20 }} aria-labelledby="quick-meal-heading">
+        <div className="card-head">
+          <div>
+            <h2 id="quick-meal-heading">{t("ai.title")}</h2>
+            <p className="muted" style={{ margin: 0 }}>
+              {t("ai.hint")}
+            </p>
+          </div>
+          <span className="ai-badge">AI</span>
+        </div>
+
+        {params.error === "unsafeUrl" ? <div className="notice notice-warn">{t("ai.unsafeUrl")}</div> : null}
+
+        <form action={queueMealInputAction}>
+          <input type="hidden" name="date" value={date} />
+          <div className="field">
+            <label htmlFor="mealText">{t("ai.describe")}</label>
+            <textarea id="mealText" name="text" required maxLength={2000} placeholder={t("ai.placeholder")} />
+          </div>
+          <div className="field">
+            <label htmlFor="sourceUrl">{t("ai.sourceUrl")}</label>
+            <input id="sourceUrl" name="sourceUrl" type="url" placeholder="https://…" />
+          </div>
+          <div className="field">
+            <label htmlFor="mealType">{t("ai.meal")}</label>
+            <select id="mealType" name="meal">
+              {MEALS.map((m) => (
+                <option value={m} key={m}>
+                  {t(`meals.${m}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="btn btn-primary">{t("ai.submit")}</button>
+        </form>
       </section>
 
       <details className="card micro-panel" style={{ marginBottom: 20 }} open>

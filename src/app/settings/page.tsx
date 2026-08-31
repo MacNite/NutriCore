@@ -78,6 +78,18 @@ export default async function SettingsPage() {
             </div>
           </section>
 
+          {user.role === "ADMIN" ? (
+            <section className="card">
+              <h2>{t("administration")}</h2>
+              <p className="muted" style={{ marginTop: 0, fontSize: 13.5 }}>
+                {t("administrationHint")}
+              </p>
+              <Link className="btn btn-block" href="/admin">
+                {t("administration")}
+              </Link>
+            </section>
+          ) : null}
+
           <section className="card">
             <h2>{t("providers")}</h2>
             <p className="muted" style={{ marginTop: 0, fontSize: 13.5 }}>
