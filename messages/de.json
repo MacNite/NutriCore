@@ -173,7 +173,9 @@
   "foods": {
     "title": "Lebensmittel",
     "searchPlaceholder": "Lebensmittel suchen oder Barcode eingeben",
-    "searchHint": "Lokale Treffer erscheinen sofort. Externe Datenbanken werden nur bei Bedarf abgefragt.",
+    "searchHint": "Lokale Treffer und zuletzt verwendete Lebensmittel erscheinen sofort.",
+    "recentlyUsed": "Zuletzt verwendet",
+    "searchOpenFoodFacts": "Open Food Facts durchsuchen",
     "noResults": "Kein passendes Lebensmittel gefunden.",
     "noResultsHint": "Du kannst das Lebensmittel selbst anlegen oder eine KI-Recherche starten.",
     "createCustom": "Lebensmittel anlegen",

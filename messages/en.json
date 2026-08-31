@@ -173,7 +173,9 @@
   "foods": {
     "title": "Foods",
     "searchPlaceholder": "Search food or enter a barcode",
-    "searchHint": "Local results appear instantly. External databases are only queried when needed.",
+    "searchHint": "Local results and recently used foods appear instantly.",
+    "recentlyUsed": "Recently used",
+    "searchOpenFoodFacts": "Search Open Food Facts",
     "noResults": "No matching food found.",
     "noResultsHint": "You can create the food yourself or start an AI research request.",
     "createCustom": "Create food",

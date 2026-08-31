@@ -51,20 +51,15 @@ export function FoodSearch({
   const controller = useRef<AbortController | null>(null);
 
   const run = useCallback(
-    async (value: string) => {
+    async (value: string, remote = false) => {
       controller.current?.abort();
-      if (value.trim().length === 0) {
-        setOutcome(null);
-        setLoading(false);
-        return;
-      }
 
       const next = new AbortController();
       controller.current = next;
       setLoading(true);
 
       try {
-        const params = new URLSearchParams({ q: value, meal });
+        const params = new URLSearchParams({ q: value, meal, remote: remote ? "1" : "0" });
         const response = await fetch(`/api/foods/search?${params}`, { signal: next.signal });
         if (!response.ok) throw new Error(String(response.status));
         setOutcome((await response.json()) as Outcome);
@@ -85,7 +80,7 @@ export function FoodSearch({
     [meal],
   );
 
-  // Debounced so a remote provider is never hit on every keystroke.
+  // Autocomplete is PostgreSQL-only. OFF is contacted solely by the button.
   useEffect(() => {
     const timer = setTimeout(() => void run(query), DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -150,6 +145,7 @@ export function FoodSearch({
       ) : null}
 
       <section className="card">
+        {query.trim().length === 0 && outcome?.results.length ? <h2>{t("recentlyUsed")}</h2> : null}
         {!outcome || outcome.results.length === 0 ? (
           <div className="empty">
             {query.trim().length === 0 ? (
@@ -169,6 +165,9 @@ export function FoodSearch({
                 <Link className="btn btn-primary" href={`/foods/new?meal=${meal}&date=${date}&name=${encodeURIComponent(query)}`}>
                   {t("createCustom")}
                 </Link>
+                <button className="btn" type="button" disabled={loading} onClick={() => void run(query, true)} style={{ marginLeft: 8 }}>
+                  {t("searchOpenFoodFacts")}
+                </button>
               </>
             )}
           </div>
@@ -198,6 +197,11 @@ export function FoodSearch({
           ))
         )}
       </section>
+      {query.trim().length > 0 && outcome?.results.length ? (
+        <button className="btn" type="button" disabled={loading} onClick={() => void run(query, true)} style={{ marginTop: 16 }}>
+          {t("searchOpenFoodFacts")}
+        </button>
+      ) : null}
     </>
   );
 }
