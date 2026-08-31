@@ -33,6 +33,8 @@ COPY --from=build --chown=nutricore:nutricore /app/.next/standalone ./
 COPY --from=build --chown=nutricore:nutricore /app/.next/static ./.next/static
 COPY --from=build --chown=nutricore:nutricore /app/public ./public
 COPY --from=build --chown=nutricore:nutricore /app/prisma ./prisma
+COPY --from=build --chown=nutricore:nutricore /app/src ./src
+COPY --from=build --chown=nutricore:nutricore /app/tsconfig.json ./tsconfig.json
 # Overlay the complete production dependency tree. Prisma's CLI loads
 # transitive packages such as `effect` from the top-level node_modules folder
 # while applying migrations, so selectively copying only its scoped packages

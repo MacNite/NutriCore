@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "worker": "tsx src/worker.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -37,7 +38,6 @@
     "eslint": "9.35.0",
     "eslint-config-next": "^15.5.24",
     "prisma": "6.15.0",
-    "tsx": "4.20.5",
     "typescript": "5.9.2",
     "vitest": "3.2.4"
   },

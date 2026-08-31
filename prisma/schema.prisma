@@ -76,24 +76,116 @@ enum ResearchStatus {
   FAILED
 }
 
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  username     String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+enum UserRole {
+  USER
+  ADMIN
+}
 
-  profile   UserProfile?
-  sessions  Session[]
-  targets   NutritionTarget[]
-  weights   WeightEntry[]
-  foods     Food[]
-  recipes   Recipe[]
-  diaryDays DiaryDay[]
-  favorites Favorite[]
-  usage     FoodUsageStats[]
-  research  ResearchJob[]
+enum AiJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum AiApprovalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  username           String   @unique
+  passwordHash       String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  role               UserRole @default(USER)
+  active             Boolean  @default(true)
+  mustChangePassword Boolean  @default(false)
+
+  profile         UserProfile?
+  sessions        Session[]
+  targets         NutritionTarget[]
+  weights         WeightEntry[]
+  foods           Food[]
+  recipes         Recipe[]
+  diaryDays       DiaryDay[]
+  favorites       Favorite[]
+  usage           FoodUsageStats[]
+  research        ResearchJob[]
+  invitationsSent UserInvitation[]  @relation("InvitationSender")
+  aiJobs          AiJob[]
+  mealInputs      MealInput[]
+}
+
+model UserInvitation {
+  id          String    @id @default(cuid())
+  email       String
+  name        String?
+  role        UserRole  @default(USER)
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  invitedById String
+  createdAt   DateTime  @default(now())
+  invitedBy   User      @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([email, createdAt])
+  @@index([expiresAt])
+}
+
+model MealInput {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  sourceUrl String?
+  meal      MealType
+  diaryDate DateTime @db.Date
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiJobs    AiJob[]
+
+  @@index([userId, createdAt])
+}
+
+model AiJob {
+  id           String      @id @default(cuid())
+  userId       String
+  entityType   String
+  entityId     String
+  mealInputId  String?
+  status       AiJobStatus @default(QUEUED)
+  retryCount   Int         @default(0)
+  maxRetries   Int         @default(2)
+  model        String?
+  errorMessage String?
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  failedAt     DateTime?
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mealInput    MealInput?  @relation(fields: [mealInputId], references: [id], onDelete: Cascade)
+  proposal     AiProposal?
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+model AiProposal {
+  id             String           @id @default(cuid())
+  jobId          String           @unique
+  approvalStatus AiApprovalStatus @default(PENDING)
+  confidence     String
+  proposed       Json
+  accepted       Json?
+  provenance     Json
+  reviewedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  job            AiJob            @relation(fields: [jobId], references: [id], onDelete: Cascade)
 }
 
 model Session {
@@ -109,26 +201,26 @@ model Session {
 }
 
 model UserProfile {
-  id              String         @id @default(cuid())
-  userId          String         @unique
+  id              String        @id @default(cuid())
+  userId          String        @unique
   displayName     String
-  language        Locale         @default(de)
-  unitPreference  String         @default("metric")
-  birthDate       DateTime?      @db.Date
-  heightCm        Decimal?       @db.Decimal(6, 2)
-  weightKg        Decimal?       @db.Decimal(6, 2)
-  biologicalSex   BiologicalSex  @default(UNSPECIFIED)
-  activityLevel   ActivityLevel  @default(MODERATE)
-  goal            Goal           @default(MAINTAIN)
-  targetWeightKg  Decimal?       @db.Decimal(6, 2)
-  isPregnant      Boolean        @default(false)
-  isBreastfeeding Boolean        @default(false)
-  aiEnabled       Boolean        @default(true)
-  researchEnabled Boolean        @default(false)
-  theme           String         @default("system")
+  language        Locale        @default(de)
+  unitPreference  String        @default("metric")
+  birthDate       DateTime?     @db.Date
+  heightCm        Decimal?      @db.Decimal(6, 2)
+  weightKg        Decimal?      @db.Decimal(6, 2)
+  biologicalSex   BiologicalSex @default(UNSPECIFIED)
+  activityLevel   ActivityLevel @default(MODERATE)
+  goal            Goal          @default(MAINTAIN)
+  targetWeightKg  Decimal?      @db.Decimal(6, 2)
+  isPregnant      Boolean       @default(false)
+  isBreastfeeding Boolean       @default(false)
+  aiEnabled       Boolean       @default(true)
+  researchEnabled Boolean       @default(false)
+  theme           String        @default("system")
   onboardedAt     DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -171,13 +263,13 @@ model WeightEntry {
 
 /// Canonical nutrient catalogue. New nutrients are rows, not migrations.
 model NutrientDefinition {
-  id            String  @id @default(cuid())
-  key           String  @unique
+  id            String @id @default(cuid())
+  key           String @unique
   nameDe        String
   nameEn        String
   canonicalUnit String
-  category      String  @default("micro")
-  sortOrder     Int     @default(1000)
+  category      String @default("micro")
+  sortOrder     Int    @default(1000)
 
   values FoodNutrient[]
 }
@@ -304,14 +396,14 @@ model Recipe {
 }
 
 model RecipeSource {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   recipeId    String
   title       String?
   url         String
   provider    String?
   retrievedAt DateTime?
   metadata    Json?
-  recipe      Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipe      Recipe    @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@index([recipeId])
 }
@@ -450,7 +542,7 @@ model ResearchJob {
 }
 
 model ResearchSource {
-  id      String  @id @default(cuid())
+  id      String      @id @default(cuid())
   jobId   String
   title   String
   url     String
@@ -461,10 +553,10 @@ model ResearchSource {
 }
 
 model ResearchCandidate {
-  id         String    @id @default(cuid())
+  id         String      @id @default(cuid())
   jobId      String
   payload    Json
-  confidence Decimal   @db.Decimal(4, 3)
+  confidence Decimal     @db.Decimal(4, 3)
   acceptedAt DateTime?
   job        ResearchJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 

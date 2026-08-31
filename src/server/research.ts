@@ -53,7 +53,7 @@ async function transition(id: string, userId: string, to: ResearchStatus, data: 
   return prisma.researchJob.update({ where: { id }, data: { ...data, status: to } });
 }
 
-async function fetchResearchSource(raw: string) {
+export async function fetchResearchSource(raw: string) {
   let current = raw;
   for (let redirects = 0; redirects <= MAX_RESEARCH_REDIRECTS; redirects++) {
     const checked = await checkUrl(current);

@@ -90,7 +90,9 @@ docker compose up -d
 ```
 
 Open <http://localhost:3000> and create the first account. Health is at
-`/api/health`. No demo account is ever created automatically.
+`/api/health`. The first registered account becomes the administrator; later
+accounts should normally be invited from `/admin`. No demo account is ever
+created automatically.
 
 ### Prebuilt image or local build
 
@@ -153,7 +155,10 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `OPENFOODFACTS_USER_AGENT` | recommended | App name plus a real contact address, e.g. `NutriCore/0.1 (you@example.com)`. OFF answers 403 to callers it cannot identify; `/settings/diagnostics` flags a placeholder value |
 | `OPENFOODFACTS_SEARCH_URL` | no | Search-a-licious service; default `https://search.openfoodfacts.org` |
 | `OPENFOODFACTS_SEARCH_BACKEND` | no | `search-a-licious` (default) or `legacy` to pin `/cgi/search.pl` |
-| `AI_ENABLED` / `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | no | See below |
+| `AI_ENABLED` / `AI_BASE_URL` / `AI_MODEL` | no | Local structured-output model; defaults to `qwen3.5:4b` |
+| `AI_FALLBACK_MODEL` / `AI_CONFIDENCE_THRESHOLD` | no | Future low-confidence fallback policy; fallback is not called for every job |
+| `SEARXNG_URL` / `SEARXNG_TIMEOUT_MS` | no | JSON source discovery used only after local foods miss |
+| `INVITATION_EXPIRY_HOURS` | no | Single-use invitation lifetime; default 48 hours |
 | `OLLAMA_TIMEOUT_SECONDS` | no | Model generation timeout; default `600` seconds |
 | `USDA_ENABLED` / `USDA_API_KEY` | no | Phase 2 |
 | `RESEARCH_ENABLED` | no | Default `false`; only enables web sources for AI research |
@@ -163,23 +168,37 @@ All variables are documented inline in [`.env.example`](.env.example).
 Start-up fails fast with a clear message if a required variable is missing or
 invalid. Secrets are read from the environment only and are redacted from logs.
 
-### Ollama and DeepSeek
+### Asynchronous AI worker, Ollama, and SearXNG
 
 Ollama is **not** started by this compose stack — it already runs elsewhere on
 your network. NutriCore only stores the connection details:
 
 ```env
 AI_ENABLED=true
-OLLAMA_BASE_URL=http://ollama:11434
-OLLAMA_MODEL=deepseek-r1
+AI_BASE_URL=http://ollama:11434
+AI_MODEL=qwen3.5:4b
+SEARXNG_URL=http://searxng:8080
 OLLAMA_TIMEOUT_SECONDS=600
 ```
 
 **Models are pulled on the Ollama host, never by NutriCore:**
 
 ```sh
-ollama pull deepseek-r1
+ollama pull qwen3.5:4b
 ```
+
+Run the application and worker separately in development:
+
+```sh
+npm run dev
+npm run worker
+```
+
+Compose starts both `app` and `worker`. SearXNG is intentionally not bundled:
+point `SEARXNG_URL` at the operator's existing instance with JSON output enabled.
+Saving a free-text meal only inserts `MealInput` and `AiJob`; it never waits for
+Ollama or SearXNG. The worker performs local canonical matching first, uses
+SearXNG only for source discovery, and stores a pending human-review proposal.
 
 `OLLAMA_MODEL` selects one model, by name, from those already installed there.
 There is no list of models in the compose file because NutriCore neither
