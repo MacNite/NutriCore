@@ -20,8 +20,10 @@ test("a user can create a custom food, log it and edit the portion", async ({ pa
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Testbrot");
 
   await page.getByLabel(/^amount$|^menge$/i).fill("200");
+  await page.getByLabel(/^move to$|^verschieben nach$/i).selectOption("DINNER");
   await page.getByRole("button", { name: /breakfast|lunch|dinner|snacks|frühstück|mittagessen|abendessen|snacks/i }).click();
-  await expect(page.getByRole("status")).toContainText(/added|hinzugefügt/i);
+  await page.waitForURL(/\/foods\?meal=DINNER&date=\d{4}-\d{2}-\d{2}$/);
+  await expect(page.getByRole("heading", { level: 1, name: /^foods$|^lebensmittel$/i })).toBeVisible();
 
   // 200 g of a 250 kcal/100 g food is 500 kcal.
   await page.goto("/diary");
@@ -57,7 +59,7 @@ test("a logged entry keeps its own values when the food changes later", async ({
 
   await page.getByLabel(/^amount$|^menge$/i).fill("100");
   await page.getByRole("button", { name: /breakfast|lunch|dinner|snacks|frühstück|mittagessen|abendessen/i }).click();
-  await expect(page.getByRole("status")).toBeVisible();
+  await page.waitForURL(/\/foods\?meal=SNACKS&date=\d{4}-\d{2}-\d{2}$/);
 
   await page.goto("/diary");
   await expect(page.getByText(/100 kcal/).first()).toBeVisible();
