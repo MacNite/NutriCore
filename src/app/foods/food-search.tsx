@@ -24,7 +24,8 @@ interface Outcome {
   barcode: string | null;
   providerError: {
     provider: string;
-    reason: "RATE_LIMITED" | "TIMEOUT" | "UNAVAILABLE";
+    reason: "RATE_LIMITED" | "TIMEOUT" | "NETWORK" | "HTTP_ERROR" | "UNAVAILABLE";
+    retryAfterSeconds?: number;
   } | null;
   suggestResearch: boolean;
 }
@@ -36,11 +37,15 @@ export function FoodSearch({
   date,
   locale,
   autoFocus,
+  researchAvailable,
+  researchUnavailableReason,
 }: {
   meal: string;
   date: string;
   locale: Locale;
   autoFocus?: boolean;
+  researchAvailable: boolean;
+  researchUnavailableReason?: "USER_DISABLED" | "SERVER_DISABLED" | "AI_DISABLED";
 }) {
   const t = useTranslations("foods");
   const errors = useTranslations("errors");
@@ -59,9 +64,20 @@ export function FoodSearch({
       setLoading(true);
 
       try {
-        const params = new URLSearchParams({ q: value, meal, remote: remote ? "1" : "0" });
+        const barcode = /^\d{8}$|^\d{12,14}$/.test(value.trim());
+        const params = new URLSearchParams({ q: value, meal, remote: remote || barcode ? "1" : "0" });
         const response = await fetch(`/api/foods/search?${params}`, { signal: next.signal });
-        if (!response.ok) throw new Error(String(response.status));
+        if (!response.ok) {
+          if (response.status === 429) {
+            const retryAfterSeconds = Number(response.headers.get("Retry-After")) || undefined;
+            setOutcome((current) => ({
+              results: current?.results ?? [], barcode: current?.barcode ?? null, suggestResearch: current?.suggestResearch ?? true,
+              providerError: { provider: "NUTRICORE", reason: "RATE_LIMITED", retryAfterSeconds },
+            }));
+            return;
+          }
+          throw new Error(String(response.status));
+        }
         setOutcome((await response.json()) as Outcome);
       } catch (error) {
         // An aborted request is the normal result of typing another character.
@@ -80,7 +96,8 @@ export function FoodSearch({
     [meal],
   );
 
-  // Autocomplete is PostgreSQL-only. OFF is contacted solely by the button.
+  // Autocomplete is PostgreSQL-only: OFF is contacted by the button, or by a
+  // complete barcode as one discrete remote lookup.
   useEffect(() => {
     const timer = setTimeout(() => void run(query), DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -91,8 +108,11 @@ export function FoodSearch({
   const providerErrorMessage = useCallback(
     (error: NonNullable<Outcome["providerError"]>) => {
       const provider = error.provider === "OPEN_FOOD_FACTS" ? "Open Food Facts" : error.provider;
-      if (error.reason === "RATE_LIMITED") return t("providerRateLimited", { provider });
+      if (error.reason === "RATE_LIMITED") return error.retryAfterSeconds
+        ? t("providerRateLimitedRetry", { provider, seconds: error.retryAfterSeconds })
+        : t("providerRateLimited", { provider });
       if (error.reason === "TIMEOUT") return t("providerTimeout", { provider });
+      if (error.reason === "HTTP_ERROR") return t("providerHttpError", { provider });
       return t("providerUnavailable", { provider });
     },
     [t],
@@ -111,6 +131,7 @@ export function FoodSearch({
   return (
     <>
       <section className="card" style={{ marginBottom: 20 }}>
+        <form onSubmit={(event) => { event.preventDefault(); void run(query, true); }}>
         <div className="field" style={{ marginBottom: 0 }}>
           <label htmlFor="food-query">{t("searchPlaceholder")}</label>
           <input
@@ -126,9 +147,15 @@ export function FoodSearch({
           />
         </div>
 
-        <p id={statusId} role="status" aria-live="polite" className="muted" style={{ margin: "10px 0 0", fontSize: 13 }}>
+        <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button type="submit" className="btn btn-quiet" disabled={loading || query.trim().length < 3}>
+            {t("searchExternal")}
+          </button>
+          <span id={statusId} role="status" aria-live="polite" className="muted" style={{ fontSize: 13 }}>
           {status}
-        </p>
+          </span>
+        </div>
+        </form>
       </section>
 
       {outcome?.providerError && outcome.results.length > 0 ? (
@@ -165,9 +192,15 @@ export function FoodSearch({
                 <Link className="btn btn-primary" href={`/foods/new?meal=${meal}&date=${date}&name=${encodeURIComponent(query)}`}>
                   {t("createCustom")}
                 </Link>
-                <button className="btn" type="button" disabled={loading} onClick={() => void run(query, true)} style={{ marginLeft: 8 }}>
-                  {t("searchOpenFoodFacts")}
-                </button>
+                {outcome?.suggestResearch ? (
+                  researchAvailable ? (
+                    <Link className="btn" style={{ marginLeft: 8 }} href={`/research/new?q=${encodeURIComponent(query)}&meal=${meal}&date=${date}`}>
+                      {t("startResearch")}
+                    </Link>
+                  ) : (
+                    <p className="muted" style={{ margin: "12px 0 0" }}>{t(`researchUnavailable.${researchUnavailableReason ?? "SERVER_DISABLED"}`)}</p>
+                  )
+                ) : null}
               </>
             )}
           </div>
@@ -197,11 +230,6 @@ export function FoodSearch({
           ))
         )}
       </section>
-      {query.trim().length > 0 && outcome?.results.length ? (
-        <button className="btn" type="button" disabled={loading} onClick={() => void run(query, true)} style={{ marginTop: 16 }}>
-          {t("searchOpenFoodFacts")}
-        </button>
-      ) : null}
     </>
   );
 }

@@ -9,14 +9,12 @@ import { CopyPreviousDay } from "@/components/copy-previous-day";
 import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
 import { getCurrentTarget } from "@/server/targets";
 import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
+import { shiftDateKey, validDateKey } from "@/lib/date";
 
 export async function generateMetadata() {
   const t = await getTranslations("diary");
   return { title: t("title") };
 }
-
-const shift = (date: string, days: number) =>
-  formatDateKey(new Date(new Date(`${date}T00:00:00.000Z`).getTime() + days * 86_400_000));
 
 export default async function DiaryPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const user = await getSessionUser();
@@ -24,7 +22,7 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
 
   const params = await searchParams;
   const today = formatDateKey(new Date());
-  const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today;
+  const date = validDateKey(params.date, today);
 
   const t = await getTranslations("diary");
   const common = await getTranslations("common");
@@ -44,11 +42,11 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
         </div>
 
         <nav className="date-nav" aria-label={t("title")}>
-          <Link className="btn btn-quiet" href={`/diary?date=${shift(date, -1)}`} aria-label={t("previousDay")}>
+          <Link className="btn btn-quiet" href={`/diary?date=${shiftDateKey(date, -1)}`} aria-label={t("previousDay")}>
             <span aria-hidden="true">‹</span>
           </Link>
           <strong>{formatWeekday(date, locale)}</strong>
-          <Link className="btn btn-quiet" href={`/diary?date=${shift(date, 1)}`} aria-label={t("nextDay")}>
+          <Link className="btn btn-quiet" href={`/diary?date=${shiftDateKey(date, 1)}`} aria-label={t("nextDay")}>
             <span aria-hidden="true">›</span>
           </Link>
         </nav>

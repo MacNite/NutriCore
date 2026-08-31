@@ -4,6 +4,8 @@ import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { FoodSearch } from "./food-search";
 import { formatDateKey } from "@/server/diary";
+import { researchAvailability } from "@/server/research";
+import { validDateKey } from "@/lib/date";
 
 export async function generateMetadata() {
   const t = await getTranslations("foods");
@@ -21,6 +23,7 @@ export default async function FoodsPage({
   const params = await searchParams;
   const t = await getTranslations("foods");
   const today = formatDateKey(new Date());
+  const availability = researchAvailability(user);
 
   return (
     <AppShell displayName={user.displayName}>
@@ -35,9 +38,11 @@ export default async function FoodsPage({
 
       <FoodSearch
         meal={params.meal ?? "SNACKS"}
-        date={params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today}
+        date={validDateKey(params.date, today)}
         locale={user.language}
         autoFocus={params.mode !== "barcode"}
+        researchAvailable={availability.available}
+        researchUnavailableReason={availability.reason}
       />
     </AppShell>
   );

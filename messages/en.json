@@ -173,9 +173,8 @@
   "foods": {
     "title": "Foods",
     "searchPlaceholder": "Search food or enter a barcode",
-    "searchHint": "Local results and recently used foods appear instantly.",
+    "searchHint": "Typing searches only NutriCore’s local database; recently used foods appear here instantly. Open Food Facts is queried only when explicitly requested.",
     "recentlyUsed": "Recently used",
-    "searchOpenFoodFacts": "Search Open Food Facts",
     "noResults": "No matching food found.",
     "noResultsHint": "You can create the food yourself or start an AI research request.",
     "createCustom": "Create food",
@@ -213,7 +212,16 @@
       "densityHint": "Required to convert between millilitres and grams.",
       "nutrients": "Nutrition values",
       "nutrientHint": "Leave a field empty when the value is unknown. Empty is not zero.",
-      "created": "Food created."
+      "created": "Food created.",
+      "sourceUrl": "Source / link (optional)"
+    },
+    "startResearch": "Start AI research",
+    "providerRateLimitedRetry": "{provider} is rate limiting requests. Try again in {seconds} seconds.",
+    "providerHttpError": "{provider} returned an error. Local results remain available.",
+    "researchUnavailable": {
+      "USER_DISABLED": "AI research is disabled in settings.",
+      "SERVER_DISABLED": "Research is not configured on this server.",
+      "AI_DISABLED": "AI is disabled in settings."
     }
   },
   "nutrients": {
@@ -271,7 +279,11 @@
     "profile": "Profile",
     "appearance": "Appearance",
     "theme": "Theme",
-    "themes": { "light": "Light", "dark": "Dark", "system": "System" },
+    "themes": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
     "language": "Language",
     "privacy": "Privacy and AI",
     "aiEnabled": "Enable AI features",
@@ -340,5 +352,30 @@
     "addFood": "Add food",
     "toggleTheme": "Change theme",
     "changeLanguage": "Change language"
+  },
+  "research": {
+    "start": "Start AI research",
+    "startHint": "NutriCore reconstructs ingredients and calculates nutrition from matching local foods. Without a source, the result is clearly marked as an estimate.",
+    "query": "Food or recipe",
+    "sourceUrl": "Source URL (optional)",
+    "sourceHint": "A public HTTP/HTTPS page. It is fetched safely and sanitized before AI processing.",
+    "review": "Review research",
+    "status": "Status: {status}",
+    "failed": "The research could not be completed.",
+    "servings": "Servings",
+    "confidence": "Confidence",
+    "ingredients": "Ingredients and matches",
+    "unresolved": "Unresolved",
+    "nutrition": "Calculated nutrition per 100 g",
+    "sources": "Sources",
+    "noSources": "No web source — AI estimate.",
+    "assumptions": "Assumptions",
+    "accept": "Accept",
+    "reject": "Reject",
+    "unavailable": {
+      "USER_DISABLED": "AI research is disabled in settings.",
+      "SERVER_DISABLED": "Research is not configured on this server.",
+      "AI_DISABLED": "AI is disabled on this server."
+    }
   }
 }

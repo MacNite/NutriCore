@@ -13,6 +13,8 @@ import { logger } from "@/lib/logger";
 import type { Locale } from "@/i18n/locales";
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const FAILED_SEARCH_COOLDOWN_MS = 30_000;
+const failedSearches = new Map<string, { until: number; error: ProviderUnavailableError }>();
 
 export interface FoodResult {
   id: string;
@@ -97,7 +99,7 @@ export interface SearchOutcome {
   results: FoodResult[];
   barcode: string | null;
   remoteAttempted: boolean;
-  providerError: { provider: string; reason: ProviderFailureReason } | null;
+  providerError: { provider: string; reason: ProviderFailureReason; retryAfterSeconds?: number } | null;
   suggestResearch: boolean;
 }
 
@@ -178,9 +180,12 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
 
   scored.sort((a, b) => b.score - a.score);
 
-  // Only an explicit request may use the provider, and known local identities
-  // (including a strong previously-used match) never need the network.
-  const shouldGoRemote = options.includeRemote === true && !hasStrongLocalMatch(localMatches) && (barcode !== null || query.length >= 3);
+  // Typing never reaches the provider: only an explicit request or a complete
+  // barcode does, and a known local identity (including a strong previously-used
+  // match) is answered from the local store instead.
+  const shouldGoRemote =
+    (barcode !== null || (options.includeRemote === true && query.length >= 3)) &&
+    !hasStrongLocalMatch(localMatches);
 
   let providerError: SearchOutcome["providerError"] = null;
   let remoteAttempted = false;
@@ -198,7 +203,7 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
       // An outage degrades the result list; it never fails the request.
       providerError =
         error instanceof ProviderUnavailableError
-          ? { provider: error.provider, reason: error.reason }
+          ? { provider: error.provider, reason: error.reason, retryAfterSeconds: error.retryAfterSeconds }
           : { provider: "UNKNOWN", reason: "UNAVAILABLE" };
       logger.warn("Remote food provider failed", providerError);
     }
@@ -271,6 +276,9 @@ export async function fetchRemote(query: string, barcode: string | null, locale:
   }
 
   const cacheKey = normalizeName(query);
+  const cooldown = failedSearches.get(`${provider.name}:${cacheKey}`);
+  if (cooldown && cooldown.until > Date.now()) throw cooldown.error;
+  if (cooldown) failedSearches.delete(`${provider.name}:${cacheKey}`);
   const cached = await prisma.searchQueryCache.findUnique({
     where: { provider_queryKey: { provider: provider.name, queryKey: cacheKey } },
   });
@@ -282,7 +290,16 @@ export async function fetchRemote(query: string, barcode: string | null, locale:
       provenance: { ...p.provenance, retrievedAt: new Date(p.provenance.retrievedAt) },
     }));
   } else {
-    products = await provider.search(query, { limit: 25, locale });
+    try {
+      products = await provider.search(query, { limit: 25, locale });
+      failedSearches.delete(`${provider.name}:${cacheKey}`);
+    } catch (error) {
+      if (error instanceof ProviderUnavailableError) {
+        const duration = Math.max(FAILED_SEARCH_COOLDOWN_MS, (error.retryAfterSeconds ?? 0) * 1000);
+        failedSearches.set(`${provider.name}:${cacheKey}`, { until: Date.now() + duration, error });
+      }
+      throw error;
+    }
     // Empty answers may be transient at OFF; leaving them uncached makes retry useful.
     if (products.length > 0) await prisma.searchQueryCache.upsert({
       where: { provider_queryKey: { provider: provider.name, queryKey: cacheKey } },

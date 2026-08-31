@@ -173,9 +173,8 @@
   "foods": {
     "title": "Lebensmittel",
     "searchPlaceholder": "Lebensmittel suchen oder Barcode eingeben",
-    "searchHint": "Lokale Treffer und zuletzt verwendete Lebensmittel erscheinen sofort.",
+    "searchHint": "Beim Tippen wird nur die lokale NutriCore-Datenbank durchsucht; zuletzt verwendete Lebensmittel erscheinen sofort. Open Food Facts wird ausschließlich auf ausdrückliche Anforderung abgefragt.",
     "recentlyUsed": "Zuletzt verwendet",
-    "searchOpenFoodFacts": "Open Food Facts durchsuchen",
     "noResults": "Kein passendes Lebensmittel gefunden.",
     "noResultsHint": "Du kannst das Lebensmittel selbst anlegen oder eine KI-Recherche starten.",
     "createCustom": "Lebensmittel anlegen",
@@ -213,7 +212,16 @@
       "densityHint": "Wird benötigt, um zwischen Millilitern und Gramm umzurechnen.",
       "nutrients": "Nährwerte",
       "nutrientHint": "Felder leer lassen, wenn der Wert unbekannt ist. Leer bedeutet nicht null.",
-      "created": "Lebensmittel angelegt."
+      "created": "Lebensmittel angelegt.",
+      "sourceUrl": "Quelle / Link (optional)"
+    },
+    "startResearch": "KI-Recherche starten",
+    "providerRateLimitedRetry": "{provider} begrenzt Anfragen. Bitte in {seconds} Sekunden erneut versuchen.",
+    "providerHttpError": "{provider} hat einen Fehler gemeldet. Lokale Treffer bleiben verfügbar.",
+    "researchUnavailable": {
+      "USER_DISABLED": "KI-Recherche ist in den Einstellungen deaktiviert.",
+      "SERVER_DISABLED": "Web-Recherche ist auf diesem Server nicht konfiguriert.",
+      "AI_DISABLED": "KI ist in den Einstellungen deaktiviert."
     }
   },
   "nutrients": {
@@ -271,7 +279,11 @@
     "profile": "Profil",
     "appearance": "Darstellung",
     "theme": "Design",
-    "themes": { "light": "Hell", "dark": "Dunkel", "system": "System" },
+    "themes": {
+      "light": "Hell",
+      "dark": "Dunkel",
+      "system": "System"
+    },
     "language": "Sprache",
     "privacy": "Privatsphäre und KI",
     "aiEnabled": "KI-Funktionen aktivieren",
@@ -340,5 +352,30 @@
     "addFood": "Lebensmittel hinzufügen",
     "toggleTheme": "Design wechseln",
     "changeLanguage": "Sprache wechseln"
+  },
+  "research": {
+    "start": "KI-Recherche starten",
+    "startHint": "NutriCore rekonstruiert Zutaten und berechnet Nährwerte aus passenden lokalen Lebensmitteln. Ohne Quelle ist das Ergebnis klar als Schätzung gekennzeichnet.",
+    "query": "Lebensmittel oder Rezept",
+    "sourceUrl": "Quell-URL (optional)",
+    "sourceHint": "Eine öffentliche HTTP/HTTPS-Seite. Sie wird sicher abgerufen und vor der KI-Verarbeitung bereinigt.",
+    "review": "Recherche prüfen",
+    "status": "Status: {status}",
+    "failed": "Die Recherche konnte nicht abgeschlossen werden.",
+    "servings": "Portionen",
+    "confidence": "Vertrauen",
+    "ingredients": "Zutaten und Zuordnung",
+    "unresolved": "Nicht aufgelöst",
+    "nutrition": "Berechnete Nährwerte je 100 g",
+    "sources": "Quellen",
+    "noSources": "Keine Webquelle – KI-Schätzung.",
+    "assumptions": "Annahmen",
+    "accept": "Annehmen",
+    "reject": "Ablehnen",
+    "unavailable": {
+      "USER_DISABLED": "KI-Recherche ist in den Einstellungen deaktiviert.",
+      "SERVER_DISABLED": "Web-Recherche ist auf diesem Server nicht konfiguriert.",
+      "AI_DISABLED": "KI ist auf diesem Server deaktiviert."
+    }
   }
 }
