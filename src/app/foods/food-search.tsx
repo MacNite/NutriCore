@@ -22,11 +22,14 @@ interface Result {
 interface Outcome {
   results: Result[];
   barcode: string | null;
-  providerError: string | null;
+  providerError: {
+    provider: string;
+    reason: "RATE_LIMITED" | "TIMEOUT" | "UNAVAILABLE";
+  } | null;
   suggestResearch: boolean;
 }
 
-const DEBOUNCE_MS = 250;
+const DEBOUNCE_MS = 500;
 
 export function FoodSearch({
   meal,
@@ -67,7 +70,14 @@ export function FoodSearch({
         setOutcome((await response.json()) as Outcome);
       } catch (error) {
         // An aborted request is the normal result of typing another character.
-        if ((error as Error).name !== "AbortError") setOutcome({ results: [], barcode: null, providerError: "UNKNOWN", suggestResearch: true });
+        if ((error as Error).name !== "AbortError") {
+          setOutcome({
+            results: [],
+            barcode: null,
+            providerError: { provider: "UNKNOWN", reason: "UNAVAILABLE" },
+            suggestResearch: true,
+          });
+        }
       } finally {
         setLoading(false);
       }
@@ -83,12 +93,25 @@ export function FoodSearch({
 
   useEffect(() => () => controller.current?.abort(), []);
 
+  const providerErrorMessage = useCallback(
+    (error: NonNullable<Outcome["providerError"]>) => {
+      const provider = error.provider === "OPEN_FOOD_FACTS" ? "Open Food Facts" : error.provider;
+      if (error.reason === "RATE_LIMITED") return t("providerRateLimited", { provider });
+      if (error.reason === "TIMEOUT") return t("providerTimeout", { provider });
+      return t("providerUnavailable", { provider });
+    },
+    [t],
+  );
+
   const status = useMemo(() => {
     if (loading) return t("searching");
     if (!outcome) return "";
-    if (outcome.results.length === 0) return t("noResults");
+    if (outcome.results.length === 0) {
+      if (outcome.providerError) return providerErrorMessage(outcome.providerError);
+      return t("noResults");
+    }
     return `${outcome.results.length}`;
-  }, [loading, outcome, t]);
+  }, [loading, outcome, providerErrorMessage, t]);
 
   return (
     <>
@@ -113,13 +136,13 @@ export function FoodSearch({
         </p>
       </section>
 
-      {outcome?.providerError ? (
+      {outcome?.providerError && outcome.results.length > 0 ? (
         <div className="notice notice-warn" style={{ marginBottom: 16 }}>
           <span className="notice-icon" aria-hidden="true">
             !
           </span>
           <span>
-            {t("providerUnavailable", { provider: outcome.providerError === "OPEN_FOOD_FACTS" ? "Open Food Facts" : outcome.providerError })}
+            {providerErrorMessage(outcome.providerError)}
             <br />
             <span className="muted">{errors("manualFallback")}</span>
           </span>
@@ -134,7 +157,11 @@ export function FoodSearch({
             ) : (
               <>
                 <p style={{ margin: "0 0 6px" }}>
-                  {outcome?.barcode ? t("barcodeNotFound", { barcode: outcome.barcode }) : t("noResults")}
+                  {outcome?.providerError
+                    ? providerErrorMessage(outcome.providerError)
+                    : outcome?.barcode
+                      ? t("barcodeNotFound", { barcode: outcome.barcode })
+                      : t("noResults")}
                 </p>
                 <p className="muted" style={{ margin: "0 0 14px" }}>
                   {t("noResultsHint")}

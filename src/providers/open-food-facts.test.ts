@@ -122,6 +122,52 @@ describe("Open Food Facts adapter", () => {
     expect(results).toHaveLength(1);
   });
 
+  it("uses the documented search mode, popularity ranking, locale, and limits above 25", async () => {
+    const fetchMock = json({ products: [] });
+    vi.stubGlobal("fetch", fetchMock);
+    await provider().search("milka alpenmilch", { limit: 40, locale: "de" });
+
+    const [rawUrl] = fetchMock.mock.calls[0];
+    const url = new URL(rawUrl);
+    expect(url.searchParams.get("search_simple")).toBe("1");
+    expect(url.searchParams.get("action")).toBe("process");
+    expect(url.searchParams.get("sort_by")).toBe("unique_scans_n");
+    expect(url.searchParams.get("lc")).toBe("de");
+    expect(url.searchParams.get("cc")).toBe("de");
+    expect(url.searchParams.get("page_size")).toBe("40");
+  });
+
+  it("identifies rate limits, timeouts, and other outages", async () => {
+    vi.stubGlobal("fetch", json({}, 429));
+    await expect(provider().search("milka")).rejects.toMatchObject({
+      name: "ProviderUnavailableError",
+      reason: "RATE_LIMITED",
+    });
+
+    vi.unstubAllGlobals();
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("timed out", "AbortError")));
+    await expect(provider().search("milka")).rejects.toMatchObject({ reason: "TIMEOUT" });
+
+    vi.unstubAllGlobals();
+    vi.stubGlobal("fetch", json({}, 503));
+    await expect(provider().search("milka")).rejects.toMatchObject({ reason: "UNAVAILABLE" });
+  });
+
+  it("gives searches a longer timeout than barcode lookups", async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ products: [] }), { headers: { "Content-Type": "application/json" } })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const customProvider = new OpenFoodFactsProvider("https://example.test", "NutriCore test", true, 1234, 5678);
+
+    await customProvider.getByBarcode("12345678");
+    await customProvider.search("milka");
+
+    expect(timeout).toHaveBeenNthCalledWith(1, 1234);
+    expect(timeout).toHaveBeenNthCalledWith(2, 5678);
+  });
+
   it("does not query the API for very short terms", async () => {
     const fetchMock = json({ products: [] });
     vi.stubGlobal("fetch", fetchMock);
