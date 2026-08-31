@@ -173,7 +173,8 @@
   "foods": {
     "title": "Lebensmittel",
     "searchPlaceholder": "Lebensmittel suchen oder Barcode eingeben",
-    "searchHint": "Beim Tippen wird nur die lokale NutriCore-Datenbank durchsucht. Open Food Facts wird ausschließlich auf ausdrückliche Anforderung abgefragt.",
+    "searchHint": "Beim Tippen wird nur die lokale NutriCore-Datenbank durchsucht; zuletzt verwendete Lebensmittel erscheinen sofort. Open Food Facts wird ausschließlich auf ausdrückliche Anforderung abgefragt.",
+    "recentlyUsed": "Zuletzt verwendet",
     "noResults": "Kein passendes Lebensmittel gefunden.",
     "noResultsHint": "Du kannst das Lebensmittel selbst anlegen oder eine KI-Recherche starten.",
     "createCustom": "Lebensmittel anlegen",

@@ -103,6 +103,23 @@ export interface SearchOutcome {
   suggestResearch: boolean;
 }
 
+interface LocalMatch {
+  barcodeMatch: boolean;
+  exactNameMatch: boolean;
+  exactNameBrandMatch: boolean;
+  textMatch: number;
+  previouslyUsed: boolean;
+}
+
+/** Identity/network decisions intentionally do not depend on the display score. */
+export function hasIdentityMatch(matches: LocalMatch[]): boolean {
+  return matches.some((match) => match.barcodeMatch || match.exactNameMatch || match.exactNameBrandMatch);
+}
+
+export function hasStrongLocalMatch(matches: LocalMatch[]): boolean {
+  return hasIdentityMatch(matches) || matches.some((match) => match.previouslyUsed && match.textMatch >= 0.75);
+}
+
 /**
  * The local-first search pipeline: barcode, then everything already stored,
  * and only then a remote provider. Remote lookups never block local results.
@@ -112,31 +129,37 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
   const query = options.query.trim();
   const limit = options.limit ?? 25;
 
-  if (query.length === 0) {
-    return { results: [], barcode: null, remoteAttempted: false, providerError: null, suggestResearch: false };
-  }
-
   const barcode = isBarcode(query) ? query : null;
   const normalized = normalizeName(query);
 
   const [favorites, usage, localFoods] = await Promise.all([
     prisma.favorite.findMany({ where: { userId }, select: { foodId: true } }),
     prisma.foodUsageStats.findMany({ where: { userId }, select: { foodId: true, count: true, lastUsedAt: true, usualMeals: true } }),
-    findLocalCandidates(userId, normalized, barcode, limit),
+    query.length === 0 ? findRecentCandidates(userId, options.meal, limit) : findLocalCandidates(userId, normalized, barcode, limit),
   ]);
 
   const favoriteIds = new Set(favorites.map((f) => f.foodId));
   const usageById = new Map(usage.map((u) => [u.foodId, u]));
 
+  const localMatches: LocalMatch[] = [];
   const scored = localFoods.map((food) => {
     const stats = usageById.get(food.id);
     const nutrients = Object.fromEntries(food.nutrients.map((n) => [n.nutrientKey, toNumber(n.value)]));
     const haystack = [food.name, food.brand].filter(Boolean).join(" ");
+    const textMatch = query.length === 0 ? 0 : Math.max(textSimilarity(query, food.name), food.brand ? textSimilarity(query, haystack) : 0);
+    const match = {
+      barcodeMatch: barcode !== null && food.barcode === barcode,
+      exactNameMatch: query.length > 0 && normalizeName(food.name) === normalized,
+      exactNameBrandMatch: query.length > 0 && Boolean(food.brand && normalizeName(haystack) === normalized),
+      textMatch,
+      previouslyUsed: Boolean(stats && stats.count > 0),
+    };
+    localMatches.push(match);
 
     const score = rankFood({
-      barcodeMatch: barcode !== null && food.barcode === barcode,
-      exactNameMatch: normalizeName(food.name) === normalized,
-      textMatch: Math.max(textSimilarity(query, food.name), food.brand ? textSimilarity(query, haystack) : 0),
+      barcodeMatch: match.barcodeMatch,
+      exactNameMatch: match.exactNameMatch || match.exactNameBrandMatch,
+      textMatch,
       brandMatch: Boolean(food.brand && normalizeName(food.brand).includes(normalized)),
       localeMatch: food.locale === locale,
       favorite: favoriteIds.has(food.id),
@@ -157,10 +180,12 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
 
   scored.sort((a, b) => b.score - a.score);
 
-  // Remote lookup only when local results are thin: never on every keystroke.
-  const strongLocal = scored.some((r) => r.score >= 600);
+  // Typing never reaches the provider: only an explicit request or a complete
+  // barcode does, and a known local identity (including a strong previously-used
+  // match) is answered from the local store instead.
   const shouldGoRemote =
-    (options.includeRemote === true && query.length >= 3) || (barcode !== null && !strongLocal);
+    (barcode !== null || (options.includeRemote === true && query.length >= 3)) &&
+    !hasStrongLocalMatch(localMatches);
 
   let providerError: SearchOutcome["providerError"] = null;
   let remoteAttempted = false;
@@ -211,6 +236,22 @@ async function findLocalCandidates(userId: string, normalized: string, barcode: 
   };
 
   return prisma.food.findMany({ where, include: INCLUDE, take: Math.max(limit * 4, 60) });
+}
+
+async function findRecentCandidates(userId: string, meal: string | undefined, limit: number) {
+  const usage = await prisma.foodUsageStats.findMany({
+    where: { userId, ...(meal ? { usualMeals: { has: meal as never } } : {}) },
+    orderBy: [{ lastUsedAt: "desc" }, { count: "desc" }],
+    take: Math.max(limit * 2, 25),
+    select: { foodId: true },
+  });
+  if (usage.length === 0) return [];
+  const foods = await prisma.food.findMany({
+    where: { id: { in: usage.map((item) => item.foodId) }, ...visibleFoodWhere(userId) },
+    include: INCLUDE,
+  });
+  const order = new Map(usage.map((item, index) => [item.foodId, index]));
+  return foods.sort((a, b) => (order.get(a.id) ?? Infinity) - (order.get(b.id) ?? Infinity));
 }
 
 /**
@@ -307,17 +348,20 @@ export async function upsertProviderFood(product: NormalizedFood, locale: Locale
     isEstimated: product.provenance.estimated,
   };
 
-  const food = await prisma.food.upsert({
-    where: {
-      externalProvider_externalId: {
-        externalProvider: product.provenance.provider,
-        externalId: product.externalId,
-      },
-    },
-    create: { ...data, ownerId: null },
-    update: data,
-    include: INCLUDE,
+  // Prefer the provider identity, then reuse an ownerless row with the same
+  // barcode. This keeps diary foreign keys stable if OFF exposes the same
+  // product through a refreshed external identifier.
+  const providerIdentity = await prisma.food.findUnique({
+    where: { externalProvider_externalId: { externalProvider: product.provenance.provider, externalId: product.externalId } },
+    select: { id: true },
   });
+  const barcodeIdentity = !providerIdentity && product.barcode
+    ? await prisma.food.findFirst({ where: { barcode: product.barcode, ownerId: null }, select: { id: true } })
+    : null;
+  const identity = providerIdentity ?? barcodeIdentity;
+  const food = identity
+    ? await prisma.food.update({ where: { id: identity.id }, data, include: INCLUDE })
+    : await prisma.food.create({ data: { ...data, ownerId: null }, include: INCLUDE });
 
   await prisma.$transaction([
     prisma.foodNutrient.deleteMany({ where: { foodId: food.id } }),
@@ -325,6 +369,20 @@ export async function upsertProviderFood(product: NormalizedFood, locale: Locale
       data: nutrientRows.map((row) => ({ foodId: food.id, ...row })),
       skipDuplicates: true,
     }),
+    prisma.foodServing.deleteMany({ where: { foodId: food.id } }),
+    ...(product.servingAmount && product.servingUnit
+      ? [prisma.foodServing.create({
+          data: {
+            foodId: food.id,
+            label: product.servingLabel ?? `${product.servingAmount} ${product.servingUnit}`,
+            amount: product.servingAmount,
+            unit: product.servingUnit,
+            gramEquivalent: product.basisUnit === "G" ? product.servingAmount : null,
+            mlEquivalent: product.basisUnit === "ML" ? product.servingAmount : null,
+            isDefault: true,
+          },
+        })]
+      : []),
     prisma.foodSource.deleteMany({ where: { foodId: food.id, provider: product.provenance.provider } }),
     prisma.foodSource.create({
       data: {

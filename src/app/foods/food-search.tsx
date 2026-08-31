@@ -58,11 +58,6 @@ export function FoodSearch({
   const run = useCallback(
     async (value: string, remote = false) => {
       controller.current?.abort();
-      if (value.trim().length === 0) {
-        setOutcome(null);
-        setLoading(false);
-        return;
-      }
 
       const next = new AbortController();
       controller.current = next;
@@ -101,7 +96,8 @@ export function FoodSearch({
     [meal],
   );
 
-  // Typing is deliberately local-only; only a complete barcode is a discrete remote lookup.
+  // Autocomplete is PostgreSQL-only: OFF is contacted by the button, or by a
+  // complete barcode as one discrete remote lookup.
   useEffect(() => {
     const timer = setTimeout(() => void run(query), DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -176,6 +172,7 @@ export function FoodSearch({
       ) : null}
 
       <section className="card">
+        {query.trim().length === 0 && outcome?.results.length ? <h2>{t("recentlyUsed")}</h2> : null}
         {!outcome || outcome.results.length === 0 ? (
           <div className="empty">
             {query.trim().length === 0 ? (

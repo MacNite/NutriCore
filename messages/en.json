@@ -173,7 +173,8 @@
   "foods": {
     "title": "Foods",
     "searchPlaceholder": "Search food or enter a barcode",
-    "searchHint": "Typing searches only NutriCore’s local database. Open Food Facts is queried only when explicitly requested.",
+    "searchHint": "Typing searches only NutriCore’s local database; recently used foods appear here instantly. Open Food Facts is queried only when explicitly requested.",
+    "recentlyUsed": "Recently used",
     "noResults": "No matching food found.",
     "noResultsHint": "You can create the food yourself or start an AI research request.",
     "createCustom": "Create food",
