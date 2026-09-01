@@ -17,6 +17,8 @@ import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
 import { getCurrentTarget } from "@/server/targets";
 import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
 import { shiftDateKey, validDateKey } from "@/lib/date";
+import { ActivityPanel } from "@/components/activity-panel";
+import { getActivityEntries } from "@/server/activities";
 
 export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string; quickMeal?: string; error?: string }> }) {
   const user = await getSessionUser();
@@ -32,7 +34,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const selectedDate = validDateKey(params.date, today);
 
-  const [day, target, recent, pending] = await Promise.all([
+  const [day, target, recent, pending, activities] = await Promise.all([
     getDiaryDay(user.id, selectedDate),
     getCurrentTarget(user.id),
     prisma.foodUsageStats.findMany({
@@ -44,6 +46,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
     // A proposal was previously reachable only through the redirect that
     // followed submitting a meal, so one left undecided was invisible.
     pendingProposals(user.id),
+    getActivityEntries(user.id, selectedDate),
   ]);
 
   const consumed = day.totals.energyKcal ?? 0;
@@ -127,6 +130,8 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
               );
             })}
           </section>
+
+          <ActivityPanel date={selectedDate} entries={activities.entries} totalActiveKcal={activities.totalActiveKcal} locale={locale} />
 
           <section className="card" aria-labelledby="micronutrients-heading">
             <div className="card-head">

@@ -892,6 +892,11 @@ legend {
   text-decoration: none;
 }
 .row-main-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+.activity-form { display: grid; grid-template-columns: 2fr 1.4fr 1fr auto; gap: 12px; align-items: end; padding: 14px 0; border-top: 1px solid var(--border); }
+.activity-form-actions { display: flex; gap: 6px; padding-bottom: 1px; }
+.activity-total { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border); padding-top: 16px; margin-top: 10px; }
+@media (max-width: 700px) { .activity-form { grid-template-columns: 1fr; } .activity-form-actions { padding-bottom: 0; } }
 .add-food-button { min-width: 44px; min-height: 44px; padding: 9px; font-size: 20px; }
 
 .avatar {
