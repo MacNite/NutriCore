@@ -36,8 +36,11 @@ export async function QuickMealForm({ date, returnTo }: { date: string; returnTo
           id={"sourceUrl-today"}
           name="sourceUrl"
           type="url"
+          maxLength={500}
+          aria-describedby="sourceUrlHint-today"
           placeholder="https://…"
         />
+        <span className="hint" id="sourceUrlHint-today">{t("ai.sourceUrlHint")}</span>
       </div>
       <div className="field">
         <label htmlFor={`mealType-${returnTo === "/" ? "today" : "diary"}`}>{t("ai.meal")}</label>

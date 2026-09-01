@@ -7,8 +7,8 @@ import { modelNutritionSchema } from "@/lib/research";
 import { OllamaProvider } from "@/providers/ollama";
 import { SearxngClient } from "@/providers/searxng";
 import { logger } from "@/lib/logger";
-import { failResearchJob, fetchResearchSource, runResearchJob } from "./research";
-import { asUntrustedExcerpt } from "@/lib/url-guard";
+import { failResearchJob, runResearchJob } from "./research";
+import { fetchMealPage, mealPagePrompt } from "./meal-url";
 import { enrichFood } from "./food-enrichment";
 import { discardRecipeImportImage, runRecipeImport } from "./recipe-import";
 import { describeFailure } from "./ai-failures";
@@ -223,17 +223,19 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     }
     if (job.entityType !== "MEAL_INPUT" || !job.mealInput) throw new Error("Unsupported AI job entity");
     const ai = deps.ai ?? new OllamaProvider();
-    const cached = (job.metadata ?? {}) as { extraction?: z.infer<typeof mealParseSchema>; inputKind?: "text" | "image" | "text+image" };
+    const cached = (job.metadata ?? {}) as { extraction?: z.infer<typeof mealParseSchema>; inputKind?: string; sourceUrl?: string };
     const capabilities = await ai.capabilities();
 
     let prompt = job.mealInput.text;
     if (job.mealInput.sourceUrl) {
-      const source = await fetchResearchSource(job.mealInput.sourceUrl);
-      prompt += `\n\n${asUntrustedExcerpt(source.url, source.excerpt)}`;
+      const source = await fetchMealPage(job.mealInput.sourceUrl);
+      if (!source.excerpt.trim()) throw new Error("source-no-ingredients");
+      prompt = mealPagePrompt(source, job.mealInput.text);
     }
 
     const images = job.mealInput.imageData ? [Buffer.from(job.mealInput.imageData).toString("base64")] : undefined;
-    const inputKind = images ? (job.mealInput.text ? "text+image" : "image") : "text";
+    const kinds = [job.mealInput.text && "text", job.mealInput.sourceUrl && "url", images && "image"].filter(Boolean);
+    const inputKind = kinds.join("+") || "text";
     const parsed = cached.extraction ? mealParseSchema.parse(cached.extraction) : await ai.complete({
       system: SYSTEM,
       prompt: prompt || "Extract the ingredients and amounts visible in the supplied image.",
@@ -251,7 +253,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     // after successful extraction without making later resolver retries lossy.
     if (!cached.extraction) {
       await prisma.$transaction([
-        prisma.aiJob.update({ where: { id: job.id }, data: { metadata: { extraction: parsed, inputKind } } }),
+        prisma.aiJob.update({ where: { id: job.id }, data: { metadata: { extraction: parsed, inputKind, sourceUrl: job.mealInput.sourceUrl ?? undefined } } }),
         prisma.mealInput.update({ where: { id: job.mealInput.id }, data: { imageData: null, imageMime: null, imageExpiresAt: null } }),
       ]);
     }
@@ -294,7 +296,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       });
     }
 
-    const provenance = { model: capabilities.model, processedAt: new Date().toISOString(), principle: PRINCIPLE, inputKind: cached.inputKind ?? inputKind };
+    const provenance = { model: capabilities.model, processedAt: new Date().toISOString(), principle: PRINCIPLE, inputKind: cached.inputKind ?? inputKind, ...(job.mealInput.sourceUrl ? { sourceUrl: job.mealInput.sourceUrl } : {}) };
     // `ProposedComponent` is an interface, so it carries no index signature and
     // Prisma's `InputJsonValue` will not take it directly. The shape is JSON by
     // construction - the review page reads it back through the same interface.

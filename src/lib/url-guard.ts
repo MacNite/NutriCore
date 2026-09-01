@@ -55,7 +55,7 @@ export function isPrivateAddress(address: string): boolean {
  */
 export async function checkUrl(
   raw: string,
-  options: { allowPrivate?: boolean; resolve?: (host: string) => Promise<string> } = {},
+  options: { allowPrivate?: boolean; resolve?: (host: string) => Promise<string | string[]> } = {},
 ): Promise<UrlCheck> {
   let url: URL;
   try {
@@ -70,21 +70,24 @@ export async function checkUrl(
 
   const host = url.hostname.replace(/^\[|\]$/g, "");
 
-  let address: string;
+  let addresses: string[];
   if (isIP(host)) {
-    address = host;
+    addresses = [host];
   } else {
     try {
-      address = options.resolve ? await options.resolve(host) : (await lookup(host)).address;
+      const resolved = options.resolve ? await options.resolve(host) : (await lookup(host, { all: true })).map((entry) => entry.address);
+      addresses = Array.isArray(resolved) ? resolved : [resolved];
     } catch {
       return { ok: false, reason: "dns-failed" };
     }
   }
 
-  // An explicit allowlist is the only way to reach a private address.
-  if (!options.allowPrivate && isPrivateAddress(address)) return { ok: false, reason: "private-address" };
+  if (!addresses.length) return { ok: false, reason: "dns-failed" };
+  // Validate every answer, not just the resolver's preferred one. Otherwise a
+  // mixed public/private DNS response could be used for rebinding.
+  if (!options.allowPrivate && addresses.some(isPrivateAddress)) return { ok: false, reason: "private-address" };
 
-  return { ok: true, url, address };
+  return { ok: true, url, address: addresses[0] };
 }
 
 export const MAX_RESEARCH_BYTES = 512 * 1024;

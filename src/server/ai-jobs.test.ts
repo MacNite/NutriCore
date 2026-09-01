@@ -25,6 +25,10 @@ vi.mock("./component-resolver", () => ({
   resolveComponent: vi.fn(async () => ({ candidates: [], selectedFoodId: null, grams: null, gramsSource: "NONE" })),
 }));
 vi.mock("./research", () => ({ fetchResearchSource: vi.fn(), runResearchJob: vi.fn(), failResearchJob: vi.fn() }));
+vi.mock("./meal-url", () => ({
+  fetchMealPage: vi.fn(async (url: string) => ({ url, title: "Soup", excerpt: "Ingredients: 2 carrots", recipeFound: true })),
+  mealPagePrompt: vi.fn((page: { excerpt: string }, text: string) => `${text}\nUNTRUSTED:${page.excerpt}`),
+}));
 vi.mock("./recipe-import", () => ({ runRecipeImport: vi.fn(), discardRecipeImportImage: vi.fn() }));
 vi.mock("./food-enrichment", () => ({ enrichFood: vi.fn(), missingNutritionKeys: vi.fn(() => []) }));
 vi.mock("./ai-approval", () => ({ autoApproveProposal: vi.fn() }));
@@ -36,6 +40,7 @@ import { failResearchJob, runResearchJob } from "./research";
 import { runRecipeImport } from "./recipe-import";
 import { resolveComponent } from "./component-resolver";
 import { autoApproveProposal } from "./ai-approval";
+import { fetchMealPage, mealPagePrompt } from "./meal-url";
 
 /** An AI provider whose generation always fails, to drive the retry paths. */
 const failingAi = {
@@ -53,7 +58,7 @@ function queueJob(overrides: { retryCount?: number; maxRetries?: number; entityT
     retryCount: overrides.retryCount ?? 0,
     maxRetries: overrides.maxRetries ?? 2,
     metadata: null,
-    mealInput: { id: "input-1", text: "two eggs", sourceUrl: null, imageData: null as Buffer | null, imageMime: null, meal: "BREAKFAST", diaryDate: new Date() },
+    mealInput: { id: "input-1", text: "two eggs", sourceUrl: null as string | null, imageData: null as Buffer | null, imageMime: null, meal: "BREAKFAST", diaryDate: new Date() },
   };
   aiJob.findFirst.mockResolvedValue({ id: job.id });
   aiJob.updateMany.mockResolvedValue({ count: 1 });
@@ -225,6 +230,21 @@ describe("applying a proposal without the review screen", () => {
       confidence: "medium",
       warnings: [],
     }),
+  });
+
+  it("feeds URL-only ingredients into the same component resolver and proposal path", async () => {
+    const job = queueJob();
+    job.mealInput.text = "";
+    job.mealInput.sourceUrl = "https://recipes.example/soup";
+    const ai = workingAi();
+    await processNextAiJob({ ai: ai as never });
+
+    expect(fetchMealPage).toHaveBeenCalledWith(job.mealInput.sourceUrl);
+    expect(mealPagePrompt).toHaveBeenCalledWith(expect.objectContaining({ recipeFound: true }), "");
+    expect(resolveComponent).toHaveBeenCalledWith(expect.objectContaining({ name: "Brot" }), expect.anything());
+    const proposal = prismaMock.aiProposal.upsert.mock.calls[0][0];
+    expect(proposal.create.provenance).toMatchObject({ inputKind: "url", sourceUrl: job.mealInput.sourceUrl });
+    expect(JSON.stringify(proposal.create.proposed)).not.toContain("Ingredients: 2 carrots");
   });
 
   it("sends image bytes to the configured provider, then clears them after structured extraction", async () => {

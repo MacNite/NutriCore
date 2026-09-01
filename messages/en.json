@@ -178,6 +178,7 @@
       "describe": "Describe your meal",
       "placeholder": "2 slices rye bread with butter, 2 fried eggs and 1 banana",
       "sourceUrl": "Recipe URL (optional)",
+      "sourceUrlHint": "A public recipe URL can be used by itself; text and a photo are optional context.",
       "image": "Meal photo (optional)",
       "imageHint": "JPEG, PNG or WebP, up to {maxMb} MB. On supported mobile devices you can take a photo. The image is held temporarily for processing for no more than 24 hours, then deleted.",
       "meal": "Meal",
@@ -534,6 +535,14 @@
     "statusCompleted": "Ready for review",
     "statusFailed": "AI enrichment failed",
     "keepWorking": "You can leave this page; the worker carries on in the background.",
+    "urlErrors": {
+      "unsafeUrl": "This URL was rejected because it is not a safe public HTTP(S) destination.",
+      "unreachablePage": "The recipe page could not be reached or redirected too many times.",
+      "unsupportedContent": "The URL did not return a supported HTML or plain-text page.",
+      "oversizedPage": "The recipe page exceeds the 512 KB retrieval limit.",
+      "noIngredients": "No meaningful recipe ingredients were found on this page.",
+      "extractionFailure": "The ingredients could not be extracted. Check the page and AI service, then try again."
+    },
     "proposed": "Proposed components",
     "confidence": "Confidence: {value}",
     "food": "Food",

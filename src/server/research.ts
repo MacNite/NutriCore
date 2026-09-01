@@ -68,7 +68,7 @@ async function transition(id: string, userId: string, to: ResearchStatus, data: 
  * thrown away. Only the first 20,000 characters of text are ever used anyway, so
  * a prefix is not a worse source - it is the same source, fetched cheaply.
  */
-async function readCapped(response: Response): Promise<{ bytes: Uint8Array; truncated: boolean }> {
+async function readCapped(response: Response, rejectOversize = false): Promise<{ bytes: Uint8Array; truncated: boolean }> {
   if (!response.body) return { bytes: new Uint8Array(), truncated: false };
 
   const reader = response.body.getReader();
@@ -82,7 +82,8 @@ async function readCapped(response: Response): Promise<{ bytes: Uint8Array; trun
       if (done) break;
       if (!value) continue;
       const room = MAX_RESEARCH_BYTES - size;
-      if (value.byteLength >= room) {
+      if (value.byteLength > room || (!rejectOversize && value.byteLength === room)) {
+        if (rejectOversize) throw new Error("source-too-large");
         parts.push(value.subarray(0, room));
         size += room;
         truncated = true;
@@ -105,12 +106,13 @@ async function readCapped(response: Response): Promise<{ bytes: Uint8Array; trun
   return { bytes, truncated };
 }
 
-export async function fetchResearchSource(raw: string) {
+export async function fetchResearchSource(raw: string, options: { strictSize?: boolean; fetch?: typeof fetch; preserveHtml?: boolean } = {}) {
+  const request = options.fetch ?? fetch;
   let current = raw;
   for (let redirects = 0; redirects <= MAX_RESEARCH_REDIRECTS; redirects++) {
     const checked = await checkUrl(current);
     if (!checked.ok) throw new Error(`unsafe-source:${checked.reason}`);
-    const response = await fetch(checked.url, { redirect: "manual", signal: AbortSignal.timeout(RESEARCH_TIMEOUT_MS), headers: { Accept: "text/html,text/plain" } });
+    const response = await request(checked.url, { redirect: "manual", signal: AbortSignal.timeout(RESEARCH_TIMEOUT_MS), headers: { Accept: "text/html,application/xhtml+xml,text/plain" } });
     if (response.status >= 300 && response.status < 400) {
       const next = response.headers.get("location");
       if (!next || redirects === MAX_RESEARCH_REDIRECTS) throw new Error("source-redirect-limit");
@@ -118,11 +120,15 @@ export async function fetchResearchSource(raw: string) {
       continue;
     }
     if (!response.ok) throw new Error(`source-http-${response.status}`);
-    const { bytes, truncated } = await readCapped(response);
+    const contentType = (response.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase();
+    if (!new Set(["text/html", "application/xhtml+xml", "text/plain"]).has(contentType)) throw new Error("source-unsupported-content");
+    const announced = Number(response.headers.get("content-length"));
+    if (options.strictSize && Number.isFinite(announced) && announced > MAX_RESEARCH_BYTES) throw new Error("source-too-large");
+    const { bytes, truncated } = await readCapped(response, options.strictSize);
     // `fatal: false` so a multi-byte character split by the cap degrades to a
     // replacement character rather than throwing away the whole page.
     const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-    return { url: checked.url.toString(), title: checked.url.hostname, excerpt: sanitizeHtml(text), truncated };
+    return { url: checked.url.toString(), title: checked.url.hostname, excerpt: options.preserveHtml ? text : sanitizeHtml(text), truncated };
   }
   throw new Error("source-redirect-limit");
 }

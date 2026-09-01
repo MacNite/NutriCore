@@ -22,6 +22,8 @@ describe("quick meal image validation", () => {
     expect(hasMealInput(text, url, image)).toBe(expected);
   });
   it("accepts no image for text-only input", async () => expect(validateMealImage(null)).resolves.toBeNull());
+  it("accepts the empty File browsers submit for an unselected file input", async () =>
+    expect(validateMealImage(new File([], "", { type: "application/octet-stream" }))).resolves.toBeNull());
   it("accepts a PNG by its bytes rather than filename", async () => expect((await validateMealImage(png()))?.mime).toBe("image/png"));
   it("rejects zero-byte images", async () => expect(validateMealImage(new File([], "x.png", { type: "image/png" }))).rejects.toThrow("imageEmpty"));
   it("rejects an invalid MIME type", async () => expect(validateMealImage(new File(["hello"], "x.txt", { type: "text/plain" }))).rejects.toThrow("imageInvalid"));
