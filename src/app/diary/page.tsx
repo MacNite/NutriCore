@@ -131,9 +131,9 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
           const entries = mealData?.entries ?? [];
 
           return (
-            <section className="card" key={meal} aria-labelledby={`meal-${meal}`}>
+            <section className="card meal-card" id={`meal-${meal}`} key={meal} aria-labelledby={`meal-${meal}-heading`}>
               <div className="card-head">
-                <h2 id={`meal-${meal}`}>{t(`meals.${meal}`)}</h2>
+                <h2 id={`meal-${meal}-heading`}>{t(`meals.${meal}`)}</h2>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <span className="muted" style={{ fontSize: 13.5 }}>
                     {mealData?.totals.energyKcal == null

@@ -384,6 +384,10 @@ a:hover {
   margin: 0;
 }
 
+.meal-card {
+  scroll-margin-top: 24px;
+}
+
 .nutrition-subtitle { margin: -8px 0 16px; }
 .progress-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; }
 .progress-tabs .btn { padding: 7px 13px; }
