@@ -47,6 +47,7 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
   const choiceLabels: ChoiceLabels = {
     matched: t("matched"),
     unmatched: t("unmatched"),
+    missingWeight: t("missingWeight"),
     modelEstimate: t("modelEstimate"),
     skip: t("skipComponent"),
     origin: {
@@ -193,9 +194,11 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
                 <>
                   <p className="muted">{t("skipped")}</p>
                   <ul className="plain-list">
-                    {outcome.skipped.map((name) => (
-                      <li key={name}>
-                        {name} — <Link href="/foods">{t("addManually")}</Link>
+                    {outcome.skipped.map((name, index) => (
+                      <li key={`${name}-${index}`}>
+                        {name} — {outcome.skippedDetails?.[index]
+                          ? t(`skipReason.${outcome.skippedDetails[index].reason}`)
+                          : t("skipReason.LEGACY")} — <Link href="/foods">{t("addManually")}</Link>
                       </li>
                     ))}
                   </ul>
