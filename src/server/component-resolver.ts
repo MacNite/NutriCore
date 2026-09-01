@@ -151,11 +151,46 @@ function* weightAttempts(
  * True when a candidate is plausibly the food the component named, rather than
  * merely the best of a bad set. Used to decide whether to pre-select it.
  */
-function looksLikeTheSameFood(componentName: string, candidateName: string) {
+/**
+ * Words that change a food into an accessory or substitute rather than merely
+ * describing it. A substring match cannot distinguish "Rührei" from "Rührei
+ * Gewürz", but automatically logging the latter is substantially worse than
+ * leaving the component unresolved. The list is deliberately narrow: ordinary
+ * descriptors such as "Bio" or "Vollkorn" remain eligible.
+ */
+const IDENTITY_CHANGING_WORDS = [
+  "gewurz",
+  "seasoning",
+  "spice",
+  "sauce",
+  "dressing",
+  "pulver",
+  "powder",
+  "aroma",
+  "flavour",
+  "flavor",
+  "mischung",
+  "mix",
+  "extrakt",
+  "extract",
+  "sirup",
+  "syrup",
+  "ersatz",
+  "substitute",
+] as const;
+
+const identityChanging = (token: string) => IDENTITY_CHANGING_WORDS.some((word) => token.startsWith(word));
+
+export function isSafeAutomaticMatch(componentName: string, candidateName: string) {
   const wanted = normalizeName(componentName);
   const found = normalizeName(candidateName);
   if (!wanted || !found) return false;
-  return found === wanted || found.includes(wanted) || wanted.includes(found);
+  if (found === wanted) return true;
+  if (!found.includes(wanted) && !wanted.includes(found)) return false;
+
+  const wantedTokens = new Set(wanted.split(" "));
+  const extraCandidateTokens = found.split(" ").filter((token) => !wantedTokens.has(token));
+  return !extraCandidateTokens.some(identityChanging);
 }
 
 /** Each candidate carries the weight it would give the component, not just a name. */
@@ -218,10 +253,11 @@ export async function resolveComponent(
     if (web) candidates.push(web);
   }
 
-  const chosen = candidates[0];
-  // Pre-selected only when the name plausibly matches. Anything weaker is a
-  // suggestion for the reviewer, not a decision taken on their behalf.
-  const selectedFoodId = chosen && looksLikeTheSameFood(component.name, chosen.name) ? chosen.foodId : null;
+  // The provider's first result may be an accessory whose name merely contains
+  // the food ("Rührei Gewürz"). Pick the first identity-safe candidate instead;
+  // if none qualifies, keep all suggestions visible but auto-select nothing.
+  const chosen = candidates.find((candidate) => isSafeAutomaticMatch(component.name, candidate.name));
+  const selectedFoodId = chosen?.foodId ?? null;
   // The component-level weight is the one that applies when no food is chosen,
   // so it is the model's own reading of the sentence and nothing else.
   const { grams, source } = resolveGrams(component, null);

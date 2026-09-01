@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 
-import { resolveGrams } from "./component-resolver";
+import { isSafeAutomaticMatch, resolveGrams } from "./component-resolver";
 
 interface WeightFacts {
   servingSize: number | null;
@@ -126,5 +126,21 @@ describe("how many grams a component logs", () => {
     const component = { quantity: 2, unit: "Scheibe", estimatedGrams: 60 };
     const useless = food({ servings: [{ label: "Scheibe", amount: 1, unit: "Scheibe", gramEquivalent: null, mlEquivalent: null }] });
     expect(resolveGrams(component, useless)).toEqual({ grams: 60, source: "MODEL" });
+  });
+});
+
+describe("automatic food selection", () => {
+  it("rejects a seasoning that merely contains the meal name", () => {
+    expect(isSafeAutomaticMatch("Rührei", "Rührei Gewürz - just spices")).toBe(false);
+    expect(isSafeAutomaticMatch("scrambled egg", "Scrambled Egg Seasoning Mix")).toBe(false);
+  });
+
+  it("allows the modifier when the user actually asked for that product", () => {
+    expect(isSafeAutomaticMatch("Rührei Gewürz", "Rührei Gewürz")).toBe(true);
+  });
+
+  it("keeps ordinary descriptive food names eligible", () => {
+    expect(isSafeAutomaticMatch("Rührei", "Bio Rührei mit Butter")).toBe(true);
+    expect(isSafeAutomaticMatch("Brot", "Vollkorn Brot")).toBe(true);
   });
 });
