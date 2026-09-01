@@ -181,8 +181,11 @@
       "sourceUrlHint": "Eine öffentliche Rezept-URL kann allein verwendet werden; Text und Foto sind optionale Ergänzungen.",
       "image": "Mahlzeitenfoto (optional)",
       "imageHint": "JPEG, PNG oder WebP bis {maxMb} MB. Du kannst auf unterstützten Mobilgeräten ein Foto aufnehmen. Das Bild wird zur Verarbeitung höchstens 24 Stunden temporär gespeichert und danach gelöscht.",
+      "servings": "Anzahl Portionen",
+      "servingsHint": "Wie viele Portionen ergeben alle Mengen in Text, URL oder Foto? Die schnelle Mahlzeit trägt eine Portion ein.",
       "meal": "Mahlzeit",
       "submit": "Speichern und Anreicherung einreihen",
+      "createRecipe": "Als Rezept erstellen",
       "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert.",
       "errors": {
         "inputRequired": "Füge Text, eine URL oder ein Bild hinzu.",
@@ -484,6 +487,8 @@
       "url": "Rezept-Link",
       "image": "Rezeptfoto",
       "imageHint": "JPEG, PNG oder WebP bis {maxMb} MB. Ein bildfähiges Modell ist erforderlich.",
+      "servings": "Anzahl Portionen",
+      "servingsHint": "Wie viele Portionen ergeben die gesamten Mengen der Quelle? Diese Angabe bestimmt die Nährwerte und das Gewicht pro Portion.",
       "submit": "Rezept auslesen",
       "unmatched": "Diese Zutaten wurden nicht in deinen Lebensmitteln gefunden und müssen manuell ergänzt werden: {names}",
       "errors": {
@@ -516,6 +521,7 @@
     "portionWeight": "Portionsgewicht",
     "coverage": "Nährwertabdeckung",
     "servingsToLog": "Anzahl Portionen",
+    "servingSummary": "1 Portion ({grams, number, maximumFractionDigits: 1} g)",
     "meal": "Mahlzeit",
     "date": "Datum",
     "log": "Rezept eintragen",

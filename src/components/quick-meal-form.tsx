@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { MEALS } from "@/server/diary";
 import { queueMealInputAction } from "@/server/meal-ai-actions";
 import { imageUploadMaxMb } from "@/lib/image-upload-limit";
+import Link from "next/link";
 
 export async function QuickMealForm({ date, returnTo }: { date: string; returnTo: "/" }) {
   const t = await getTranslations("diary");
@@ -18,6 +19,11 @@ export async function QuickMealForm({ date, returnTo }: { date: string; returnTo
           maxLength={2000}
           placeholder={t("ai.placeholder")}
         />
+      </div>
+      <div className="field">
+        <label htmlFor="mealServings-today">{t("ai.servings")}</label>
+        <input id="mealServings-today" name="servings" type="number" min="0.01" max="10000" step="0.01" defaultValue="1" required aria-describedby="mealServingsHint-today" />
+        <span className="hint" id="mealServingsHint-today">{t("ai.servingsHint")}</span>
       </div>
       <div className="field">
         <label htmlFor="mealImage-today">{t("ai.image")}</label>
@@ -53,6 +59,7 @@ export async function QuickMealForm({ date, returnTo }: { date: string; returnTo
         </select>
       </div>
       <button className="btn btn-primary">{t("ai.submit")}</button>
+      <Link className="btn btn-quiet" style={{ marginLeft: 8 }} href="/recipes/new">{t("ai.createRecipe")}</Link>
     </form>
   );
 }

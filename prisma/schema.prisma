@@ -150,6 +150,8 @@ model MealInput {
   imageExpiresAt DateTime?
   meal      MealType
   diaryDate DateTime @db.Date
+  /** Number of portions described by the submitted text, URL, or photo. */
+  servings  Decimal  @default(1) @db.Decimal(8, 2)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   aiJobs    AiJob[]
@@ -171,6 +173,8 @@ model RecipeImport {
   userId    String
   text      String?
   sourceUrl String?
+  /** User-supplied yield; authoritative when the source is ambiguous. */
+  servings  Decimal  @default(1) @db.Decimal(8, 2)
   /** Transient: cleared as soon as the worker has read it. Never re-served. */
   imageMime String?
   imageData Bytes?

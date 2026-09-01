@@ -33,6 +33,7 @@ export async function queueMealInputAction(formData: FormData) {
       text: z.string().trim().max(2000).refine((value) => !value || value.length >= 2),
       sourceUrl: z.string().trim().max(500).optional(),
       meal: z.enum(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"]),
+      servings: z.coerce.number().positive().max(10_000),
       date: z.string(),
       returnTo: z.literal("/").default("/"),
     })
@@ -56,6 +57,7 @@ export async function queueMealInputAction(formData: FormData) {
       sourceUrl: parsed.sourceUrl || null,
       meal: parsed.meal,
       diaryDate: new Date(`${date}T00:00:00.000Z`),
+      servings: parsed.servings,
       imageMime: image?.mime ?? null,
       imageData: image?.data ?? null,
       imageExpiresAt: image?.expiresAt ?? null,

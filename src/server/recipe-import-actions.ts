@@ -46,10 +46,12 @@ export async function queueRecipeImportAction(formData: FormData) {
 
   const text = String(formData.get("text") ?? "").trim().slice(0, 5000);
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim().slice(0, 500);
+  const servings = Number(formData.get("servings"));
   const image = formData.get("image");
   const hasImage = image instanceof File && image.size > 0;
 
   if (!text && !sourceUrl && !hasImage) back("inputRequired");
+  if (!Number.isFinite(servings) || servings <= 0 || servings > 10_000) back("inputRequired");
   if (hasImage && !IMAGE_TYPES.has(image.type)) back("imageInvalid");
   if (hasImage && image.size > MAX_IMAGE_BYTES) back("imageTooLarge");
   // Checked here, where a rejection can still be shown on the form, rather than
@@ -61,6 +63,7 @@ export async function queueRecipeImportAction(formData: FormData) {
       userId: user.id,
       text: text || null,
       sourceUrl: sourceUrl || null,
+      servings,
       imageMime: hasImage ? image.type : null,
       imageData: hasImage ? Buffer.from(await image.arrayBuffer()) : null,
     },
