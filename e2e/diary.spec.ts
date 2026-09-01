@@ -29,7 +29,11 @@ test("a user can create a custom food, log it and edit the portion", async ({ pa
   await page.goto("/diary");
   await expect(page.getByText("Testbrot").first()).toBeVisible();
   await expect(page.getByText(/500 kcal/).first()).toBeVisible();
-  await expect(page.locator(".micro-indicator").first()).toBeVisible();
+  // The panel holding the coverage bars starts collapsed, so open it before
+  // asserting: the bars are in the DOM from the first render either way.
+  const microPanel = page.locator("details.micro-panel");
+  await microPanel.locator("summary").click();
+  await expect(microPanel.locator(".micro-indicator").first()).toBeVisible();
 
   // Editing the amount rescales the entry.
   await page.getByRole("button", { name: /edit|bearbeiten/i }).first().click();
