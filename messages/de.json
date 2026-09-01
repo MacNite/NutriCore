@@ -186,6 +186,15 @@
     "hint": "Ein Strich bedeutet, dass für die eingetragenen Lebensmittel keine Werte vorliegen.",
     "coverage": "{percent} der Aufnahmemenge erfasst"
   },
+  "barcodeScanner": {
+    "open": "Barcode scannen",
+    "title": "Barcode scannen",
+    "hint": "Richte die Kamera auf den Produkt-Barcode. Nach der Erkennung startet die Suche automatisch.",
+    "preview": "Live-Kamerabild zum Scannen eines Barcodes",
+    "cameraError": "Die Kamera konnte nicht geöffnet werden. Prüfe die Kameraberechtigung des Browsers und versuche es erneut.",
+    "close": "Scanner schließen",
+    "cancel": "Abbrechen"
+  },
   "foods": {
     "title": "Lebensmittel",
     "searchPlaceholder": "Lebensmittel suchen oder Barcode eingeben",

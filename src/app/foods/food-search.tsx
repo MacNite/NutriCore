@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { SourceBadge } from "@/components/source-badge";
+import { BarcodeScanner } from "@/components/barcode-scanner";
 import { formatKcal, formatNumber } from "@/lib/format";
 import type { Locale } from "@/i18n/locales";
 
@@ -56,6 +57,7 @@ export function FoodSearch({
   const [loading, setLoading] = useState(false);
   const statusId = useId();
   const controller = useRef<AbortController | null>(null);
+  const immediateQuery = useRef<string | null>(null);
 
   const run = useCallback(
     async (value: string, remote = false) => {
@@ -101,6 +103,10 @@ export function FoodSearch({
   // Autocomplete is PostgreSQL-only: OFF is contacted by the button, or by a
   // complete barcode as one discrete remote lookup.
   useEffect(() => {
+    if (immediateQuery.current === query) {
+      immediateQuery.current = null;
+      return;
+    }
     const timer = setTimeout(() => void run(query), DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [query, run]);
@@ -153,6 +159,11 @@ export function FoodSearch({
           <button type="submit" className="btn btn-quiet" disabled={loading || query.trim().length < 3}>
             {t("searchExternal")}
           </button>
+          <BarcodeScanner onScan={(barcode) => {
+            immediateQuery.current = barcode;
+            setQuery(barcode);
+            void run(barcode, true);
+          }} />
           <span id={statusId} role="status" aria-live="polite" className="muted" style={{ fontSize: 13 }}>
           {status}
           </span>

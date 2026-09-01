@@ -186,6 +186,15 @@
     "hint": "A dash means that no values are available for the foods you logged.",
     "coverage": "{percent} of intake covered"
   },
+  "barcodeScanner": {
+    "open": "Scan barcode",
+    "title": "Scan a barcode",
+    "hint": "Point the camera at the product barcode. The search starts automatically after detection.",
+    "preview": "Live camera preview for barcode scanning",
+    "cameraError": "The camera could not be opened. Check the browser camera permission and try again.",
+    "close": "Close scanner",
+    "cancel": "Cancel"
+  },
   "foods": {
     "title": "Foods",
     "searchPlaceholder": "Search food or enter a barcode",
