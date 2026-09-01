@@ -152,6 +152,13 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                     </span>
                   </div>
                   <span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span>
+                  <Link
+                    className="icon-btn"
+                    href={`/diary?date=${selectedDate}#meal-${meal}`}
+                    aria-label={`${common("edit")}: ${diaryT(`meals.${meal}`)}`}
+                  >
+                    <span aria-hidden="true">✎</span>
+                  </Link>
                   <QuickAddLink meal={meal} date={selectedDate} label={diaryT("addTo", { meal: diaryT(`meals.${meal}`) })} />
                 </div>
               );

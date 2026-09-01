@@ -10,6 +10,16 @@ test("the dashboard quick-meal button opens the diary AI form", async ({ page })
   await expect(dialog.getByLabel(/^meal$|^mahlzeit$/i)).toBeVisible();
 });
 
+test("a dashboard meal edit button opens and focuses that diary meal", async ({ page }) => {
+  const lunchEdit = page.getByRole("link", { name: /edit: lunch|bearbeiten: mittagessen/i });
+  await expect(lunchEdit).toHaveAttribute("href", /\/diary\?date=\d{4}-\d{2}-\d{2}#meal-LUNCH$/);
+
+  await lunchEdit.click();
+
+  await expect(page).toHaveURL(/\/diary\?date=\d{4}-\d{2}-\d{2}#meal-LUNCH$/);
+  await expect(page.locator("#meal-LUNCH")).toBeInViewport();
+});
+
 test.beforeEach(async ({ page }) => {
   await registerAndOnboard(page);
   await completeOnboarding(page);
