@@ -51,13 +51,17 @@ test("a user can create a custom food, log it and edit the portion", async ({ pa
   await expect(page.getByText("Testbrot").first()).toBeVisible();
   await expect(page.getByText(/500 kcal/).first()).toBeVisible();
   await page.getByRole("button", { name: /view all|alle anzeigen/i }).click();
-  await expect(page.getByRole("dialog", { name: /micronutrients|mikronährstoffe/i }).locator(".micro-indicator").first()).toBeVisible();
+  const microDialog = page.getByRole("dialog", { name: /micronutrients|mikronährstoffe/i });
+  await expect(microDialog.locator(".micro-indicator").first()).toBeVisible();
+  await microDialog.getByRole("button", { name: /^close$|^schließen$/i }).click();
 
-  // Editing the amount rescales the entry.
-  await page.getByRole("button", { name: /edit|bearbeiten/i }).first().click();
-  await page.getByLabel(/^amount$|^menge$/i).first().fill("100");
-  await page.getByRole("button", { name: /^save$|^speichern$/i }).click();
-  await expect(page.getByText(/250 kcal/).first()).toBeVisible();
+  // Editing the amount rescales the entry. Entries live inside the meal's dialog now.
+  await page.getByRole("button", { name: /dinner|abendessen/i }).click();
+  const mealDialog = page.getByRole("dialog", { name: /dinner|abendessen/i });
+  await mealDialog.getByRole("button", { name: /edit|bearbeiten/i }).first().click();
+  await mealDialog.getByLabel(/^amount$|^menge$/i).first().fill("100");
+  await mealDialog.getByRole("button", { name: /^save$|^speichern$/i }).click();
+  await expect(mealDialog.getByText(/250 kcal/).first()).toBeVisible();
 });
 
 test("an unknown value is shown as a dash, never as zero", async ({ page }) => {

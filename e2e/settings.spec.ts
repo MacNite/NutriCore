@@ -22,11 +22,11 @@ test("the interface can be switched between German and English", async ({ page }
   await expect(page.getByRole("heading", { name: /^settings$/i })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
-  await page.goto("/diary");
+  await page.goto("/");
   await expect(page.getByRole("heading", { name: /^diary$/i })).toBeVisible();
-  // The meal heading, not the meal <option> in the quick-add form: options in a
-  // collapsed <select> are never visible, and they precede the headings in the DOM.
-  await expect(page.getByRole("heading", { name: /^breakfast$/i })).toBeVisible();
+  // The meal name inside the meal row's trigger button, not the meal <option> in
+  // the quick-add form: options in a collapsed <select> are never visible.
+  await expect(page.getByRole("button", { name: /breakfast/i })).toBeVisible();
 });
 
 test("the theme can be set to light, dark or system and survives navigation", async ({ page }) => {
