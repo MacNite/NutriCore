@@ -2,7 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
-import { SourceBadge } from "@/components/source-badge";
+import { SourceBadges } from "@/components/source-badge";
+import { aiEnrichmentMetadata } from "@/server/food-enrichment";
 import { getVisibleFood } from "@/server/foods";
 import { formatDateKey } from "@/server/diary";
 import { LogFoodForm } from "./log-food-form";
@@ -28,7 +29,11 @@ export default async function FoodDetailPage({
 
   const t = await getTranslations("foods");
   const today = formatDateKey(new Date());
-  const source = await prisma.foodSource.findFirst({ where: { foodId: food.id }, orderBy: { retrievedAt: "desc" } });
+  const sources = await prisma.foodSource.findMany({ where: { foodId: food.id }, orderBy: { retrievedAt: "desc" } });
+  const source = sources.find((item) => item.provider !== "AI_ENRICHMENT");
+  const definitions = await prisma.nutrientDefinition.findMany({ select: { key: true, nameDe: true, nameEn: true } });
+  const names = new Map(definitions.map((item) => [item.key, user.language === "de" ? item.nameDe : item.nameEn]));
+  const enrichment = aiEnrichmentMetadata(sources).map((item) => ({ ...item, nutrientNames: item.nutrientKeys.map((key) => names.get(key) ?? key) }));
 
   return (
     <AppShell displayName={user.displayName}>
@@ -40,7 +45,7 @@ export default async function FoodDetailPage({
             {t("perBasis", { amount: String(food.basisAmount), unit: food.basisUnit === "ML" ? "ml" : "g" })}
           </p>
         </div>
-        <SourceBadge source={food.sourceType} />
+        <SourceBadges source={food.sourceType} enrichment={enrichment} />
       </div>
 
       <div className="grid-main">

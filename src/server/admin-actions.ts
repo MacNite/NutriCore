@@ -8,6 +8,7 @@ import { logger } from "@/lib/logger";
 import { hashPassword, passwordProblem } from "@/lib/auth";
 import { endSession, requireAdmin, requireUser } from "./session";
 import { issueInvitation, redeemableInvitation } from "./admin";
+import { missingNutritionKeys } from "./food-enrichment";
 
 /**
  * The token travels back in the redirect so `/admin` can show the link once.
@@ -68,6 +69,24 @@ export async function retryAiJobAction(formData: FormData) {
     data: { status: "QUEUED", errorMessage: null, failedAt: null, startedAt: null, retryCount: 0 },
   });
   redirect("/admin");
+}
+
+/** On-demand only: deliberately no scheduler, so an administrator controls network use. */
+export async function enqueueFoodEnrichmentAction() {
+  const admin = await requireAdmin();
+  const [definitions, foods] = await Promise.all([
+    prisma.nutrientDefinition.findMany({ select: { key: true } }),
+    prisma.food.findMany({ include: { nutrients: true, servings: true } }),
+  ]);
+  let queued = 0;
+  for (const food of foods) {
+    const missing = missingNutritionKeys(definitions, food.nutrients);
+    const missingServing = !food.servingSize && !food.servings.some((s) => s.gramEquivalent || s.mlEquivalent);
+    if (!missing.length && !missingServing) continue;
+    const active = await prisma.aiJob.findFirst({ where: { entityType: "FOOD_ENRICHMENT", entityId: food.id, status: { in: ["QUEUED", "RUNNING"] } } });
+    if (!active) { await prisma.aiJob.create({ data: { userId: admin.id, entityType: "FOOD_ENRICHMENT", entityId: food.id } }); queued++; }
+  }
+  redirect(`/admin?enrichmentQueued=${queued}`);
 }
 
 export async function changeRequiredPasswordAction(formData: FormData) {

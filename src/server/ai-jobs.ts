@@ -8,6 +8,7 @@ import { logger } from "@/lib/logger";
 import { fetchResearchSource } from "./research";
 import { visibleFoodWhere } from "./foods";
 import { asUntrustedExcerpt } from "@/lib/url-guard";
+import { enrichFood } from "./food-enrichment";
 
 export const mealParseSchema = z.object({
   components: z
@@ -67,6 +68,37 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
   const job = await claimNextJob();
   if (!job) return false;
   try {
+    if (job.entityType === "FOOD_ENRICHMENT") {
+      await enrichFood(job.entityId, deps);
+      await prisma.aiJob.update({ where: { id: job.id }, data: { status: "COMPLETED", completedAt: new Date(), errorMessage: null } });
+      return true;
+    }
+    if (job.entityType === "RECIPE_LOG") {
+      if (!job.mealInput) throw new Error("Recipe log has no diary target");
+      const metadata = (job.metadata ?? {}) as { recipeId?: string; servings?: number };
+      const recipe = await prisma.recipe.findFirst({
+        where: { id: metadata.recipeId, ownerId: job.userId },
+        include: { ingredients: { include: { food: { include: { nutrients: true, sources: true } } } } },
+      });
+      if (!recipe) throw new Error("Recipe not found");
+      const multiplier = (metadata.servings ?? 1) / Number(recipe.servings);
+      const components = recipe.ingredients.map((ingredient) => ({
+        name: ingredient.food.name,
+        quantity: Number(ingredient.amount) * multiplier,
+        unit: ingredient.unit,
+        estimatedGrams: ingredient.normalizedGrams ? Number(ingredient.normalizedGrams) * multiplier : undefined,
+        canonicalFoodId: ingredient.foodId,
+        nutritionPer100g: Object.fromEntries(ingredient.food.nutrients.map((n) => [n.nutrientKey, n.value === null ? null : Number(n.value)])),
+        sources: ingredient.food.sources.filter((s) => s.url).map((s) => ({ title: s.provider, url: s.url! })),
+      }));
+      const provenance = { processedAt: new Date().toISOString(), principle: PRINCIPLE, recipeId: recipe.id };
+      await prisma.$transaction([
+        prisma.aiProposal.upsert({ where: { jobId: job.id }, create: { jobId: job.id, confidence: "high", proposed: { components, warnings: [] }, provenance }, update: { confidence: "high", proposed: { components, warnings: [] }, provenance, approvalStatus: "PENDING", reviewedAt: null, accepted: Prisma.DbNull } }),
+        prisma.aiJob.update({ where: { id: job.id }, data: { status: "COMPLETED", completedAt: new Date(), errorMessage: null } }),
+      ]);
+      await queueFoodEnrichments(job.userId, components.map((c) => c.canonicalFoodId));
+      return true;
+    }
     if (job.entityType !== "MEAL_INPUT" || !job.mealInput) throw new Error("Unsupported AI job entity");
     const ai = deps.ai ?? new OllamaProvider();
     const capabilities = await ai.capabilities();
@@ -131,10 +163,18 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
         data: { status: "COMPLETED", completedAt: new Date(), model: capabilities.model, errorMessage: null },
       }),
     ]);
+    await queueFoodEnrichments(job.userId, components.flatMap((component) => component.canonicalFoodId ? [component.canonicalFoodId] : []));
   } catch (error) {
     await recordFailure(job, error);
   }
   return true;
+}
+
+async function queueFoodEnrichments(userId: string, foodIds: string[]) {
+  for (const entityId of new Set(foodIds)) {
+    const existing = await prisma.aiJob.findFirst({ where: { entityType: "FOOD_ENRICHMENT", entityId, status: { in: ["QUEUED", "RUNNING"] } } });
+    if (!existing) await prisma.aiJob.create({ data: { userId, entityType: "FOOD_ENRICHMENT", entityId } });
+  }
 }
 
 export function findConservativeDuplicate(name: string, candidates: { id: string; normalizedName: string }[]) {

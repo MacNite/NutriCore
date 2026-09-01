@@ -19,6 +19,7 @@ export interface RecipeInput {
 const foodInclude = {
   nutrients: { select: { nutrientKey: true, value: true } },
   servings: { select: { label: true, unit: true, amount: true, gramEquivalent: true, mlEquivalent: true } },
+  sources: { select: { provider: true, metadata: true, retrievedAt: true } },
 } as const;
 
 async function resolveIngredients(userId: string, ingredients: RecipeInput["ingredients"], tx: Prisma.TransactionClient = prisma) {
