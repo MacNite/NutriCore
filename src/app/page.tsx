@@ -113,11 +113,19 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
               return (
                 <div className="row clickable-row" key={meal}>
-                  <AppDialog id={`meal-${meal}`} title={diaryT(`meals.${meal}`)} closeLabel={common("close")} initialOpen={params.editMeal === meal} triggerClassName="row-main-button" trigger={<><div className="row-body"><strong>{diaryT(`meals.${meal}`)}</strong><span>{entries.length === 0 ? diaryT("empty") : entries.map((e) => e.label).slice(0, 3).join(" · ")}</span></div><span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span></>}>
+                  <AppDialog
+                    id={`meal-${meal}`}
+                    title={diaryT(`meals.${meal}`)}
+                    closeLabel={common("close")}
+                    initialOpen={params.editMeal === meal}
+                    triggerClassName="row-main-button"
+                    trigger={<><div className="row-body"><strong>{diaryT(`meals.${meal}`)}</strong><span>{entries.length === 0 ? diaryT("empty") : entries.map((e) => e.label).slice(0, 3).join(" · ")}</span></div><span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span></>}
+                    secondaryTrigger={<span aria-hidden="true">＋</span>}
+                    secondaryTriggerLabel={diaryT("addTo", { meal: diaryT(`meals.${meal}`) })}
+                  >
                     <div className="dialog-toolbar"><strong>{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</strong><Link className="btn btn-primary" href={`/foods?meal=${meal}&date=${selectedDate}&editMeal=${meal}`}><span aria-hidden="true">＋</span> {common("add")}</Link></div>
                     {entries.length === 0 ? <p className="empty">{diaryT("empty")}</p> : entries.map((entry) => <DiaryEntryRow key={entry.id} entry={{ id: entry.id, label: entry.label, brand: entry.brand, quantity: entry.quantity, unit: entry.unit, kcal: entry.nutrients.energyKcal ?? null, sourceType: entry.sourceType }} date={selectedDate} locale={locale} badge={<SourceBadge source={entry.sourceType} />} />)}
                   </AppDialog>
-                  <QuickAddLink meal={meal} date={selectedDate} label={diaryT("addTo", { meal: diaryT(`meals.${meal}`) })} />
                 </div>
               );
             })}
