@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { resolveAiModel } from "@/lib/env";
 import { requireUser } from "./session";
 import { addDiaryEntry, formatDateKey } from "./diary";
 import { checkUrl } from "@/lib/url-guard";
@@ -50,7 +51,7 @@ export async function queueMealInputAction(formData: FormData) {
       entityType: "MEAL_INPUT",
       entityId: input.id,
       mealInputId: input.id,
-      model: process.env.AI_MODEL ?? process.env.OLLAMA_MODEL ?? "qwen3.5:4b",
+      model: resolveAiModel(),
     },
   });
   redirect(`/ai-review/${input.id}?queued=1`);

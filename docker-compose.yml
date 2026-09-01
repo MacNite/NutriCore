@@ -40,16 +40,12 @@ services:
 
       # --- AI -------------------------------------------------------------
       # Ollama is NOT started by this stack: it already runs elsewhere on the
-      # network. Only the connection details live here. Models are pulled on
-      # the Ollama host (`ollama pull deepseek-r1`), never by NutriCore.
-      AI_ENABLED: ${AI_ENABLED:-true}
-      AI_PROVIDER: ${AI_PROVIDER:-ollama}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-deepseek-r1}
-      AI_MODEL: ${AI_MODEL:-qwen3.5:4b}
-      AI_BASE_URL: ${AI_BASE_URL:-http://ollama:11434}
-      SEARXNG_URL: ${SEARXNG_URL:-}
-      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-600}
+      # network. Point AI_BASE_URL and AI_MODEL at it in .env; models are
+      # pulled on the Ollama host (`ollama pull qwen3.5:4b`), never here.
+      #
+      # AI_BASE_URL, AI_MODEL, SEARXNG_URL and the rest are deliberately NOT
+      # repeated here: `environment:` overrides `env_file:`, so a default
+      # written in this file would silently win over the value in .env.
     ports:
       - "${APP_PORT:-3000}:3000"
     depends_on:
@@ -64,7 +60,7 @@ services:
     security_opt:
       - no-new-privileges:true
     # Uncomment together with the networks block below when Ollama runs in a
-    # different compose stack, so `OLLAMA_BASE_URL` can use its service name.
+    # different compose stack, so `AI_BASE_URL` can use its service name.
     # networks:
     #   - default
     #   - ollama
@@ -78,10 +74,9 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-nutricore}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-nutricore}?schema=public
+      # The one variable that makes this the worker rather than a second app.
+      # Everything else comes from .env via `env_file`, exactly as for `app`.
       NUTRICORE_PROCESS: worker
-      AI_MODEL: ${AI_MODEL:-qwen3.5:4b}
-      AI_BASE_URL: ${AI_BASE_URL:-http://ollama:11434}
-      SEARXNG_URL: ${SEARXNG_URL:-}
     depends_on:
       db:
         condition: service_healthy
