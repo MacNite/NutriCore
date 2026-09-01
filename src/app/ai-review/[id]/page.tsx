@@ -42,6 +42,13 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
   const outcome = proposal?.accepted as AcceptedOutcome | null | undefined;
   const pending = job?.status === "QUEUED" || job?.status === "RUNNING";
   const pendingReview = proposal?.approvalStatus === "PENDING";
+  const urlFailure = job?.errorMessage === "source-unsupported-content" ? "unsupportedContent"
+    : job?.errorMessage === "source-too-large" ? "oversizedPage"
+    : job?.errorMessage === "source-no-ingredients" ? "noIngredients"
+    : job?.failureKind === "SOURCE_BLOCKED" ? "unsafeUrl"
+    : job?.failureKind === "SOURCE_UNAVAILABLE" ? "unreachablePage"
+    : job?.status === "FAILED" ? "extractionFailure"
+    : null;
 
   // Built here so `ComponentChoice` stays free of translation plumbing.
   const choiceLabels: ChoiceLabels = {
@@ -89,7 +96,7 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
             <AutoRefresh />
           </>
         ) : null}
-        {job?.errorMessage ? <div className="notice notice-warn">{job.errorMessage}</div> : null}
+        {job?.errorMessage ? <div className="notice notice-warn">{urlFailure ? t(`urlErrors.${urlFailure}`) : job.errorMessage}</div> : null}
       </section>
 
       {proposal && proposed ? (

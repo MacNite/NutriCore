@@ -178,6 +178,7 @@
       "describe": "Beschreibe deine Mahlzeit",
       "placeholder": "2 Scheiben Roggenbrot mit Butter, 2 Spiegeleier und 1 Banane",
       "sourceUrl": "Rezept-URL (optional)",
+      "sourceUrlHint": "Eine öffentliche Rezept-URL kann allein verwendet werden; Text und Foto sind optionale Ergänzungen.",
       "image": "Mahlzeitenfoto (optional)",
       "imageHint": "JPEG, PNG oder WebP bis {maxMb} MB. Du kannst auf unterstützten Mobilgeräten ein Foto aufnehmen. Das Bild wird zur Verarbeitung höchstens 24 Stunden temporär gespeichert und danach gelöscht.",
       "meal": "Mahlzeit",
@@ -534,6 +535,14 @@
     "statusCompleted": "Bereit zur Prüfung",
     "statusFailed": "KI-Anreicherung fehlgeschlagen",
     "keepWorking": "Du kannst diese Seite verlassen; der Worker arbeitet im Hintergrund weiter.",
+    "urlErrors": {
+      "unsafeUrl": "Diese URL wurde abgelehnt, weil sie kein sicheres öffentliches HTTP(S)-Ziel ist.",
+      "unreachablePage": "Die Rezeptseite war nicht erreichbar oder leitete zu oft weiter.",
+      "unsupportedContent": "Die URL lieferte keine unterstützte HTML- oder Textseite.",
+      "oversizedPage": "Die Rezeptseite überschreitet die Abrufgrenze von 512 KB.",
+      "noIngredients": "Auf dieser Seite wurden keine sinnvollen Rezeptzutaten gefunden.",
+      "extractionFailure": "Die Zutaten konnten nicht extrahiert werden. Prüfe Seite und KI-Dienst und versuche es erneut."
+    },
     "proposed": "Vorgeschlagene Bestandteile",
     "confidence": "Konfidenz: {value}",
     "food": "Lebensmittel",

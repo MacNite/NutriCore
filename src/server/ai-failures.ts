@@ -164,7 +164,7 @@ function classify(
 
   if (/^unsafe-source:/.test(message)) return "SOURCE_BLOCKED";
   if (message === "source-too-large") return "SOURCE_TOO_LARGE";
-  if (message === "source-redirect-limit" || /^source-http-/.test(message)) return "SOURCE_UNAVAILABLE";
+  if (["source-redirect-limit", "source-unsupported-content", "source-no-ingredients"].includes(message) || /^source-http-/.test(message)) return "SOURCE_UNAVAILABLE";
   if (/rate limit/i.test(message)) return "RATE_LIMITED";
   if (/source search unavailable/i.test(message)) return "SEARCH_UNAVAILABLE";
   if (/not found|no diary target|Unsupported AI job entity/i.test(message)) return "DATA_MISSING";

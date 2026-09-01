@@ -257,6 +257,30 @@ does not look like a broken one.
 
 #### How a quick meal becomes diary entries
 
+A quick meal accepts text, an image, a public recipe URL, or any combination.
+For a URL, the worker opens the exact submitted address directly (SearXNG is
+never a proxy). It validates DNS and every redirect against private, loopback,
+link-local and reserved networks, permits only standard web ports, follows at
+most three redirects, times out after 10 seconds, accepts HTML/plain text only,
+and rejects responses above 512 KB. No cookies, authorization headers, or
+application credentials are forwarded. Recipe JSON-LD ingredients are preferred;
+otherwise navigation, scripts, advertisements and boilerplate are stripped from
+the visible main content. At most 20,000 sanitized characters, explicitly marked
+as untrusted data, reach the model. The HTML and extracted page text are never
+stored; only the submitted URL remains as provenance, so there is no page cache
+or cache TTL to configure.
+
+Text accompanying a URL is authoritative context. Images and the page are
+supporting evidence; the extraction prompt requires conflicts to lower
+confidence or create a warning rather than silently inventing a quantity. The
+result stops at the same structured component schema used by text and images.
+Page nutrition totals are intentionally discarded: component resolution and the
+existing local/Open Food Facts/consented-web chain supply nutrition, application
+code calculates totals, and the existing approval policy controls diary writes.
+SearXNG remains available only to the downstream resolver/research features when
+both `RESEARCH_ENABLED` and the user's research consent allow web research; URL
+ingestion itself does not use it for discovery or fallback.
+
 The model decomposes the sentence; it is not asked what a food contains. Each
 component it names is then resolved by `src/server/component-resolver.ts`, which
 stops at the first step that yields nutrition:
