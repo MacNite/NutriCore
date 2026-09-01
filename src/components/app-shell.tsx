@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { logoutAction } from "@/server/auth-actions";
+import { BackButton } from "./back-button";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV = [
@@ -37,6 +38,8 @@ export function AppShell({ displayName, children }: { displayName: string; child
 
       <div className="shell">
         <header className="topbar">
+          {pathname !== "/" && <BackButton />}
+
           <Link className="brand" href="/">
             <span className="brand-mark" aria-hidden="true">
               N

@@ -324,6 +324,15 @@ a:hover {
   gap: 8px;
 }
 
+.back-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+}
+
 .page-head {
   display: flex;
   justify-content: space-between;
