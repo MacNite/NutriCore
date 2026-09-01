@@ -179,14 +179,14 @@
       "placeholder": "2 slices rye bread with butter, 2 fried eggs and 1 banana",
       "sourceUrl": "Recipe URL (optional)",
       "image": "Meal photo (optional)",
-      "imageHint": "JPEG, PNG or WebP, up to 6 MB. On supported mobile devices you can take a photo. The image is held temporarily for processing for no more than 24 hours, then deleted.",
+      "imageHint": "JPEG, PNG or WebP, up to {maxMb} MB. On supported mobile devices you can take a photo. The image is held temporarily for processing for no more than 24 hours, then deleted.",
       "meal": "Meal",
       "submit": "Save and queue enrichment",
       "unsafeUrl": "That address could not be fetched safely, so nothing was saved.",
       "errors": {
         "inputRequired": "Add text, a URL, or an image.",
         "imageInvalid": "Use a valid JPEG, PNG, or WebP image.",
-        "imageTooLarge": "The image must be no larger than 6 MB.",
+        "imageTooLarge": "The image exceeds the configured maximum size.",
         "imageEmpty": "The selected image is empty.",
         "unsafeUrl": "That address could not be fetched safely, so nothing was saved."
       }
@@ -482,13 +482,13 @@
       "textPlaceholder": "Paste ingredients and instructions, or describe the recipe…",
       "url": "Recipe link",
       "image": "Recipe photo",
-      "imageHint": "JPEG, PNG or WebP, up to 6 MB. A vision-capable model is required.",
+      "imageHint": "JPEG, PNG or WebP, up to {maxMb} MB. A vision-capable model is required.",
       "submit": "Extract recipe",
       "unmatched": "These ingredients were not found in your foods and must be added manually: {names}",
       "errors": {
         "inputRequired": "Add text, a link, or a picture.",
         "imageInvalid": "Use a JPEG, PNG, or WebP image.",
-        "imageTooLarge": "The image must be no larger than 6 MB.",
+        "imageTooLarge": "The image exceeds the configured maximum size.",
         "aiDisabled": "AI features are disabled in your settings or on this server.",
         "extractionFailed": "The recipe could not be extracted. Check the AI service, link, and image, then try again.",
         "unsafeUrl": "That address is not allowed. Use a public http(s) link without credentials."

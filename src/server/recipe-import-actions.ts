@@ -6,8 +6,9 @@ import { resolveAiModel } from "@/lib/env";
 import { checkUrl } from "@/lib/url-guard";
 import { requireUser } from "./session";
 import { jobPriority } from "./ai-types";
+import { imageUploadMaxBytes } from "@/lib/image-upload-limit";
 
-const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
+const MAX_IMAGE_BYTES = imageUploadMaxBytes();
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export type RecipeImportError =

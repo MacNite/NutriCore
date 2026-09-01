@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { MEALS } from "@/server/diary";
 import { queueMealInputAction } from "@/server/meal-ai-actions";
+import { imageUploadMaxMb } from "@/lib/image-upload-limit";
 
 export async function QuickMealForm({ date, returnTo }: { date: string; returnTo: "/" }) {
   const t = await getTranslations("diary");
@@ -27,7 +28,7 @@ export async function QuickMealForm({ date, returnTo }: { date: string; returnTo
           accept="image/jpeg,image/png,image/webp"
           aria-describedby="mealImageHint-today"
         />
-        <span className="hint" id="mealImageHint-today">{t("ai.imageHint")}</span>
+        <span className="hint" id="mealImageHint-today">{t("ai.imageHint", { maxMb: imageUploadMaxMb() })}</span>
       </div>
       <div className="field">
         <label htmlFor={"sourceUrl-today"}>{t("ai.sourceUrl")}</label>

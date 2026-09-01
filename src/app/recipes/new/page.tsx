@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/server/session";
 import type { RecipeImportDraft, RecipeImportError } from "@/server/recipe-import-actions";
 import { NewRecipeWorkspace } from "./new-recipe-workspace";
+import { imageUploadMaxMb } from "@/lib/image-upload-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,7 @@ export default async function NewRecipePage({
         <h1>{t("create")}</h1>
       </div>
       <NewRecipeWorkspace
+        imageMaxMb={imageUploadMaxMb()}
         draft={draft}
         error={error}
         // A finished job with no draft means the extraction produced nothing

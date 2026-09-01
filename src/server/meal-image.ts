@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
+import { imageUploadMaxBytes } from "@/lib/image-upload-limit";
 
-export const MEAL_IMAGE_MAX_BYTES = 6 * 1024 * 1024;
+export const MEAL_IMAGE_MAX_BYTES = imageUploadMaxBytes();
 export const MEAL_IMAGE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MEAL_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 

@@ -179,14 +179,14 @@
       "placeholder": "2 Scheiben Roggenbrot mit Butter, 2 Spiegeleier und 1 Banane",
       "sourceUrl": "Rezept-URL (optional)",
       "image": "Mahlzeitenfoto (optional)",
-      "imageHint": "JPEG, PNG oder WebP bis 6 MB. Du kannst auf unterstützten Mobilgeräten ein Foto aufnehmen. Das Bild wird zur Verarbeitung höchstens 24 Stunden temporär gespeichert und danach gelöscht.",
+      "imageHint": "JPEG, PNG oder WebP bis {maxMb} MB. Du kannst auf unterstützten Mobilgeräten ein Foto aufnehmen. Das Bild wird zur Verarbeitung höchstens 24 Stunden temporär gespeichert und danach gelöscht.",
       "meal": "Mahlzeit",
       "submit": "Speichern und Anreicherung einreihen",
       "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert.",
       "errors": {
         "inputRequired": "Füge Text, eine URL oder ein Bild hinzu.",
         "imageInvalid": "Verwende ein gültiges JPEG-, PNG- oder WebP-Bild.",
-        "imageTooLarge": "Das Bild darf höchstens 6 MB groß sein.",
+        "imageTooLarge": "Das Bild überschreitet die konfigurierte maximale Größe.",
         "imageEmpty": "Das ausgewählte Bild ist leer.",
         "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert."
       }
@@ -482,13 +482,13 @@
       "textPlaceholder": "Zutaten und Zubereitung einfügen oder das Rezept beschreiben…",
       "url": "Rezept-Link",
       "image": "Rezeptfoto",
-      "imageHint": "JPEG, PNG oder WebP bis 6 MB. Ein bildfähiges Modell ist erforderlich.",
+      "imageHint": "JPEG, PNG oder WebP bis {maxMb} MB. Ein bildfähiges Modell ist erforderlich.",
       "submit": "Rezept auslesen",
       "unmatched": "Diese Zutaten wurden nicht in deinen Lebensmitteln gefunden und müssen manuell ergänzt werden: {names}",
       "errors": {
         "inputRequired": "Füge Text, einen Link oder ein Bild hinzu.",
         "imageInvalid": "Verwende ein JPEG-, PNG- oder WebP-Bild.",
-        "imageTooLarge": "Das Bild darf höchstens 6 MB groß sein.",
+        "imageTooLarge": "Das Bild überschreitet die konfigurierte maximale Größe.",
         "aiDisabled": "KI-Funktionen sind in deinen Einstellungen oder auf diesem Server deaktiviert.",
         "extractionFailed": "Das Rezept konnte nicht ausgelesen werden. Prüfe KI-Dienst, Link und Bild und versuche es erneut.",
         "unsafeUrl": "Diese Adresse ist nicht erlaubt. Verwende einen öffentlichen http(s)-Link ohne Zugangsdaten."

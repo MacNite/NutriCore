@@ -16,11 +16,13 @@ export function NewRecipeWorkspace({
   error,
   pending,
   failed,
+  imageMaxMb,
 }: {
   draft: RecipeImportDraft | null;
   error?: RecipeImportError;
   pending: boolean;
   failed: string | null;
+  imageMaxMb: number;
 }) {
   const t = useTranslations("recipes.import");
 
@@ -37,7 +39,7 @@ export function NewRecipeWorkspace({
         <form action={queueRecipeImportAction}>
           <div className="field"><label htmlFor="recipe-import-text">{t("text")}</label><textarea id="recipe-import-text" name="text" maxLength={5000} placeholder={t("textPlaceholder")} /></div>
           <div className="field"><label htmlFor="recipe-import-url">{t("url")}</label><input id="recipe-import-url" name="sourceUrl" type="url" placeholder="https://…" /></div>
-          <div className="field"><label htmlFor="recipe-import-image">{t("image")}</label><input id="recipe-import-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" /><span className="hint">{t("imageHint")}</span></div>
+          <div className="field"><label htmlFor="recipe-import-image">{t("image")}</label><input id="recipe-import-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" /><span className="hint">{t("imageHint", { maxMb: imageMaxMb })}</span></div>
           {error ? <div className="notice notice-error" role="alert">{t(`errors.${error}`)}</div> : null}
           <button className="btn btn-primary" disabled={pending}>{t("submit")}</button>
         </form>
