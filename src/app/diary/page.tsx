@@ -9,9 +9,10 @@ import { CopyPreviousDay } from "@/components/copy-previous-day";
 import { MicronutrientSummary } from "@/components/micronutrient-summary";
 import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
 import { getCurrentTarget } from "@/server/targets";
-import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
+import { formatKcal, formatWeekday } from "@/lib/format";
 import { shiftDateKey, validDateKey } from "@/lib/date";
 import { QuickMealForm } from "@/components/quick-meal-form";
+import { DailyEnergySummary } from "@/components/daily-energy-summary";
 
 export async function generateMetadata() {
   const t = await getTranslations("diary");
@@ -56,42 +57,10 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
 
       <section className="card" style={{ marginBottom: 20 }} aria-labelledby="totals-heading">
         <div className="card-head">
-          <h2 id="totals-heading">{t("totals")}</h2>
+          <h2 id="totals-heading" className="sr-only">{t("totals")}</h2>
           <CopyPreviousDay date={date} />
         </div>
-
-        <div className="table-scroll">
-          <table className="table">
-            <caption className="sr-only">{t("totals")}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{common("kcal")}</th>
-                <th scope="col" className="num">
-                  Protein
-                </th>
-                <th scope="col" className="num">
-                  Carbs
-                </th>
-                <th scope="col" className="num">
-                  Fat
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>
-                  <strong>{formatKcal(consumed, locale)}</strong>
-                  {target?.kcal ? <span className="muted"> / {formatKcal(target.kcal, locale)}</span> : null}
-                </td>
-                <td className="num">{day.totals.protein === null ? "–" : `${formatNumber(day.totals.protein, locale, 0)} g`}</td>
-                <td className="num">
-                  {day.totals.carbohydrate === null ? "–" : `${formatNumber(day.totals.carbohydrate, locale, 0)} g`}
-                </td>
-                <td className="num">{day.totals.fat === null ? "–" : `${formatNumber(day.totals.fat, locale, 0)} g`}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <DailyEnergySummary consumed={consumed} totals={day.totals} target={target} locale={locale} />
       </section>
 
       <section className="card" style={{ marginBottom: 20 }} aria-labelledby="quick-meal-heading">
