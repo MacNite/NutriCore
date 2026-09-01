@@ -21,6 +21,11 @@ const detectedMime = (data: Uint8Array): ValidMealImage["mime"] | null => {
 /** Validates bytes, not the attacker-controlled filename or browser MIME alone. */
 export async function validateMealImage(value: FormDataEntryValue | null): Promise<ValidMealImage | null> {
   if (!(value instanceof File)) return null;
+  // Browsers represent an unselected multipart file input as an empty File
+  // whose name is also empty. That is absence, not a user-selected zero-byte
+  // image. A genuinely selected empty file still has its filename and remains
+  // an actionable validation error.
+  if (value.size === 0 && value.name === "") return null;
   if (value.size === 0) throw new Error("imageEmpty" satisfies MealImageError);
   if (value.size > MEAL_IMAGE_MAX_BYTES) throw new Error("imageTooLarge" satisfies MealImageError);
   if (!MEAL_IMAGE_TYPES.includes(value.type as ValidMealImage["mime"])) throw new Error("imageInvalid" satisfies MealImageError);
