@@ -36,3 +36,12 @@ export async function completeOnboarding(page: Page) {
   await page.getByRole("button", { name: /finish setup|einrichtung abschließen/i }).click();
   await page.waitForURL((url) => !url.pathname.includes("onboarding"));
 }
+
+/**
+ * The meal row's own trigger on Today. Each row also carries an "add to <meal>"
+ * icon button that opens the same dialog, so matching the meal name by role
+ * alone is ambiguous.
+ */
+export function mealRowTrigger(page: Page, meal: RegExp) {
+  return page.locator("button.row-main-button").filter({ hasText: meal });
+}
