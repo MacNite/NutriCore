@@ -8,6 +8,7 @@ import { deleteRecipe, saveRecipe } from "./recipes";
 import { prisma } from "@/lib/db";
 import { resolveAiModel } from "@/lib/env";
 import { NotFoundError, PortionError } from "./diary";
+import { jobPriority } from "./ai-types";
 import type { FormState } from "./profile-actions";
 
 const ingredient = z.object({ foodId: z.string().min(1), amount: z.number().positive().max(100_000), unit: z.string().trim().min(1).max(40) });

@@ -1,4 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// `mealParseSchema` is the contract these repairs have to satisfy, and it lives
+// with the worker. Importing it would otherwise construct a Prisma client for a
+// suite that never touches a database.
+vi.mock("@/lib/db", () => ({ prisma: {} }));
+
 import { researchResultSchema } from "@/lib/research";
 import { mealParseSchema } from "./ai-jobs";
 import { partitionComponents, type ProposedComponent } from "./ai-types";
