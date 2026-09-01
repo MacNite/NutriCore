@@ -644,7 +644,8 @@
       "DATA_MISSING": "Daten fehlen",
       "CANCELLED": "Abgebrochen",
       "UNKNOWN": "Unbekannt",
-      "MODEL_OUTPUT_TRUNCATED": "Antwort abgeschnitten"
+      "MODEL_OUTPUT_TRUNCATED": "Antwort abgeschnitten",
+      "CONFIG_INVALID": "Konfiguration ungültig"
     },
     "hint": {
       "MODEL_TIMEOUT": "Das Modell hat nicht rechtzeitig geantwortet. Häufig ein zu langsames Modell, ein zu langer Prompt oder eine Antwort, die kein Ende findet.",
@@ -660,7 +661,8 @@
       "DATA_MISSING": "Ein benötigter Datensatz fehlt, etwa ein gelöschtes Rezept oder Lebensmittel. Ein erneuter Versuch hilft nicht.",
       "CANCELLED": "Von einem Administrator abgebrochen.",
       "UNKNOWN": "Nicht zugeordnet. Der vollständige Fehlerpfad steht unter „Details anzeigen“.",
-      "MODEL_OUTPUT_TRUNCATED": "Das Modell wurde am Token-Limit gestoppt, bevor es fertig war. Entweder erlaubt das Schema eine zu lange Antwort, oder OLLAMA_MAX_OUTPUT_TOKENS ist zu niedrig."
+      "MODEL_OUTPUT_TRUNCATED": "Das Modell wurde am Token-Limit gestoppt, bevor es fertig war. Entweder erlaubt das Schema eine zu lange Antwort, oder OLLAMA_MAX_OUTPUT_TOKENS ist zu niedrig.",
+      "CONFIG_INVALID": "Eine benötigte Einstellung fehlt oder ist ungültig – die Meldung nennt sie. Prüfe die .env des betroffenen Containers; App und Worker brauchen dieselbe Konfiguration. Ein erneuter Versuch hilft nicht."
     },
     "enrichmentRemaining": "{count, plural, one {Ein weiteres Lebensmittel wartet} other {# weitere Lebensmittel warten}} – erneut klicken für den nächsten Stapel."
   },

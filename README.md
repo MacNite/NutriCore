@@ -225,6 +225,13 @@ with `NUTRICORE_PROCESS=worker`, and without it queued meals stay queued.
 The admin panel's diagnostics reports an old queued job as a worker error. A deployment
 that does not use this Compose file must therefore create a second container
 from the same image, with the same environment and `NUTRICORE_PROCESS=worker`.
+
+The two containers have separate environments and nothing makes them agree, so
+the worker logs the settings it resolved on startup - AI host, model, timeout,
+token cap, whether web research and SearXNG are configured. Compare that line
+against the app's `.env` when a job fails for a reason the app would not have.
+The worker deliberately needs no `APP_SECRET`: it signs no sessions, and reading
+a single switch never parses the whole configuration.
 SearXNG is intentionally not bundled:
 point `SEARXNG_URL` at the operator's existing instance with JSON output enabled.
 `SEARXNG_URL` itself selects SearXNG; do not set `RESEARCH_PROVIDER` for it.

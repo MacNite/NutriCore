@@ -1,10 +1,27 @@
 import { z } from "zod";
 
-const bool = (fallback: boolean) =>
-  z
-    .string()
-    .optional()
-    .transform((value) => (value === undefined || value === "" ? fallback : value === "true" || value === "1"));
+/** The one reading of a boolean switch, shared by the schema and `flag()`. */
+const readBool = (value: string | undefined, fallback: boolean) =>
+  value === undefined || value === "" ? fallback : value === "true" || value === "1";
+
+const bool = (fallback: boolean) => z.string().optional().transform((value) => readBool(value, fallback));
+
+/**
+ * Reads one switch without parsing the whole configuration.
+ *
+ * `env()` validates everything at once, `APP_SECRET` included. The worker signs
+ * no sessions and has no use for that secret, so making it read one boolean
+ * through the full schema meant a deployment that gave the secret only to the web
+ * process failed every quick meal with "APP_SECRET: expected string, received
+ * undefined" - after the model call had already succeeded.
+ *
+ * Same reading as the schema, because both go through `readBool`.
+ */
+export const flag = (name: "RESEARCH_ENABLED" | "AI_ENABLED" | "OPENFOODFACTS_ENABLED", fallback: boolean) =>
+  readBool(process.env[name], fallback);
+
+/** Whether this deployment allows fetching pages from the open web at all. */
+export const researchEnabled = () => flag("RESEARCH_ENABLED", false);
 
 const schema = z.object({
   APP_URL: z.string().default("http://localhost:3000"),

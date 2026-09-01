@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { AI_BASE_URL_DEFAULT, AI_MODEL_DEFAULT, resolveAiBaseUrl, resolveAiModel } from "./env";
+import { afterEach, describe, expect, it } from "vitest";
+import { AI_BASE_URL_DEFAULT, AI_MODEL_DEFAULT, researchEnabled, resolveAiBaseUrl, resolveAiModel } from "./env";
 
 /**
  * The diagnostics page and the AI client used to read different variables, so a
@@ -33,5 +33,40 @@ describe("AI endpoint resolution", () => {
   it("falls back to one shared default when nothing is configured", () => {
     expect(resolveAiBaseUrl({})).toBe(AI_BASE_URL_DEFAULT);
     expect(resolveAiModel({})).toBe(AI_MODEL_DEFAULT);
+  });
+});
+
+/**
+ * The worker signs no sessions, so it must be able to read a switch without the
+ * whole configuration validating. Reading one boolean through `env()` made a
+ * deployment that gave APP_SECRET only to the web process fail every quick meal.
+ */
+describe("reading a single switch", () => {
+  const original = process.env.RESEARCH_ENABLED;
+  afterEach(() => {
+    if (original === undefined) delete process.env.RESEARCH_ENABLED;
+    else process.env.RESEARCH_ENABLED = original;
+  });
+
+  it("needs no other variable to be present", () => {
+    delete process.env.RESEARCH_ENABLED;
+    expect(researchEnabled()).toBe(false);
+
+    process.env.RESEARCH_ENABLED = "true";
+    expect(researchEnabled()).toBe(true);
+  });
+
+  it("reads a value exactly as the schema does", () => {
+    for (const [value, expected] of [
+      ["true", true],
+      ["1", true],
+      ["false", false],
+      ["0", false],
+      ["", false],
+      ["yes", false],
+    ] as const) {
+      process.env.RESEARCH_ENABLED = value;
+      expect(researchEnabled(), `RESEARCH_ENABLED=${JSON.stringify(value)}`).toBe(expected);
+    }
   });
 });

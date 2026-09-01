@@ -44,6 +44,20 @@ describe("AI failure classification", () => {
     expect(describeFailure(new Error("Nutrition source search unavailable")).kind).toBe("SEARCH_UNAVAILABLE");
   });
 
+  /**
+   * The worker used to read one boolean through the full env schema, so a
+   * deployment that gave APP_SECRET only to the web process failed every quick
+   * meal - after the model call had already succeeded.
+   */
+  it("names a configuration problem instead of reporting it as unknown", () => {
+    const described = describeFailure(
+      new Error("Invalid environment configuration: APP_SECRET: Invalid input: expected string, received undefined"),
+    );
+    expect(described.kind).toBe("CONFIG_INVALID");
+    // Retrying cannot change a missing setting.
+    expect(described.permanent).toBe(true);
+  });
+
   it("marks a reason that cannot change on a retry as permanent", () => {
     expect(isPermanentFailure("SOURCE_TOO_LARGE")).toBe(true);
     expect(isPermanentFailure("DATA_MISSING")).toBe(true);

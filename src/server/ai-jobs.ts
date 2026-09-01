@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { env } from "@/lib/env";
+import { researchEnabled } from "@/lib/env";
 import { normalizeName } from "@/lib/units";
 import { modelNutritionSchema } from "@/lib/research";
 import { OllamaProvider } from "@/providers/ollama";
@@ -245,7 +245,10 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     const context: ResolverContext = {
       userId: job.userId,
       locale: owner?.profile?.language ?? "de",
-      webSourcesAllowed: env().RESEARCH_ENABLED && Boolean(owner?.profile?.researchEnabled),
+      // Read directly, not through env(): the worker needs this one flag and
+      // must not depend on the whole configuration - APP_SECRET included - being
+      // present in a process that signs no sessions.
+      webSourcesAllowed: researchEnabled() && Boolean(owner?.profile?.researchEnabled),
       deps,
     };
 

@@ -2,6 +2,8 @@ import { writeFile } from "node:fs/promises";
 import { processNextAiJob, reclaimStaleJobs } from "./server/ai-jobs";
 import { prisma } from "./lib/db";
 import { logger } from "./lib/logger";
+import { flag, researchEnabled, resolveAiBaseUrl, resolveAiModel } from "./lib/env";
+import { ollamaMaxOutputTokens, ollamaTimeoutMs } from "./providers/ollama";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -34,8 +36,40 @@ const RECLAIM_EVERY_MS = 5 * 60 * 1000;
 
 let running = true;
 
+/**
+ * What this process will actually use, logged once at startup.
+ *
+ * The worker and the web app are separate containers with separate environments,
+ * and nothing makes them agree. A worker that silently disagrees shows up much
+ * later as an inexplicably failing job - so the settings it resolved are printed
+ * where an operator can compare them against the app's. Values only, never
+ * secrets: the worker needs none.
+ */
+function startupConfiguration() {
+  const host = (value: string) => {
+    try {
+      return new URL(value).host;
+    } catch {
+      return "invalid URL";
+    }
+  };
+  return {
+    pollMs: pollMs(),
+    heartbeat: heartbeatFile(),
+    aiEnabled: flag("AI_ENABLED", true),
+    aiHost: host(resolveAiBaseUrl()),
+    model: resolveAiModel(),
+    timeoutSeconds: Math.round(ollamaTimeoutMs() / 1000),
+    maxOutputTokens: ollamaMaxOutputTokens(),
+    // Without both of these, a component nothing local or Open Food Facts knows
+    // cannot be resolved from the web at all.
+    webResearchEnabled: researchEnabled(),
+    searxngConfigured: Boolean(process.env.SEARXNG_URL?.trim()),
+  };
+}
+
 async function main() {
-  logger.info("AI worker started", { pollMs: pollMs(), heartbeat: heartbeatFile() });
+  logger.info("AI worker started", startupConfiguration());
   await beat();
   // A worker killed mid-job left it RUNNING for ever, because a claim is
   // conditional on QUEUED. Reclaim on startup, then periodically for the case

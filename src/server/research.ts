@@ -2,7 +2,7 @@ import { Prisma, type MealType, type ResearchStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { env, resolveAiModel } from "@/lib/env";
+import { env, researchEnabled, resolveAiModel } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { recipeNutrition } from "@/lib/nutrition";
 import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
@@ -36,9 +36,13 @@ export function researchAvailability(user: Pick<SessionUser, "aiEnabled">) {
   return { available: true as const };
 }
 
-/** Retrieving pages from the open web needs both the server flag and consent. */
+/**
+ * Retrieving pages from the open web needs both the server flag and consent.
+ * Reads the flag the same way the worker does, so the two can never disagree
+ * about whether a run is allowed to fetch anything.
+ */
 export const webSourcesAvailable = (user: Pick<SessionUser, "researchEnabled">) =>
-  env().RESEARCH_ENABLED && user.researchEnabled;
+  researchEnabled() && user.researchEnabled;
 
 export function validateReferenceUrl(raw: string): string | null {
   if (!raw.trim()) return null;

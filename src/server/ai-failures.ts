@@ -24,6 +24,7 @@ export type AiFailureKind =
   | "SEARCH_UNAVAILABLE"
   | "RATE_LIMITED"
   | "DATA_MISSING"
+  | "CONFIG_INVALID"
   | "UNKNOWN";
 
 export const AI_FAILURE_KINDS: AiFailureKind[] = [
@@ -39,6 +40,7 @@ export const AI_FAILURE_KINDS: AiFailureKind[] = [
   "SEARCH_UNAVAILABLE",
   "RATE_LIMITED",
   "DATA_MISSING",
+  "CONFIG_INVALID",
   "UNKNOWN",
 ];
 
@@ -52,6 +54,9 @@ const PERMANENT: ReadonlySet<AiFailureKind> = new Set<AiFailureKind>([
   "SOURCE_BLOCKED",
   "DATA_MISSING",
   "MODEL_MISSING",
+  // A missing or malformed setting is the same on every attempt, and burning the
+  // retry budget on it only delays every other job behind it.
+  "CONFIG_INVALID",
 ]);
 
 export const isPermanentFailure = (kind: AiFailureKind) => PERMANENT.has(kind);
@@ -149,6 +154,9 @@ function classify(
   // the message already carries the failing paths.
   if (named === "AIOutputTruncatedError" || /output was cut off/i.test(message)) return "MODEL_OUTPUT_TRUNCATED";
   if (named === "AIInvalidOutputError" || /failed validation/i.test(message)) return "MODEL_OUTPUT_INVALID";
+
+  // Named before the generic checks: the message quotes the offending variable.
+  if (/Invalid environment configuration/i.test(message)) return "CONFIG_INVALID";
 
   if (/^unsafe-source:/.test(message)) return "SOURCE_BLOCKED";
   if (message === "source-too-large") return "SOURCE_TOO_LARGE";
