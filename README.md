@@ -187,7 +187,7 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `OLLAMA_TIMEOUT_SECONDS` | no | Model generation timeout; default `600` seconds |
 | `USDA_ENABLED` / `USDA_API_KEY` | no | Phase 2 |
 | `RESEARCH_ENABLED` | no | Default `false`; only enables web sources for AI research |
-| `RESEARCH_PROVIDER` / `SEARCH_API_*` | no | Phase 2 |
+| `RESEARCH_PROVIDER` / `SEARCH_API_*` | no | Reserved for Phase 2; leave unset when using SearXNG |
 | `LOG_LEVEL` | no | `debug`, `info` (default), `warn`, `error` |
 
 Start-up fails fast with a clear message if a required variable is missing or
@@ -221,8 +221,12 @@ npm run worker
 
 Compose starts both `app` and `worker`; the worker is the same image started
 with `NUTRICORE_PROCESS=worker`, and without it queued meals stay queued.
+Settings → Diagnostics reports an old queued job as a worker error. A deployment
+that does not use this Compose file must therefore create a second container
+from the same image, with the same environment and `NUTRICORE_PROCESS=worker`.
 SearXNG is intentionally not bundled:
 point `SEARXNG_URL` at the operator's existing instance with JSON output enabled.
+`SEARXNG_URL` itself selects SearXNG; do not set `RESEARCH_PROVIDER` for it.
 Saving a free-text meal only inserts `MealInput` and `AiJob`; it never waits for
 Ollama or SearXNG. The worker performs local canonical matching first, uses
 SearXNG only for source discovery, and stores a pending human-review proposal.

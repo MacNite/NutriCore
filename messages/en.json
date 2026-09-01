@@ -362,6 +362,7 @@
     "openFoodFactsSearch": "Open Food Facts search",
     "openFoodFactsUserAgent": "Open Food Facts user agent",
     "usda": "USDA FoodData Central",
+    "aiWorker": "AI worker",
     "research": "Research provider",
     "status": {
       "ok": "Reachable",

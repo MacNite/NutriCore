@@ -3,6 +3,7 @@ import { env, hasSecret } from "@/lib/env";
 import { OllamaProvider } from "@/providers/ollama";
 import { userAgentLooksAnonymous } from "@/providers/open-food-facts";
 import { AIUnavailableError } from "@/providers/ai";
+import { SearxngClient } from "@/providers/searxng";
 
 export type CheckStatus = "ok" | "error" | "disabled" | "unknown";
 
@@ -82,6 +83,24 @@ export async function runDiagnostics(): Promise<Check[]> {
       })()
     : { key: "model", status: "disabled" };
 
+  // The web process can reach Ollama even when no worker process is running.
+  // Surface that distinction: an old queued job is a reliable indication that
+  // the separately deployed worker is not consuming the queue.
+  const aiWorker: Check = config.AI_ENABLED
+    ? await (async (): Promise<Check> => {
+        const oldest = await prisma.aiJob.findFirst({
+          where: { status: "QUEUED" },
+          orderBy: { createdAt: "asc" },
+          select: { createdAt: true },
+        });
+        if (!oldest) return { key: "aiWorker", status: "unknown", detail: "no queued jobs" };
+        const queuedSeconds = Math.max(0, Math.floor((Date.now() - oldest.createdAt.getTime()) / 1000));
+        return queuedSeconds > 30
+          ? { key: "aiWorker", status: "error", detail: `oldest job queued for ${formatDuration(queuedSeconds)}` }
+          : { key: "aiWorker", status: "unknown", detail: `job queued for ${formatDuration(queuedSeconds)}` };
+      })()
+    : { key: "aiWorker", status: "disabled" };
+
   // Text search and barcode lookup run on separate infrastructure and fail
   // independently, so a single "Open Food Facts" row cannot say which is down.
   const openFoodFactsSearch: Check = config.OPENFOODFACTS_ENABLED
@@ -112,12 +131,25 @@ export async function runDiagnostics(): Promise<Check[]> {
       }
     : { key: "usda", status: "disabled" };
 
-  const research: Check = config.RESEARCH_ENABLED
-    ? { key: "research", status: "unknown", detail: config.RESEARCH_PROVIDER || "not selected" }
-    : { key: "research", status: "disabled" };
+  // SearXNG is the implemented source-discovery provider. RESEARCH_PROVIDER is
+  // reserved for a future provider API and must not make a configured SearXNG
+  // instance appear as "not selected".
+  const research: Check = config.SEARXNG_URL
+    ? {
+        key: "research",
+        status: await timed(async () => {
+          await new SearxngClient(config.SEARXNG_URL, config.SEARXNG_TIMEOUT_MS).search("nutrition");
+          return true;
+        }),
+        detail: `SearXNG — ${safeHost(config.SEARXNG_URL)}`,
+      }
+    : { key: "research", status: "disabled", detail: "SEARXNG_URL not configured" };
 
-  return [database, ollama, model, openFoodFacts, openFoodFactsSearch, openFoodFactsIdentity, usda, research];
+  return [database, ollama, model, aiWorker, openFoodFacts, openFoodFactsSearch, openFoodFactsIdentity, usda, research];
 }
+
+const formatDuration = (seconds: number) =>
+  seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m` : `${Math.floor(seconds / 3600)}h`;
 
 const safeHost = (value: string) => {
   try {
