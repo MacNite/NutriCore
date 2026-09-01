@@ -3,19 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { logoutAction } from "@/server/auth-actions";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV = [
   { href: "/", key: "today", icon: "◉" },
   { href: "/diary", key: "diary", icon: "▤" },
   { href: "/foods", key: "foods", icon: "⌕" },
-  { href: "/recipes", key: "recipes", icon: "❑" },
   { href: "/progress", key: "progress", icon: "◔" },
   { href: "/settings", key: "settings", icon: "⚙" },
 ] as const;
 
 /** Bottom navigation keeps the five most-used destinations within thumb reach. */
-const MOBILE_NAV = NAV.filter((item) => item.key !== "recipes");
+const MOBILE_NAV = NAV;
 
 export function AppShell({ displayName, children }: { displayName: string; children: React.ReactNode }) {
   const t = useTranslations("nav");
@@ -55,6 +55,11 @@ export function AppShell({ displayName, children }: { displayName: string; child
 
           <div className="topbar-actions">
             <ThemeToggle />
+            <form action={logoutAction}>
+              <button className="btn btn-quiet" type="submit">
+                {t("signOut")}
+              </button>
+            </form>
             <Link href="/settings" className="avatar" title={displayName}>
               <span aria-hidden="true">{initials || "?"}</span>
               <span className="sr-only">{t("account")}</span>

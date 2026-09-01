@@ -1,6 +1,15 @@
 import { expect, test } from "@playwright/test";
 import { completeOnboarding, registerAndOnboard } from "./helpers";
 
+test("the dashboard quick-meal button opens the diary AI form", async ({ page }) => {
+  await page.getByRole("button", { name: /quick meal|schnelle mahlzeit/i }).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel(/describe your meal|beschreibe deine mahlzeit/i)).toBeVisible();
+  await expect(dialog.getByLabel(/^meal$|^mahlzeit$/i)).toBeVisible();
+});
+
 test.beforeEach(async ({ page }) => {
   await registerAndOnboard(page);
   await completeOnboarding(page);

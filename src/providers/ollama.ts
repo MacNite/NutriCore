@@ -52,11 +52,13 @@ export class OllamaProvider implements AIProvider {
     prompt,
     schema,
     jsonSchema,
+    images,
   }: {
     system: string;
     prompt: string;
     schema: z.ZodType<T>;
     jsonSchema?: unknown;
+    images?: string[];
   }): Promise<T> {
     let response: Response;
     try {
@@ -70,7 +72,7 @@ export class OllamaProvider implements AIProvider {
           options: { temperature: 0.2 },
           messages: [
             { role: "system", content: system },
-            { role: "user", content: prompt },
+            { role: "user", content: prompt, ...(images?.length ? { images } : {}) },
           ],
         }),
         signal: AbortSignal.timeout(this.timeoutMs),

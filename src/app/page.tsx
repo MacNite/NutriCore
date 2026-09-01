@@ -9,13 +9,15 @@ import { MicronutrientSummary } from "@/components/micronutrient-summary";
 import { CoverageNotice } from "@/components/coverage-notice";
 import { SourceBadge } from "@/components/source-badge";
 import { QuickAddLink } from "@/components/quick-add";
+import { QuickMealDialog } from "@/components/quick-meal-dialog";
+import { QuickMealForm } from "@/components/quick-meal-form";
 import { prisma } from "@/lib/db";
 import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
 import { getCurrentTarget } from "@/server/targets";
 import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
 import { shiftDateKey, validDateKey } from "@/lib/date";
 
-export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string; quickMeal?: string; error?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   if (!user.onboarded) redirect("/onboarding");
@@ -26,7 +28,8 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const common = await getTranslations("common");
   const locale = user.language;
   const today = formatDateKey(new Date());
-  const selectedDate = validDateKey((await searchParams).date, today);
+  const params = await searchParams;
+  const selectedDate = validDateKey(params.date, today);
 
   const [day, target, recent] = await Promise.all([
     getDiaryDay(user.id, selectedDate),
@@ -216,10 +219,16 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         </aside>
       </div>
 
-      <Link className="fab" href={`/foods?date=${selectedDate}`}>
-        <span aria-hidden="true">＋</span>
-        {t("searchFood")}
-      </Link>
+      <QuickMealDialog
+        triggerLabel={diaryT("ai.quickAction")}
+        title={diaryT("ai.title")}
+        hint={diaryT("ai.hint")}
+        closeLabel={common("close")}
+        initialOpen={params.quickMeal === "1"}
+      >
+        {params.error === "unsafeUrl" ? <div className="notice notice-warn">{diaryT("ai.unsafeUrl")}</div> : null}
+        <QuickMealForm date={selectedDate} returnTo="/" />
+      </QuickMealDialog>
     </AppShell>
   );
 }
