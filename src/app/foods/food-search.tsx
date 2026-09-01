@@ -43,6 +43,7 @@ export function FoodSearch({
   autoFocus,
   researchAvailable,
   researchUnavailableReason,
+  editMeal,
 }: {
   meal: string;
   date: string;
@@ -50,6 +51,7 @@ export function FoodSearch({
   autoFocus?: boolean;
   researchAvailable: boolean;
   researchUnavailableReason?: "SERVER_DISABLED" | "AI_DISABLED";
+  editMeal?: string;
 }) {
   const t = useTranslations("foods");
   const [query, setQuery] = useState("");
@@ -231,7 +233,7 @@ export function FoodSearch({
         ) : (
           outcome.results.map((result) => (
             <div className="row clickable-row" key={result.id}>
-              <Link className="row-main-link" href={result.recipeId ? `/recipes/${result.recipeId}` : `/foods/${result.id}?meal=${meal}&date=${date}`}>
+              <Link className="row-main-link" href={result.recipeId ? `/recipes/${result.recipeId}` : `/foods/${result.id}?meal=${meal}&date=${date}${editMeal ? `&editMeal=${editMeal}` : ""}`}>
                 <div className="row-body">
                   <strong>{result.name}</strong>
                   <span>
@@ -248,7 +250,7 @@ export function FoodSearch({
                 <SourceBadge source={result.sourceType} />
               </Link>
 
-              <Link className="btn btn-primary add-food-button" aria-label={t("servingLabel")} href={result.recipeId ? `/recipes/${result.recipeId}` : `/foods/${result.id}?meal=${meal}&date=${date}`}>
+              <Link className="btn btn-primary add-food-button" aria-label={t("servingLabel")} href={result.recipeId ? `/recipes/${result.recipeId}` : `/foods/${result.id}?meal=${meal}&date=${date}${editMeal ? `&editMeal=${editMeal}` : ""}`}>
                 <span aria-hidden="true">＋</span>
               </Link>
             </div>

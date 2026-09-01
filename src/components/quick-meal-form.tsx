@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { MEALS } from "@/server/diary";
 import { queueMealInputAction } from "@/server/meal-ai-actions";
 
-export async function QuickMealForm({ date, returnTo }: { date: string; returnTo: "/" | "/diary" }) {
+export async function QuickMealForm({ date, returnTo }: { date: string; returnTo: "/" }) {
   const t = await getTranslations("diary");
 
   return (
@@ -10,9 +10,9 @@ export async function QuickMealForm({ date, returnTo }: { date: string; returnTo
       <input type="hidden" name="date" value={date} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <div className="field">
-        <label htmlFor={`mealText-${returnTo === "/" ? "today" : "diary"}`}>{t("ai.describe")}</label>
+        <label htmlFor={"mealText-today"}>{t("ai.describe")}</label>
         <textarea
-          id={`mealText-${returnTo === "/" ? "today" : "diary"}`}
+          id={"mealText-today"}
           name="text"
           required
           maxLength={2000}
@@ -20,9 +20,9 @@ export async function QuickMealForm({ date, returnTo }: { date: string; returnTo
         />
       </div>
       <div className="field">
-        <label htmlFor={`sourceUrl-${returnTo === "/" ? "today" : "diary"}`}>{t("ai.sourceUrl")}</label>
+        <label htmlFor={"sourceUrl-today"}>{t("ai.sourceUrl")}</label>
         <input
-          id={`sourceUrl-${returnTo === "/" ? "today" : "diary"}`}
+          id={"sourceUrl-today"}
           name="sourceUrl"
           type="url"
           placeholder="https://…"

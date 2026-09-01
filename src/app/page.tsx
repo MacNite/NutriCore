@@ -11,16 +11,19 @@ import { QuickAddLink } from "@/components/quick-add";
 import { PendingProposals } from "@/components/pending-proposals";
 import { pendingProposals } from "@/server/pending-proposals";
 import { QuickMealDialog } from "@/components/quick-meal-dialog";
+import { AppDialog } from "@/components/app-dialog";
+import { DiaryEntryRow } from "@/components/diary-entry-row";
+import { CopyPreviousDay } from "@/components/copy-previous-day";
 import { QuickMealForm } from "@/components/quick-meal-form";
 import { prisma } from "@/lib/db";
 import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
 import { getCurrentTarget } from "@/server/targets";
 import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
 import { shiftDateKey, validDateKey } from "@/lib/date";
-import { ActivityPanel } from "@/components/activity-panel";
+import { ActivityEditor } from "@/components/activity-panel";
 import { getActivityEntries } from "@/server/activities";
 
-export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string; quickMeal?: string; error?: string }> }) {
+export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string; quickMeal?: string; editMeal?: string; error?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   if (!user.onboarded) redirect("/onboarding");
@@ -29,6 +32,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const diaryT = await getTranslations("diary");
   const common = await getTranslations("common");
   const aiT = await getTranslations("aiReview");
+  const activityT = await getTranslations("activity");
   const locale = user.language;
   const today = formatDateKey(new Date());
   const params = await searchParams;
@@ -100,12 +104,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
           </section>
 
           <section className="card" aria-labelledby="meals-heading">
-            <div className="card-head">
-              <h2 id="meals-heading">{diaryT("title")}</h2>
-              <Link href={`/diary?date=${selectedDate}`} className="btn btn-quiet">
-                {common("edit")}
-              </Link>
-            </div>
+            <div className="card-head"><h2 id="meals-heading">{diaryT("title")}</h2></div>
 
             {MEALS.map((meal) => {
               const mealData = day.meals.find((m) => m.meal === meal);
@@ -114,31 +113,22 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
               return (
                 <div className="row clickable-row" key={meal}>
-                  <Link className="row-main-link" href={`/diary?date=${selectedDate}#meal-${meal}`} aria-label={`${common("edit")}: ${diaryT(`meals.${meal}`)}`}>
-                    <div className="row-body">
-                      <strong>{diaryT(`meals.${meal}`)}</strong>
-                      <span>
-                        {entries.length === 0
-                          ? diaryT("empty")
-                          : entries.map((e) => e.label).slice(0, 3).join(" · ")}
-                      </span>
-                    </div>
-                    <span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span>
-                  </Link>
+                  <AppDialog id={`meal-${meal}`} title={diaryT(`meals.${meal}`)} closeLabel={common("close")} initialOpen={params.editMeal === meal} triggerClassName="row-main-button" trigger={<><div className="row-body"><strong>{diaryT(`meals.${meal}`)}</strong><span>{entries.length === 0 ? diaryT("empty") : entries.map((e) => e.label).slice(0, 3).join(" · ")}</span></div><span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span></>}>
+                    <div className="dialog-toolbar"><strong>{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</strong><Link className="btn btn-primary" href={`/foods?meal=${meal}&date=${selectedDate}&editMeal=${meal}`}><span aria-hidden="true">＋</span> {common("add")}</Link></div>
+                    {entries.length === 0 ? <p className="empty">{diaryT("empty")}</p> : entries.map((entry) => <DiaryEntryRow key={entry.id} entry={{ id: entry.id, label: entry.label, brand: entry.brand, quantity: entry.quantity, unit: entry.unit, kcal: entry.nutrients.energyKcal ?? null, sourceType: entry.sourceType }} date={selectedDate} locale={locale} badge={<SourceBadge source={entry.sourceType} />} />)}
+                  </AppDialog>
                   <QuickAddLink meal={meal} date={selectedDate} label={diaryT("addTo", { meal: diaryT(`meals.${meal}`) })} />
                 </div>
               );
             })}
           </section>
 
-          <ActivityPanel date={selectedDate} entries={activities.entries} totalActiveKcal={activities.totalActiveKcal} locale={locale} />
+          <section className="card"><AppDialog id="activities" title={activityT("title")} closeLabel={common("close")} triggerClassName="summary-trigger" trigger={<><span><strong>{activityT("title")}</strong><small>{activities.entries.length ? `${activities.entries.length} · ${activities.totalActiveKcal == null ? "–" : `${formatKcal(activities.totalActiveKcal, locale)} ${common("kcal")}`}` : activityT("empty")}</small></span><span aria-hidden="true">›</span></>}><ActivityEditor date={selectedDate} entries={activities.entries} totalActiveKcal={activities.totalActiveKcal} locale={locale} /></AppDialog></section>
 
           <section className="card" aria-labelledby="micronutrients-heading">
             <div className="card-head">
               <h2 id="micronutrients-heading">{diaryT("micronutrients")}</h2>
-              <Link href={`/diary?date=${selectedDate}#micronutrients-heading`} className="btn btn-quiet">
-                {t("allMicronutrients")}
-              </Link>
+              <AppDialog id="micronutrients" title={diaryT("micronutrients")} closeLabel={common("close")} trigger={t("allMicronutrients")}><MicronutrientSummary totals={day.totals} knownTotals={day.knownTotals} coverage={day.coverage} locale={locale} /></AppDialog>
             </div>
             <MicronutrientSummary
               totals={day.totals}
@@ -167,6 +157,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                 {common("add")}
               </Link>
             </div>
+            <div className="copy-previous-action"><CopyPreviousDay date={selectedDate} /></div>
 
             <CoverageNotice nutrientKey="vitaminC" coverage={day.coverage.vitaminC ?? null} locale={locale} />
           </section>

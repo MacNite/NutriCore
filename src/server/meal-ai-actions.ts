@@ -19,7 +19,7 @@ export async function queueMealInputAction(formData: FormData) {
       sourceUrl: z.string().trim().max(500).optional(),
       meal: z.enum(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"]),
       date: z.string(),
-      returnTo: z.enum(["/", "/diary"]).default("/diary"),
+      returnTo: z.literal("/").default("/"),
     })
     .parse(Object.fromEntries(formData));
 
@@ -105,7 +105,7 @@ export async function reviewAiProposalAction(formData: FormData) {
 export async function acceptAiProposalAction(formData: FormData) {
   const user = await requireUser();
   const id = String(formData.get("proposalId"));
-  const returnTo = String(formData.get("returnTo") ?? "/") === "/diary" ? "/diary" : "/";
+  const returnTo = "/";
 
   const owned = await prisma.aiProposal.findFirst({ where: { id, job: { userId: user.id } }, select: { id: true } });
   if (!owned) throw new Error("Proposal not found");
@@ -118,7 +118,7 @@ export async function acceptAiProposalAction(formData: FormData) {
 export async function rejectAiProposalAction(formData: FormData) {
   const user = await requireUser();
   const id = String(formData.get("proposalId"));
-  const returnTo = String(formData.get("returnTo") ?? "/") === "/diary" ? "/diary" : "/";
+  const returnTo = "/";
 
   await prisma.aiProposal.updateMany({
     where: { id, approvalStatus: "PENDING", job: { userId: user.id } },

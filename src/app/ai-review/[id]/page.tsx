@@ -34,7 +34,7 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
     where: { id, userId: user.id },
     include: { aiJobs: { include: { proposal: true }, orderBy: { createdAt: "desc" }, take: 1 } },
   });
-  if (!input) redirect("/diary");
+  if (!input) redirect("/");
 
   const job = input.aiJobs[0];
   const proposal = job?.proposal;
@@ -73,7 +73,7 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
             {t("intro")}
           </p>
         </div>
-        <Link className="btn btn-quiet" href="/diary">
+        <Link className="btn btn-quiet" href="/">
           {t("back")}
         </Link>
       </div>

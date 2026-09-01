@@ -29,10 +29,8 @@ const addSchema = z.object({
   unit: z.string().trim().min(1).max(40),
 });
 
-function refresh(date: string) {
+function refresh() {
   revalidatePath("/");
-  revalidatePath("/diary");
-  revalidatePath(`/diary?date=${date}`);
 }
 
 /** Maps a domain failure onto a translatable key without leaking internals. */
@@ -59,7 +57,9 @@ export async function addEntryAction(_state: FormState, formData: FormData): Pro
     return toState(error);
   }
 
-  refresh(parsed.data.date);
+  refresh();
+  const returnMeal = MEAL.safeParse(formData.get("returnToMeal"));
+  if (returnMeal.success) redirect(`/?date=${parsed.data.date}&editMeal=${returnMeal.data}`);
   redirect(`/foods?meal=${parsed.data.meal}&date=${parsed.data.date}`);
 }
 
@@ -88,14 +88,13 @@ export async function updateEntryAction(_state: FormState, formData: FormData): 
     return toState(error);
   }
 
-  refresh(parsed.data.date);
+  refresh();
   return { ok: true };
 }
 
 export async function deleteEntryAction(_state: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   const entryId = String(formData.get("entryId") ?? "");
-  const date = String(formData.get("date") ?? "");
   if (!entryId) return { error: "validation" };
 
   try {
@@ -104,7 +103,7 @@ export async function deleteEntryAction(_state: FormState, formData: FormData): 
     return toState(error);
   }
 
-  refresh(date);
+  refresh();
   return { ok: true };
 }
 
@@ -121,7 +120,7 @@ export async function copyEntryAction(_state: FormState, formData: FormData): Pr
     return toState(error);
   }
 
-  refresh(parsed.data.date);
+  refresh();
   return { ok: true };
 }
 
@@ -138,7 +137,7 @@ export async function copyPreviousDayAction(_state: FormState, formData: FormDat
     copied += await copyMeal(user.id, { date: previous, meal }, { date: parsed.data.date, meal });
   }
 
-  refresh(parsed.data.date);
+  refresh();
   return copied > 0 ? { ok: true } : { error: "nothingToCopy" };
 }
 
