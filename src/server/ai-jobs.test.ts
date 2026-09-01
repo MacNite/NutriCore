@@ -34,7 +34,7 @@ vi.mock("./food-enrichment", () => ({ enrichFood: vi.fn(), missingNutritionKeys:
 vi.mock("./ai-approval", () => ({ autoApproveProposal: vi.fn() }));
 vi.mock("./meal-image", () => ({ discardMealInputImage: vi.fn() }));
 
-import { claimNextJob, findConservativeDuplicate, mealParseSchema, processNextAiJob, reclaimStaleJobs } from "./ai-jobs";
+import { claimNextJob, findConservativeDuplicate, mealParseSchema, processNextAiJob, reclaimStaleJobs, scaleMealComponentsToServing } from "./ai-jobs";
 import { decideComponents, jobPriority, STUCK_RUNNING_MS } from "./ai-types";
 import { failResearchJob, runResearchJob } from "./research";
 import { runRecipeImport } from "./recipe-import";
@@ -69,6 +69,15 @@ function queueJob(overrides: { retryCount?: number; maxRetries?: number; entityT
 beforeEach(() => vi.clearAllMocks());
 
 describe("AI enrichment boundaries", () => {
+  it("scales a whole recipe extraction to one quick-meal serving", () => {
+    const result = scaleMealComponentsToServing({
+      components: [{ name: "Soup", quantity: 1200, unit: "g", estimatedGrams: 1200 }],
+      confidence: "high",
+      warnings: [],
+    }, 4);
+    expect(result.components[0]).toMatchObject({ quantity: 300, estimatedGrams: 300 });
+  });
+
   it("rejects malformed structured model output", () => {
     expect(mealParseSchema.safeParse({ components: [{ name: "egg", estimatedGrams: -2 }], confidence: "certain" }).success).toBe(false);
   });

@@ -154,6 +154,26 @@ describe("Ollama adapter", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).format).toEqual(jsonSchema);
   });
 
+  it("falls back to plain JSON when Ollama rejects a recipe-style JSON schema", async () => {
+    const fetchMock = vi
+      .fn()
+      // Some Ollama/model combinations do not identify the unsupported schema
+      // in their response, which was why the first fallback did not activate.
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "bad request" }), { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: '{"name":"Rice","kcal":130}' } })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider().complete({
+      system: "s",
+      prompt: "p",
+      schema,
+      jsonSchema: { type: "object", properties: { name: { type: "string" } } },
+    })).resolves.toEqual({ name: "Rice", kcal: 130 });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).format).toEqual(expect.objectContaining({ type: "object" }));
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).format).toBe("json");
+  });
+
   it("passes transient image data to a vision-capable model", async () => {
     const fetchMock = reply('{"name":"Rice","kcal":130}');
     vi.stubGlobal("fetch", fetchMock);

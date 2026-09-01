@@ -39,6 +39,7 @@ export function NewRecipeWorkspace({
         <form action={queueRecipeImportAction}>
           <div className="field"><label htmlFor="recipe-import-text">{t("text")}</label><textarea id="recipe-import-text" name="text" maxLength={5000} placeholder={t("textPlaceholder")} /></div>
           <div className="field"><label htmlFor="recipe-import-url">{t("url")}</label><input id="recipe-import-url" name="sourceUrl" type="url" placeholder="https://…" /></div>
+          <div className="field"><label htmlFor="recipe-import-servings">{t("servings")}</label><input id="recipe-import-servings" name="servings" type="number" min="0.01" max="10000" step="0.01" defaultValue="1" required aria-describedby="recipe-import-servings-hint" /><span className="hint" id="recipe-import-servings-hint">{t("servingsHint")}</span></div>
           <div className="field"><label htmlFor="recipe-import-image">{t("image")}</label><input id="recipe-import-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" /><span className="hint">{t("imageHint", { maxMb: imageMaxMb })}</span></div>
           {error ? <div className="notice notice-error" role="alert">{t(`errors.${error}`)}</div> : null}
           <button className="btn btn-primary" disabled={pending}>{t("submit")}</button>
