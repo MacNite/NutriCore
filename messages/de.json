@@ -172,6 +172,7 @@
     "snapshotNote": "Einträge behalten die Nährwerte vom Zeitpunkt der Eintragung.",
     "micronutrients": "Mikronährstoffe",
     "ai": {
+      "quickAction": "Schnelle Mahlzeit",
       "title": "Schnelle Mahlzeit mit KI",
       "hint": "Wird sofort gespeichert; die Anreicherung läuft im Hintergrund.",
       "describe": "Beschreibe deine Mahlzeit",

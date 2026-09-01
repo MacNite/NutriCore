@@ -11,7 +11,7 @@ import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
 import { getCurrentTarget } from "@/server/targets";
 import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
 import { shiftDateKey, validDateKey } from "@/lib/date";
-import { queueMealInputAction } from "@/server/meal-ai-actions";
+import { QuickMealForm } from "@/components/quick-meal-form";
 
 export async function generateMetadata() {
   const t = await getTranslations("diary");
@@ -107,28 +107,7 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
 
         {params.error === "unsafeUrl" ? <div className="notice notice-warn">{t("ai.unsafeUrl")}</div> : null}
 
-        <form action={queueMealInputAction}>
-          <input type="hidden" name="date" value={date} />
-          <div className="field">
-            <label htmlFor="mealText">{t("ai.describe")}</label>
-            <textarea id="mealText" name="text" required maxLength={2000} placeholder={t("ai.placeholder")} />
-          </div>
-          <div className="field">
-            <label htmlFor="sourceUrl">{t("ai.sourceUrl")}</label>
-            <input id="sourceUrl" name="sourceUrl" type="url" placeholder="https://…" />
-          </div>
-          <div className="field">
-            <label htmlFor="mealType">{t("ai.meal")}</label>
-            <select id="mealType" name="meal">
-              {MEALS.map((m) => (
-                <option value={m} key={m}>
-                  {t(`meals.${m}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button className="btn btn-primary">{t("ai.submit")}</button>
-        </form>
+        <QuickMealForm date={date} returnTo="/diary" />
       </section>
 
       <details className="card micro-panel" style={{ marginBottom: 20 }}>

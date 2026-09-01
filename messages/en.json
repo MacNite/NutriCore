@@ -172,6 +172,7 @@
     "snapshotNote": "Entries keep the nutrition values from the moment they were logged.",
     "micronutrients": "Micronutrients",
     "ai": {
+      "quickAction": "Quick meal",
       "title": "Quick meal with AI",
       "hint": "Saved straight away; enrichment runs in the background.",
       "describe": "Describe your meal",

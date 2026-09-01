@@ -19,6 +19,7 @@ export async function queueMealInputAction(formData: FormData) {
       sourceUrl: z.string().trim().max(500).optional(),
       meal: z.enum(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"]),
       date: z.string(),
+      returnTo: z.enum(["/", "/diary"]).default("/diary"),
     })
     .parse(Object.fromEntries(formData));
 
@@ -27,7 +28,11 @@ export async function queueMealInputAction(formData: FormData) {
   if (parsed.sourceUrl) {
     const safe = await checkUrl(parsed.sourceUrl);
     // Back to where the form was submitted from, not to an unrelated feature.
-    if (!safe.ok) redirect(`/diary?date=${date}&error=unsafeUrl`);
+    if (!safe.ok) {
+      const query = new URLSearchParams({ date, error: "unsafeUrl" });
+      if (parsed.returnTo === "/") query.set("quickMeal", "1");
+      redirect(`${parsed.returnTo}?${query}`);
+    }
   }
 
   const input = await prisma.mealInput.create({
