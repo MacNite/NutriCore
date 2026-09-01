@@ -16,7 +16,7 @@ interface FoodShape {
   servings: { label: string; gramEquivalent: number | null; mlEquivalent: number | null }[];
 }
 
-export function LogFoodForm({ food, meal, date }: { food: FoodShape; meal: string; date: string }) {
+export function LogFoodForm({ food, meal, date, returnToMeal }: { food: FoodShape; meal: string; date: string; returnToMeal?: string }) {
   const t = useTranslations("diary");
   const foodsT = useTranslations("foods");
   const errors = useTranslations("errors");
@@ -36,6 +36,7 @@ export function LogFoodForm({ food, meal, date }: { food: FoodShape; meal: strin
     <form action={action}>
       <input type="hidden" name="foodId" value={food.id} />
       <input type="hidden" name="date" value={date} />
+      {returnToMeal ? <input type="hidden" name="returnToMeal" value={returnToMeal} /> : null}
 
       {state.error ? (
         <div className="notice notice-error" role="alert" style={{ marginBottom: 14 }}>

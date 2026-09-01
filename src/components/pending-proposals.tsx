@@ -28,7 +28,7 @@ export function PendingProposals({
 }: {
   proposals: PendingProposal[];
   labels: PendingLabels;
-  returnTo: "/" | "/diary";
+  returnTo: "/";
 }) {
   if (proposals.length === 0) return null;
 

@@ -27,11 +27,11 @@ function ActivityForm({ date, entry, done }: { date: string; entry?: ActivityEnt
   </form>;
 }
 
-export function ActivityPanel({ date, entries, totalActiveKcal, locale, className }: { date: string; entries: ActivityEntryView[]; totalActiveKcal: number | null; locale: Locale; className?: string }) {
+export function ActivityEditor({ date, entries, totalActiveKcal, locale }: { date: string; entries: ActivityEntryView[]; totalActiveKcal: number | null; locale: Locale }) {
   const t = useTranslations("activity"); const common = useTranslations("common");
   const [adding, setAdding] = useState(false); const [editing, setEditing] = useState<string | null>(null);
-  return <section className={`card activity-panel${className ? ` ${className}` : ""}`} aria-labelledby={`activity-heading-${date}`}>
-    <div className="card-head"><h2 id={`activity-heading-${date}`}>{t("title")}</h2><button type="button" className="btn btn-quiet" onClick={() => setAdding(true)}><span aria-hidden="true">＋</span> {common("add")}</button></div>
+  return <div className="activity-editor">
+    <div className="editor-actions"><button type="button" className="btn btn-quiet" onClick={() => setAdding(true)}><span aria-hidden="true">＋</span> {common("add")}</button></div>
     {adding ? <ActivityForm date={date} done={() => setAdding(false)} /> : null}
     {entries.length === 0 && !adding ? <p className="empty">{t("empty")}</p> : entries.map((entry) => {
       const resolved = findActivityVariant(entry.activityKey, entry.intensityKey); const name = t(`names.${entry.activityKey}`);
@@ -40,5 +40,5 @@ export function ActivityPanel({ date, entries, totalActiveKcal, locale, classNam
     })}
     {entries.some((entry) => entry.activeKcalSnapshot == null) ? <p className="notice notice-warn">{t("noWeight")} <Link href="/settings">{t("addWeight")}</Link></p> : null}
     {entries.length ? <div className="activity-total"><span>{t("activeCalories")}</span><strong>{totalActiveKcal == null ? "–" : `${formatKcal(totalActiveKcal, locale)} ${common("kcal")}`}</strong></div> : null}
-  </section>;
+  </div>;
 }

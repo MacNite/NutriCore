@@ -10,14 +10,16 @@ test("the dashboard quick-meal button opens the diary AI form", async ({ page })
   await expect(dialog.getByLabel(/^meal$|^mahlzeit$/i)).toBeVisible();
 });
 
-test("a dashboard meal edit button opens and focuses that diary meal", async ({ page }) => {
-  const lunchEdit = page.getByRole("link", { name: /edit: lunch|bearbeiten: mittagessen/i });
-  await expect(lunchEdit).toHaveAttribute("href", /\/diary\?date=\d{4}-\d{2}-\d{2}#meal-LUNCH$/);
+test("meal rows open the correct editor without leaving Today", async ({ page }) => {
+  await page.getByRole("button", { name: /lunch|mittagessen/i }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("dialog", { name: /lunch|mittagessen/i })).toBeVisible();
+});
 
-  await lunchEdit.click();
-
-  await expect(page).toHaveURL(/\/diary\?date=\d{4}-\d{2}-\d{2}#meal-LUNCH$/);
-  await expect(page.locator("#meal-LUNCH")).toBeInViewport();
+test("Diary is absent from navigation and its legacy URL preserves dates", async ({ page }) => {
+  await expect(page.locator(".nav, .bottom-nav").getByText(/^diary$|^tagebuch$/i)).toHaveCount(0);
+  await page.goto("/diary?date=2026-08-30");
+  await expect(page).toHaveURL(/\/\?date=2026-08-30$/);
 });
 
 test.beforeEach(async ({ page }) => {
@@ -45,14 +47,11 @@ test("a user can create a custom food, log it and edit the portion", async ({ pa
   await expect(page.getByRole("heading", { level: 1, name: /^foods$|^lebensmittel$/i })).toBeVisible();
 
   // 200 g of a 250 kcal/100 g food is 500 kcal.
-  await page.goto("/diary");
+  await page.goto("/");
   await expect(page.getByText("Testbrot").first()).toBeVisible();
   await expect(page.getByText(/500 kcal/).first()).toBeVisible();
-  // The panel holding the coverage bars starts collapsed, so open it before
-  // asserting: the bars are in the DOM from the first render either way.
-  const microPanel = page.locator("details.micro-panel");
-  await microPanel.locator("summary").click();
-  await expect(microPanel.locator(".micro-indicator").first()).toBeVisible();
+  await page.getByRole("button", { name: /view all|alle anzeigen/i }).click();
+  await expect(page.getByRole("dialog", { name: /micronutrients|mikronährstoffe/i }).locator(".micro-indicator").first()).toBeVisible();
 
   // Editing the amount rescales the entry.
   await page.getByRole("button", { name: /edit|bearbeiten/i }).first().click();
@@ -85,12 +84,12 @@ test("a logged entry keeps its own values when the food changes later", async ({
   await page.getByRole("button", { name: /breakfast|lunch|dinner|snacks|frühstück|mittagessen|abendessen/i }).click();
   await page.waitForURL(/\/foods\?meal=SNACKS&date=\d{4}-\d{2}-\d{2}$/);
 
-  await page.goto("/diary");
+  await page.goto("/");
   await expect(page.getByText(/100 kcal/).first()).toBeVisible();
 });
 
-test("the diary can navigate between days", async ({ page }) => {
-  await page.goto("/diary");
+test("Today can navigate between days", async ({ page }) => {
+  await page.goto("/");
   const heading = page.locator(".date-nav strong");
   const today = await heading.textContent();
 
@@ -101,30 +100,10 @@ test("the diary can navigate between days", async ({ page }) => {
   await expect(heading).toHaveText(today ?? "");
 });
 
-test("the micronutrient panel starts collapsed and can be expanded", async ({ page }) => {
-  await page.goto("/diary");
-
-  const panel = page.locator("details.micro-panel");
-  await expect(panel).not.toHaveAttribute("open", "");
-  await expect(panel.getByRole("heading", { name: /micronutrients|mikronährstoffe/i })).toBeVisible();
-  await expect(panel.locator(".micro-grid")).not.toBeVisible();
-
-  await panel.locator("summary").click();
-  await expect(panel).toHaveAttribute("open", "");
-  await expect(panel.locator(".micro-grid")).toBeVisible();
-
-  await panel.locator("summary").click();
-  await expect(panel).not.toHaveAttribute("open", "");
-  await expect(panel.locator(".micro-grid")).not.toBeVisible();
-});
-
-test("activity entries are date-specific and shared by dashboard and diary", async ({ page }) => {
+test("activity entries can be added, edited and deleted in the Today dialog", async ({ page }) => {
   await page.goto("/");
-  const cards = page.locator(".grid-main > .stack > .card");
-  await expect(cards.nth(2).getByRole("heading", { name: /sport & activity|sport & aktivität/i })).toBeVisible();
-  await expect(cards.nth(3).getByRole("heading", { name: /micronutrients|mikronährstoffe/i })).toBeVisible();
-
-  const panel = page.locator(".activity-panel");
+  await page.getByRole("button", { name: /sport & activity|sport & aktivität/i }).click();
+  const panel = page.getByRole("dialog", { name: /sport & activity|sport & aktivität/i });
   await panel.getByRole("button", { name: /^add$|^hinzufügen$/i }).click();
   await panel.getByLabel(/^activity$|^aktivität$/i).selectOption("walking");
   await panel.getByLabel(/^intensity$|^intensität$/i).selectOption("brisk");
@@ -134,8 +113,7 @@ test("activity entries are date-specific and shared by dashboard and diary", asy
   await expect(panel.getByText(/35 min/i)).toBeVisible();
   await expect(panel.getByText(/kcal/i).last()).toBeVisible();
 
-  await page.goto("/diary");
-  const diaryPanel = page.locator(".activity-panel");
+  const diaryPanel = panel;
   await expect(diaryPanel.getByText(/walking|gehen/i)).toBeVisible();
   await diaryPanel.getByRole("button", { name: /edit walking|gehen bearbeiten/i }).click();
   await diaryPanel.getByLabel(/duration|dauer/i).fill("70");

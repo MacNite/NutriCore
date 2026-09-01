@@ -15,7 +15,7 @@ export default async function FoodDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ meal?: string; date?: string }>;
+  searchParams: Promise<{ meal?: string; date?: string; editMeal?: string }>;
 }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
@@ -63,6 +63,7 @@ export default async function FoodDetailPage({
               }}
               meal={query.meal ?? "SNACKS"}
               date={query.date && /^\d{4}-\d{2}-\d{2}$/.test(query.date) ? query.date : today}
+              returnToMeal={(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"] as string[]).includes(query.editMeal ?? "") ? query.editMeal : undefined}
             />
           </section>
 

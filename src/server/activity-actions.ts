@@ -6,7 +6,7 @@ import { addActivity, deleteActivity, updateActivity } from "./activities";
 import type { FormState } from "./profile-actions";
 
 const schema = z.object({ id: z.string().min(1).optional(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), activityKey: z.string().min(1).max(50), intensityKey: z.string().min(1).max(50), durationMinutes: z.coerce.number().int().min(1).max(1440) });
-const refresh = () => { revalidatePath("/"); revalidatePath("/diary"); };
+const refresh = () => { revalidatePath("/"); };
 
 export async function saveActivityAction(_state: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();

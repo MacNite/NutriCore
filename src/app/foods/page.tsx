@@ -17,7 +17,7 @@ export async function generateMetadata() {
 export default async function FoodsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ meal?: string; date?: string; mode?: string }>;
+  searchParams: Promise<{ meal?: string; date?: string; mode?: string; editMeal?: string }>;
 }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
@@ -52,6 +52,7 @@ export default async function FoodsPage({
         autoFocus={params.mode !== "barcode"}
         researchAvailable={availability.available}
         researchUnavailableReason={availability.reason}
+        editMeal={(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"] as string[]).includes(params.editMeal ?? "") ? params.editMeal : undefined}
       />
 
       <section className="card" id="recipes" style={{ marginTop: 20 }} aria-labelledby="recipes-heading">
