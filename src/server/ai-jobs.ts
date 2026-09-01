@@ -68,7 +68,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
   if (!job) return false;
   try {
     if (job.entityType !== "MEAL_INPUT" || !job.mealInput) throw new Error("Unsupported AI job entity");
-    const ai = deps.ai ?? new OllamaProvider(process.env.AI_BASE_URL, process.env.AI_MODEL);
+    const ai = deps.ai ?? new OllamaProvider();
     const capabilities = await ai.capabilities();
 
     let prompt = job.mealInput.text;

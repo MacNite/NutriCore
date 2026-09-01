@@ -54,8 +54,8 @@ export async function runDiagnostics(): Promise<Check[]> {
   const ollama: Check = config.AI_ENABLED
     ? {
         key: "ollama",
-        status: await timed(() => probe(`${config.OLLAMA_BASE_URL}/api/tags`)),
-        detail: safeHost(config.OLLAMA_BASE_URL),
+        status: await timed(() => probe(`${config.AI_BASE_URL}/api/tags`)),
+        detail: safeHost(config.AI_BASE_URL),
       }
     : { key: "ollama", status: "disabled" };
 
@@ -64,7 +64,7 @@ export async function runDiagnostics(): Promise<Check[]> {
   const model: Check = config.AI_ENABLED
     ? await (async (): Promise<Check> => {
         if (ollama.status !== "ok") {
-          return { key: "model", status: "unknown", detail: config.OLLAMA_MODEL };
+          return { key: "model", status: "unknown", detail: config.AI_MODEL };
         }
         try {
           const capabilities = await new OllamaProvider().capabilities();
@@ -75,8 +75,8 @@ export async function runDiagnostics(): Promise<Check[]> {
             status: "error",
             detail:
               error instanceof AIUnavailableError
-                ? `${config.OLLAMA_MODEL} — not installed on this Ollama instance`
-                : config.OLLAMA_MODEL,
+                ? `${config.AI_MODEL} — not installed on this Ollama instance`
+                : config.AI_MODEL,
           };
         }
       })()

@@ -165,7 +165,7 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `OPENFOODFACTS_USER_AGENT` | recommended | App name plus a real contact address, e.g. `NutriCore/0.1 (you@example.com)`. OFF answers 403 to callers it cannot identify; `/settings/diagnostics` flags a placeholder value |
 | `OPENFOODFACTS_SEARCH_URL` | no | Search-a-licious service; default `https://search.openfoodfacts.org` |
 | `OPENFOODFACTS_SEARCH_BACKEND` | no | `search-a-licious` (default) or `legacy` to pin `/cgi/search.pl` |
-| `AI_ENABLED` / `AI_BASE_URL` / `AI_MODEL` | no | Local structured-output model; defaults to `qwen3.5:4b` |
+| `AI_ENABLED` / `AI_BASE_URL` / `AI_MODEL` | no | Where the model lives and which one to use; defaults to `http://ollama:11434` and `qwen3.5:4b`. The superseded `OLLAMA_BASE_URL` / `OLLAMA_MODEL` are still read as a fallback |
 | `AI_FALLBACK_MODEL` / `AI_CONFIDENCE_THRESHOLD` | no | Future low-confidence fallback policy; fallback is not called for every job |
 | `SEARXNG_URL` / `SEARXNG_TIMEOUT_MS` | no | JSON source discovery used only after local foods miss |
 | `INVITATION_EXPIRY_HOURS` | no | Single-use invitation lifetime; default 48 hours |
@@ -219,19 +219,31 @@ reported as skipped rather than guessed at. A job that fails is retried up to
 `maxRetries` times (2 by default) before it is marked failed, and an
 administrator can hand it a fresh budget from `/admin`.
 
-`OLLAMA_MODEL` selects one model, by name, from those already installed there.
+`AI_MODEL` selects one model, by name, from those already installed there.
 There is no list of models in the compose file because NutriCore neither
 downloads nor manages them; adding one would only duplicate state that lives on
 the Ollama host. Settings → Diagnostics reports whether the configured model is
-actually installed on the instance NutriCore can reach.
+actually installed on the instance NutriCore can reach — it reads the same
+`AI_BASE_URL` and `AI_MODEL` the AI client uses, so a green row always refers to
+the instance that actually serves requests.
 
-Any Ollama model works. `deepseek-r1` is only the default; a smaller instruct
-model is often a better fit, because the research workflow needs reliable
-structured JSON rather than long reasoning.
+`OLLAMA_BASE_URL` and `OLLAMA_MODEL` are the superseded spelling of the same two
+settings. They are still honoured when `AI_BASE_URL` / `AI_MODEL` are unset, so
+an existing deployment keeps working, but new ones should set only the `AI_*`
+pair. Do not set both to different values.
+
+Any Ollama model works. `qwen3.5:4b` is only the default; a small instruct model
+is usually the right fit, because both workflows need reliable structured JSON
+rather than long reasoning.
 
 If the Ollama container lives in a different compose stack, attach its network
 to the `app` service — see the commented `networks` block in
 `docker-compose.yml`. Do not hardcode IP addresses.
+
+The compose file passes configuration through `env_file: .env` and sets only
+`DATABASE_URL` and `NUTRICORE_PROCESS` under `environment:`. That is deliberate:
+`environment:` overrides `env_file:`, so a default written into the compose file
+would silently win over the value in `.env`.
 
 Setting `AI_ENABLED=false`, or turning AI off per user in Settings, means no
 request ever leaves the server for AI purposes.

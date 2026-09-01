@@ -19,10 +19,9 @@ const schema = z.object({
   USDA_API_KEY: z.string().optional(),
   AI_ENABLED: bool(true),
   AI_PROVIDER: z.string().default("ollama"),
-  OLLAMA_BASE_URL: z.string().default("http://ollama:11434"),
-  OLLAMA_MODEL: z.string().default("deepseek-r1"),
-  AI_BASE_URL: z.string().optional(),
-  AI_MODEL: z.string().default("qwen3.5:4b"),
+  // Always present: resolved by `resolveAiBaseUrl`/`resolveAiModel` below.
+  AI_BASE_URL: z.string(),
+  AI_MODEL: z.string(),
   AI_FALLBACK_MODEL: z.string().optional(),
   AI_CONFIDENCE_THRESHOLD: z.enum(["high", "medium", "low"]).default("medium"),
   SEARXNG_URL: z.string().optional(),
@@ -34,6 +33,23 @@ const schema = z.object({
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 
+export const AI_BASE_URL_DEFAULT = "http://ollama:11434";
+export const AI_MODEL_DEFAULT = "qwen3.5:4b";
+
+const configured = (...values: (string | undefined)[]) => values.map((value) => value?.trim()).find(Boolean);
+
+/**
+ * Where the model lives is decided here and nowhere else. `OLLAMA_BASE_URL` and
+ * `OLLAMA_MODEL` are the superseded spelling, still honoured so an existing
+ * deployment keeps working; no other module reads them, which is what used to
+ * let the diagnostics page and the AI client disagree about the same instance.
+ */
+export const resolveAiBaseUrl = (source: Record<string, string | undefined> = process.env) =>
+  configured(source.AI_BASE_URL, source.OLLAMA_BASE_URL) ?? AI_BASE_URL_DEFAULT;
+
+export const resolveAiModel = (source: Record<string, string | undefined> = process.env) =>
+  configured(source.AI_MODEL, source.OLLAMA_MODEL) ?? AI_MODEL_DEFAULT;
+
 export type Env = z.infer<typeof schema>;
 
 let cached: Env | undefined;
@@ -44,7 +60,7 @@ let cached: Env | undefined;
  */
 export function env(): Env {
   if (cached) return cached;
-  const parsed = schema.safeParse(process.env);
+  const parsed = schema.safeParse({ ...process.env, AI_BASE_URL: resolveAiBaseUrl(), AI_MODEL: resolveAiModel() });
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Invalid environment configuration: ${issues}`);
