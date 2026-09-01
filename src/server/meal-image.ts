@@ -11,6 +11,13 @@ export type ValidMealImage = { mime: (typeof MEAL_IMAGE_TYPES)[number]; data: Bu
 export const hasMealInput = (text: string, sourceUrl: string, image: ValidMealImage | null) =>
   Boolean(text.trim() || sourceUrl.trim() || image);
 
+// A browser submits an unselected file input as a zero-byte part carrying no
+// filename, and the name that survives decoding depends on the transport: React's
+// busboy decoding of a server action turns the missing filename into the literal
+// string "undefined", a plain multipart POST keeps "", and appending a nameless
+// Blob yields "blob". None of them is a file a user picked.
+const UNSELECTED_FILE_NAMES = new Set(["", "undefined", "blob"]);
+
 const detectedMime = (data: Uint8Array): ValidMealImage["mime"] | null => {
   if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return "image/jpeg";
   if (data.length >= 8 && Buffer.from(data.subarray(0, 8)).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return "image/png";
@@ -21,11 +28,10 @@ const detectedMime = (data: Uint8Array): ValidMealImage["mime"] | null => {
 /** Validates bytes, not the attacker-controlled filename or browser MIME alone. */
 export async function validateMealImage(value: FormDataEntryValue | null): Promise<ValidMealImage | null> {
   if (!(value instanceof File)) return null;
-  // Browsers represent an unselected multipart file input as an empty File
-  // whose name is also empty. That is absence, not a user-selected zero-byte
-  // image. A genuinely selected empty file still has its filename and remains
-  // an actionable validation error.
-  if (value.size === 0 && value.name === "") return null;
+  // Absence, not a user-selected zero-byte image. A genuinely selected empty
+  // file still carries its own filename and remains an actionable validation
+  // error.
+  if (value.size === 0 && UNSELECTED_FILE_NAMES.has(value.name)) return null;
   if (value.size === 0) throw new Error("imageEmpty" satisfies MealImageError);
   if (value.size > MEAL_IMAGE_MAX_BYTES) throw new Error("imageTooLarge" satisfies MealImageError);
   if (!MEAL_IMAGE_TYPES.includes(value.type as ValidMealImage["mime"])) throw new Error("imageInvalid" satisfies MealImageError);

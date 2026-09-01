@@ -12,6 +12,19 @@ test("the dashboard quick-meal button opens the diary AI form", async ({ page })
   await expect(dialog.getByLabel(/^meal$|^mahlzeit$/i)).toBeVisible();
 });
 
+// The browser submits the untouched file input as a zero-byte part, which the
+// server action must read as "no image" rather than as an empty upload.
+test("a quick meal with only a URL is queued instead of failing on the untouched image input", async ({ page }) => {
+  await page.getByRole("button", { name: /quick meal|schnelle mahlzeit/i }).click();
+
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(/recipe url|rezept-url/i).fill("https://example.com/rezept");
+  await dialog.getByRole("button", { name: /save and queue enrichment|speichern und anreicherung einreihen/i }).click();
+
+  await page.waitForURL(/\/ai-review\/[^/]+\?queued=1$/);
+  await expect(page.getByText(/is empty|ist leer/i)).toHaveCount(0);
+});
+
 test("meal rows open the correct editor without leaving Today", async ({ page }) => {
   await mealRowTrigger(page, /lunch|mittagessen/i).click();
   await expect(page).toHaveURL(/\/$/);
