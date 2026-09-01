@@ -10,28 +10,42 @@ import { checkUrl } from "@/lib/url-guard";
 import { validDateKey } from "@/lib/date";
 import { applyProposal } from "./ai-approval";
 import { jobPriority } from "./ai-types";
+import { hasMealInput, validateMealImage, type MealImageError } from "./meal-image";
+
+export type MealInputError = MealImageError | "inputRequired" | "unsafeUrl";
 
 export async function queueMealInputAction(formData: FormData) {
   const user = await requireUser();
+  const dateValue = validDateKey(String(formData.get("date")));
+  const back = (error: MealInputError) => {
+    const query = new URLSearchParams({ date: dateValue, error, quickMeal: "1" });
+    redirect(`/?${query}`);
+  };
+  let image;
+  try {
+    image = await validateMealImage(formData.get("image"));
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "imageInvalid";
+    back((code === "imageEmpty" || code === "imageTooLarge" ? code : "imageInvalid") as MealImageError);
+  }
   const parsed = z
     .object({
-      text: z.string().trim().min(2).max(2000),
+      text: z.string().trim().max(2000).refine((value) => !value || value.length >= 2),
       sourceUrl: z.string().trim().max(500).optional(),
       meal: z.enum(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"]),
       date: z.string(),
       returnTo: z.literal("/").default("/"),
     })
-    .parse(Object.fromEntries(formData));
+    .parse(Object.fromEntries([...formData.entries()].filter(([key]) => key !== "image")));
 
   const date = validDateKey(parsed.date);
+  if (!hasMealInput(parsed.text, parsed.sourceUrl ?? "", image ?? null)) back("inputRequired");
 
   if (parsed.sourceUrl) {
     const safe = await checkUrl(parsed.sourceUrl);
     // Back to where the form was submitted from, not to an unrelated feature.
     if (!safe.ok) {
-      const query = new URLSearchParams({ date, error: "unsafeUrl" });
-      if (parsed.returnTo === "/") query.set("quickMeal", "1");
-      redirect(`${parsed.returnTo}?${query}`);
+      back("unsafeUrl");
     }
   }
 
@@ -42,6 +56,9 @@ export async function queueMealInputAction(formData: FormData) {
       sourceUrl: parsed.sourceUrl || null,
       meal: parsed.meal,
       diaryDate: new Date(`${date}T00:00:00.000Z`),
+      imageMime: image?.mime ?? null,
+      imageData: image?.data ?? null,
+      imageExpiresAt: image?.expiresAt ?? null,
     },
   });
   await prisma.aiJob.create({
@@ -126,4 +143,3 @@ export async function rejectAiProposalAction(formData: FormData) {
   });
   redirect(returnTo);
 }
-
