@@ -249,6 +249,11 @@
     "researchUnavailable": {
       "SERVER_DISABLED": "AI is disabled on this server.",
       "AI_DISABLED": "AI features are disabled in your settings."
+    },
+    "aiEnrichment": {
+      "label": "AI augmented",
+      "servingSize": "serving size",
+      "tooltip": "AI added: {details} ({date}). Original provenance remains unchanged."
     }
   },
   "nutrients": {
@@ -467,7 +472,13 @@
       "imageHint": "JPEG, PNG or WebP, up to 6 MB. A vision-capable model is required.",
       "submit": "Extract recipe",
       "unmatched": "These ingredients were not found in your foods and must be added manually: {names}",
-      "errors": { "inputRequired": "Add text, a link, or a picture.", "imageInvalid": "Use a JPEG, PNG, or WebP image.", "imageTooLarge": "The image must be no larger than 6 MB.", "aiDisabled": "AI features are disabled in your settings or on this server.", "extractionFailed": "The recipe could not be extracted. Check the AI service, link, and image, then try again." }
+      "errors": {
+        "inputRequired": "Add text, a link, or a picture.",
+        "imageInvalid": "Use a JPEG, PNG, or WebP image.",
+        "imageTooLarge": "The image must be no larger than 6 MB.",
+        "aiDisabled": "AI features are disabled in your settings or on this server.",
+        "extractionFailed": "The recipe could not be extracted. Check the AI service, link, and image, then try again."
+      }
     },
     "create": "Create recipe",
     "edit": "Edit recipe",
@@ -570,7 +581,10 @@
     "jobQueued": "Queued",
     "jobRunning": "Running",
     "jobCompleted": "Completed",
-    "jobFailed": "Failed"
+    "jobFailed": "Failed",
+    "enqueueEnrichment": "Backfill missing nutrition",
+    "enrichmentHint": "Queue one reviewable, attributed enrichment job for every food with nutrition or serving gaps.",
+    "enrichmentQueued": "Queued {count} enrichment jobs."
   },
   "account": {
     "changePasswordTitle": "Choose a new password",

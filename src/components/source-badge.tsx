@@ -31,3 +31,14 @@ export function SourceBadge({ source }: { source: string }) {
     </span>
   );
 }
+
+export type EnrichmentBadgeData = { nutrientNames: string[]; servingSize: boolean; addedAt: string };
+
+export function SourceBadges({ source, enrichment = [] }: { source: string; enrichment?: EnrichmentBadgeData[] }) {
+  const t = useTranslations("foods");
+  const names = [...new Set(enrichment.flatMap((item) => item.nutrientNames))];
+  const serving = enrichment.some((item) => item.servingSize);
+  const date = enrichment.map((item) => item.addedAt).sort().at(-1)?.slice(0, 10);
+  const details = [...names, ...(serving ? [t("aiEnrichment.servingSize")] : [])].join(", ");
+  return <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}><SourceBadge source={source} />{enrichment.length && (names.length || serving) ? <span className="badge badge-ai" title={t("aiEnrichment.tooltip", { details, date: date ?? "—" })}><span aria-hidden="true">✦</span>{t("aiEnrichment.label")}<span className="sr-only"> — {details}</span></span> : null}</span>;
+}

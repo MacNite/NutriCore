@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser } from "./session";
-import { deleteRecipe, logRecipe, saveRecipe } from "./recipes";
+import { deleteRecipe, saveRecipe } from "./recipes";
+import { prisma } from "@/lib/db";
+import { resolveAiModel } from "@/lib/env";
 import { NotFoundError, PortionError } from "./diary";
 import type { FormState } from "./profile-actions";
 
@@ -39,8 +41,11 @@ export async function logRecipeAction(_state: FormState, formData: FormData): Pr
   const user = await requireUser();
   const parsed = logSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "validation" };
-  try { await logRecipe(user.id, parsed.data.recipeId, parsed.data.quantity, parsed.data.meal, parsed.data.date); } catch (error) { return errorState(error); }
-  revalidatePath("/diary"); redirect(`/diary?date=${parsed.data.date}`);
+  const recipe = await prisma.recipe.findFirst({ where: { id: parsed.data.recipeId, ownerId: user.id } });
+  if (!recipe) return { error: "notFound" };
+  const input = await prisma.mealInput.create({ data: { userId: user.id, text: recipe.name, meal: parsed.data.meal, diaryDate: new Date(`${parsed.data.date}T00:00:00.000Z`) } });
+  await prisma.aiJob.create({ data: { userId: user.id, entityType: "RECIPE_LOG", entityId: input.id, mealInputId: input.id, model: resolveAiModel(), metadata: { recipeId: recipe.id, servings: parsed.data.quantity } } });
+  redirect(`/ai-review/${input.id}?queued=1`);
 }
 
 export async function deleteRecipeAction(_state: FormState, formData: FormData): Promise<FormState> {

@@ -5,7 +5,7 @@ import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { CopyField } from "@/components/copy-field";
 import { formatDate } from "@/lib/format";
-import { inviteUserAction, resendInvitationAction, retryAiJobAction, setUserActiveAction } from "@/server/admin-actions";
+import { enqueueFoodEnrichmentAction, inviteUserAction, resendInvitationAction, retryAiJobAction, setUserActiveAction } from "@/server/admin-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export async function generateMetadata() {
 
 const JOB_LABEL = { QUEUED: "jobQueued", RUNNING: "jobRunning", COMPLETED: "jobCompleted", FAILED: "jobFailed" } as const;
 
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ token?: string; enrichmentQueued?: string }> }) {
   const current = await getSessionUser();
   if (!current) redirect("/login");
   if (current.mustChangePassword) redirect("/change-password");
@@ -24,7 +24,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
   const t = await getTranslations("admin");
   const locale = current.language;
-  const { token } = await searchParams;
+  const { token, enrichmentQueued } = await searchParams;
 
   const [users, jobs, invitations] = await Promise.all([
     prisma.user.findMany({ include: { profile: true }, orderBy: { createdAt: "desc" } }),
@@ -155,7 +155,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </section>
 
       <section className="card" style={{ marginTop: 20 }}>
-        <h2>{t("aiJobs")}</h2>
+        <div className="card-head"><div><h2>{t("aiJobs")}</h2><p className="muted">{t("enrichmentHint")}</p></div><form action={enqueueFoodEnrichmentAction}><button className="btn btn-primary">{t("enqueueEnrichment")}</button></form></div>
+        {enrichmentQueued !== undefined ? <p>{t("enrichmentQueued", { count: Number(enrichmentQueued) })}</p> : null}
         {jobs.length === 0 ? (
           <p className="muted">{t("noJobs")}</p>
         ) : (
