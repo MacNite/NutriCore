@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { saveRecipeAction } from "@/server/recipe-actions";
 import type { FormState } from "@/server/profile-actions";
+import { BarcodeScanner } from "@/components/barcode-scanner";
 
 interface Ingredient { foodId: string; name: string; amount: number; unit: string }
 interface SearchResult { id: string; name: string; brand: string | null; basisUnit: string }
@@ -26,6 +27,7 @@ export function RecipeForm({ recipe, createMode = false }: { recipe?: { id: stri
       <div className="field"><label htmlFor="tags">{t("tags")}</label><input id="tags" name="tags" defaultValue={recipe?.tags.join(", ")} /></div>
     </section><section className="card"><h2>{t("ingredients")}</h2>
       <div className="field"><label htmlFor="ingredient-search">{t("searchFood")}</label><input id="ingredient-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+      <BarcodeScanner onScan={setQuery} />
       {results.map((food) => <div className="row" key={food.id}><div className="row-body"><strong>{food.name}</strong><span>{food.brand}</span></div><button className="btn" type="button" onClick={() => { if (!ingredients.some((item) => item.foodId === food.id)) setIngredients([...ingredients, { foodId: food.id, name: food.name, amount: 100, unit: food.basisUnit === "ML" ? "ml" : "g" }]); setQuery(""); }}>{common("add")}</button></div>)}
       {ingredients.length === 0 ? <p className="empty">{t("noIngredients")}</p> : ingredients.map((item, index) => <div className="row" key={item.foodId}><div className="row-body"><strong>{item.name}</strong><div className="field-row"><div className="field"><label htmlFor={`amount-${index}`}>{t("amount")}</label><input id={`amount-${index}`} type="number" min="0.001" step="0.001" value={item.amount} onChange={(event) => setIngredients(ingredients.map((value, i) => i === index ? { ...value, amount: Number(event.target.value) } : value))} /></div><div className="field"><label htmlFor={`unit-${index}`}>{t("unit")}</label><input id={`unit-${index}`} value={item.unit} onChange={(event) => setIngredients(ingredients.map((value, i) => i === index ? { ...value, unit: event.target.value } : value))} /></div></div></div><button className="btn btn-danger" type="button" onClick={() => setIngredients(ingredients.filter((_, i) => i !== index))}>{common("delete")}</button></div>)}
     </section></div><aside><section className="card"><button className="btn btn-primary btn-block" type="submit" disabled={pending || ingredients.length === 0}>{pending ? common("loading") : common("save")}</button></section></aside></div>

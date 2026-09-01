@@ -551,6 +551,71 @@ fieldset {
   margin: 0 0 14px;
 }
 
+.barcode-scan-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.scanner-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(0 0 0 / 72%);
+}
+
+.scanner-dialog {
+  width: min(100%, 520px);
+  padding: 18px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 20px 70px rgb(0 0 0 / 35%);
+}
+
+.scanner-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.scanner-header h2,
+.scanner-header p {
+  margin: 0;
+}
+
+.scanner-preview {
+  position: relative;
+  overflow: hidden;
+  min-height: 260px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-sm);
+  background: #090909;
+}
+
+.scanner-preview video {
+  display: block;
+  width: 100%;
+  min-height: 260px;
+  max-height: 65vh;
+  object-fit: cover;
+}
+
+.scanner-guide {
+  position: absolute;
+  top: 50%;
+  left: 10%;
+  width: 80%;
+  height: 34%;
+  transform: translateY(-50%);
+  border: 2px solid #fff;
+  border-radius: 10px;
+  box-shadow: 0 0 0 999px rgb(0 0 0 / 22%);
+}
+
 legend {
   font-size: 13px;
   font-weight: 600;
