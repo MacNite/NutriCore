@@ -226,6 +226,12 @@ The admin panel's diagnostics reports an old queued job as a worker error. A dep
 that does not use this Compose file must therefore create a second container
 from the same image, with the same environment and `NUTRICORE_PROCESS=worker`.
 
+Quick-meal images are transient queue payloads in PostgreSQL so a separate
+worker container can read them. They are removed as soon as structured meal
+extraction succeeds, on terminal failure or administrative cancellation/deletion,
+and by the worker's TTL cleanup after at most 24 hours. Only normalized
+components and non-sensitive input provenance remain in proposals/jobs.
+
 The two containers have separate environments and nothing makes them agree, so
 the worker logs the settings it resolved on startup - AI host, model, timeout,
 token cap, whether web research and SearXNG are configured. Compare that line

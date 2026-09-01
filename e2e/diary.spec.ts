@@ -7,6 +7,8 @@ test("the dashboard quick-meal button opens the diary AI form", async ({ page })
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel(/describe your meal|beschreibe deine mahlzeit/i)).toBeVisible();
+  await expect(dialog.getByLabel(/meal photo|mahlzeitenfoto/i)).toHaveAttribute("accept", "image/jpeg,image/png,image/webp");
+  await expect(dialog.getByLabel(/describe your meal|beschreibe deine mahlzeit/i)).not.toHaveAttribute("required", "");
   await expect(dialog.getByLabel(/^meal$|^mahlzeit$/i)).toBeVisible();
 });
 

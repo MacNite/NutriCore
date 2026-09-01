@@ -7,12 +7,13 @@ const { prismaMock, aiJob, aiJobAttempt, user } = vi.hoisted(() => {
     findUnique: vi.fn(async () => ({ profile: { language: "de", researchEnabled: false, autoApproveAi: true } })),
   };
   // The worker reads the created proposal out of the transaction result.
-  const $transaction = vi.fn(async () => [{ id: "proposal-1" }, {}]);
+  const mealInput = { update: vi.fn(), updateMany: vi.fn() };
+  const $transaction = vi.fn(async (operations: unknown[]) => operations.length === 2 ? [{ id: "proposal-1" }, {}] : []);
   return {
     aiJob,
     aiJobAttempt,
     user,
-    prismaMock: { aiJob, aiJobAttempt, user, aiProposal: { upsert: vi.fn() }, food: { findFirst: vi.fn() }, $transaction },
+    prismaMock: { aiJob, aiJobAttempt, user, mealInput, aiProposal: { upsert: vi.fn() }, food: { findFirst: vi.fn() }, $transaction },
   };
 });
 
@@ -27,6 +28,7 @@ vi.mock("./research", () => ({ fetchResearchSource: vi.fn(), runResearchJob: vi.
 vi.mock("./recipe-import", () => ({ runRecipeImport: vi.fn(), discardRecipeImportImage: vi.fn() }));
 vi.mock("./food-enrichment", () => ({ enrichFood: vi.fn(), missingNutritionKeys: vi.fn(() => []) }));
 vi.mock("./ai-approval", () => ({ autoApproveProposal: vi.fn() }));
+vi.mock("./meal-image", () => ({ discardMealInputImage: vi.fn() }));
 
 import { claimNextJob, findConservativeDuplicate, mealParseSchema, processNextAiJob, reclaimStaleJobs } from "./ai-jobs";
 import { decideComponents, jobPriority, STUCK_RUNNING_MS } from "./ai-types";
@@ -50,7 +52,8 @@ function queueJob(overrides: { retryCount?: number; maxRetries?: number; entityT
     status: "RUNNING",
     retryCount: overrides.retryCount ?? 0,
     maxRetries: overrides.maxRetries ?? 2,
-    mealInput: { id: "input-1", text: "two eggs", sourceUrl: null, meal: "BREAKFAST", diaryDate: new Date() },
+    metadata: null,
+    mealInput: { id: "input-1", text: "two eggs", sourceUrl: null, imageData: null as Buffer | null, imageMime: null, meal: "BREAKFAST", diaryDate: new Date() },
   };
   aiJob.findFirst.mockResolvedValue({ id: job.id });
   aiJob.updateMany.mockResolvedValue({ count: 1 });
@@ -222,6 +225,26 @@ describe("applying a proposal without the review screen", () => {
       confidence: "medium",
       warnings: [],
     }),
+  });
+
+  it("sends image bytes to the configured provider, then clears them after structured extraction", async () => {
+    const job = queueJob();
+    job.mealInput.text = "with extra avocado";
+    job.mealInput.imageData = Buffer.from("private-image");
+    const ai = workingAi();
+
+    await processNextAiJob({ ai: ai as never });
+
+    expect(ai.complete).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: "with extra avocado",
+      images: [Buffer.from("private-image").toString("base64")],
+    }));
+    expect(prismaMock.mealInput.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: { imageData: null, imageMime: null, imageExpiresAt: null },
+    }));
+    const proposalJson = JSON.stringify(prismaMock.aiProposal.upsert.mock.calls.at(-1));
+    expect(proposalJson).not.toContain(Buffer.from("private-image").toString("base64"));
+    expect(proposalJson).toContain('"inputKind":"text+image"');
   });
 
   /**

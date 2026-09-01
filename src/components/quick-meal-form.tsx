@@ -6,7 +6,7 @@ export async function QuickMealForm({ date, returnTo }: { date: string; returnTo
   const t = await getTranslations("diary");
 
   return (
-    <form action={queueMealInputAction}>
+    <form action={queueMealInputAction} encType="multipart/form-data">
       <input type="hidden" name="date" value={date} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <div className="field">
@@ -14,10 +14,20 @@ export async function QuickMealForm({ date, returnTo }: { date: string; returnTo
         <textarea
           id={"mealText-today"}
           name="text"
-          required
           maxLength={2000}
           placeholder={t("ai.placeholder")}
         />
+      </div>
+      <div className="field">
+        <label htmlFor="mealImage-today">{t("ai.image")}</label>
+        <input
+          id="mealImage-today"
+          name="image"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          aria-describedby="mealImageHint-today"
+        />
+        <span className="hint" id="mealImageHint-today">{t("ai.imageHint")}</span>
       </div>
       <div className="field">
         <label htmlFor={"sourceUrl-today"}>{t("ai.sourceUrl")}</label>

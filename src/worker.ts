@@ -4,6 +4,7 @@ import { prisma } from "./lib/db";
 import { logger } from "./lib/logger";
 import { flag, researchEnabled, resolveAiBaseUrl, resolveAiModel } from "./lib/env";
 import { ollamaMaxOutputTokens, ollamaTimeoutMs } from "./providers/ollama";
+import { cleanupExpiredMealImages } from "./server/meal-image";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -75,6 +76,7 @@ async function main() {
   // conditional on QUEUED. Reclaim on startup, then periodically for the case
   // where a second worker died while this one kept going.
   await reclaimStaleJobs();
+  await cleanupExpiredMealImages();
   let sinceReclaim = 0;
 
   while (running) {
@@ -85,6 +87,7 @@ async function main() {
     if (++sinceReclaim * pollMs() >= RECLAIM_EVERY_MS) {
       sinceReclaim = 0;
       await reclaimStaleJobs();
+      await cleanupExpiredMealImages();
     }
     await delay(pollMs());
   }

@@ -178,9 +178,18 @@
       "describe": "Beschreibe deine Mahlzeit",
       "placeholder": "2 Scheiben Roggenbrot mit Butter, 2 Spiegeleier und 1 Banane",
       "sourceUrl": "Rezept-URL (optional)",
+      "image": "Mahlzeitenfoto (optional)",
+      "imageHint": "JPEG, PNG oder WebP bis 6 MB. Du kannst auf unterstützten Mobilgeräten ein Foto aufnehmen. Das Bild wird zur Verarbeitung höchstens 24 Stunden temporär gespeichert und danach gelöscht.",
       "meal": "Mahlzeit",
       "submit": "Speichern und Anreicherung einreihen",
-      "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert."
+      "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert.",
+      "errors": {
+        "inputRequired": "Füge Text, eine URL oder ein Bild hinzu.",
+        "imageInvalid": "Verwende ein gültiges JPEG-, PNG- oder WebP-Bild.",
+        "imageTooLarge": "Das Bild darf höchstens 6 MB groß sein.",
+        "imageEmpty": "Das ausgewählte Bild ist leer.",
+        "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert."
+      }
     }
   },
   "micronutrients": {

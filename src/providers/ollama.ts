@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { resolveAiBaseUrl, resolveAiModel } from "@/lib/env";
-import { AIInvalidOutputError, AIOutputTruncatedError, AIUnavailableError, type AICapabilities, type AIProvider } from "./ai";
+import { AIInvalidOutputError, AIOutputTruncatedError, AIUnavailableError, AIVisionUnsupportedError, type AICapabilities, type AIProvider } from "./ai";
 
 /**
  * One line of Ollama's streaming response. Everything but the text is optional.
@@ -130,7 +130,9 @@ export class OllamaProvider implements AIProvider {
     if (response.status === 400) {
       const complaint = await response.text().catch(() => "");
       if (/think/i.test(complaint)) response = await this.post(body(undefined));
-      else throw new AIUnavailableError(this.name, `Ollama responded with 400`, complaint.slice(0, 300));
+      else if (images?.length && /(?:image|vision|multimodal).*(?:not support|unsupported)|does not support.*(?:image|vision)/i.test(complaint)) {
+        throw new AIVisionUnsupportedError();
+      } else throw new AIUnavailableError(this.name, `Ollama responded with 400`, complaint.slice(0, 300));
     }
 
     if (!response.ok) throw new AIUnavailableError(this.name, `Ollama responded with ${response.status}`);

@@ -10,6 +10,7 @@ import { endSession, requireAdmin, requireUser } from "./session";
 import { issueInvitation, redeemableInvitation } from "./admin";
 import { ENRICHMENT_BATCH_LIMIT, ENRICHMENT_RETRY_MS, missingNutritionKeys } from "./food-enrichment";
 import { AI_JOB_OPERATIONS, AI_JOB_SELECTION_OPERATIONS, jobPriority, STUCK_RUNNING_MS, type AiJobOperation } from "./ai-types";
+import { discardMealInputImages } from "./meal-image";
 
 /**
  * The token travels back in the redirect so `/admin` can show the link once.
@@ -110,6 +111,10 @@ export async function manageAiJobsAction(formData: FormData) {
   }
 
   let affected = 0;
+  const discardFor = async (where: Prisma.AiJobWhereInput) => {
+    const jobs = await prisma.aiJob.findMany({ where: { ...where, entityType: "MEAL_INPUT" }, select: { entityId: true } });
+    await discardMealInputImages(jobs.map((job) => job.entityId));
+  };
   switch (operation) {
     case "requeue": {
       const result = await prisma.aiJob.updateMany({ where: { id: { in: ids } }, data: requeueData });
@@ -124,9 +129,11 @@ export async function manageAiJobsAction(formData: FormData) {
         data: { status: "FAILED", failedAt: new Date(), failureKind: "CANCELLED", errorMessage: "Cancelled by an administrator", errorDetail: null },
       });
       affected = result.count;
+      await discardFor({ id: { in: ids }, status: "FAILED", failureKind: "CANCELLED" });
       break;
     }
     case "delete": {
+      await discardFor({ id: { in: ids } });
       const result = await prisma.aiJob.deleteMany({ where: { id: { in: ids } } });
       affected = result.count;
       break;
@@ -137,11 +144,13 @@ export async function manageAiJobsAction(formData: FormData) {
       break;
     }
     case "deleteCompleted": {
+      await discardFor({ status: "COMPLETED" });
       const result = await prisma.aiJob.deleteMany({ where: { status: "COMPLETED" } });
       affected = result.count;
       break;
     }
     case "deleteFailed": {
+      await discardFor({ status: "FAILED" });
       const result = await prisma.aiJob.deleteMany({ where: { status: "FAILED" } });
       affected = result.count;
       break;

@@ -18,6 +18,7 @@ export type AiFailureKind =
   | "MODEL_HTTP_ERROR"
   | "MODEL_OUTPUT_INVALID"
   | "MODEL_OUTPUT_TRUNCATED"
+  | "MODEL_VISION_UNSUPPORTED"
   | "SOURCE_TOO_LARGE"
   | "SOURCE_BLOCKED"
   | "SOURCE_UNAVAILABLE"
@@ -34,6 +35,7 @@ export const AI_FAILURE_KINDS: AiFailureKind[] = [
   "MODEL_HTTP_ERROR",
   "MODEL_OUTPUT_INVALID",
   "MODEL_OUTPUT_TRUNCATED",
+  "MODEL_VISION_UNSUPPORTED",
   "SOURCE_TOO_LARGE",
   "SOURCE_BLOCKED",
   "SOURCE_UNAVAILABLE",
@@ -54,6 +56,7 @@ const PERMANENT: ReadonlySet<AiFailureKind> = new Set<AiFailureKind>([
   "SOURCE_BLOCKED",
   "DATA_MISSING",
   "MODEL_MISSING",
+  "MODEL_VISION_UNSUPPORTED",
   // A missing or malformed setting is the same on every attempt, and burning the
   // retry budget on it only delays every other job behind it.
   "CONFIG_INVALID",
@@ -152,6 +155,7 @@ function classify(
 
   // Structured-output rejection is reported by the adapter as its own class, and
   // the message already carries the failing paths.
+  if (named === "AIVisionUnsupportedError") return "MODEL_VISION_UNSUPPORTED";
   if (named === "AIOutputTruncatedError" || /output was cut off/i.test(message)) return "MODEL_OUTPUT_TRUNCATED";
   if (named === "AIInvalidOutputError" || /failed validation/i.test(message)) return "MODEL_OUTPUT_INVALID";
 

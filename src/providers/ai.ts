@@ -24,6 +24,13 @@ export class AIInvalidOutputError extends Error {
   }
 }
 
+export class AIVisionUnsupportedError extends Error {
+  constructor(message = "The configured AI model does not support image input") {
+    super(message);
+    this.name = "AIVisionUnsupportedError";
+  }
+}
+
 /**
  * The model was stopped by the output limit rather than by finishing. Its own
  * class because the remedy is different from every other invalid answer: either
