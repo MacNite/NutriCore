@@ -58,6 +58,20 @@ const SYSTEM = [
 
 const PRINCIPLE = "LLM interprets; sources provide facts; code calculates; human approves";
 
+/** Converts quantities for a complete source recipe into the single portion logged by Quick meal. */
+export function scaleMealComponentsToServing(parsed: z.infer<typeof mealParseSchema>, servings: number) {
+  if (!Number.isFinite(servings) || servings <= 0) throw new RangeError("Servings must be positive");
+  if (servings === 1) return parsed;
+  return {
+    ...parsed,
+    components: parsed.components.map((component) => ({
+      ...component,
+      quantity: component.quantity === undefined ? undefined : component.quantity / servings,
+      estimatedGrams: component.estimatedGrams === undefined ? undefined : component.estimatedGrams / servings,
+    })),
+  };
+}
+
 /**
  * Returns RUNNING jobs that no worker can still be holding to the queue.
  *
@@ -236,7 +250,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     const images = job.mealInput.imageData ? [Buffer.from(job.mealInput.imageData).toString("base64")] : undefined;
     const kinds = [job.mealInput.text && "text", job.mealInput.sourceUrl && "url", images && "image"].filter(Boolean);
     const inputKind = kinds.join("+") || "text";
-    const parsed = cached.extraction ? mealParseSchema.parse(cached.extraction) : await ai.complete({
+    const extracted = cached.extraction ? mealParseSchema.parse(cached.extraction) : await ai.complete({
       system: SYSTEM,
       prompt: prompt || "Extract the ingredients and amounts visible in the supplied image.",
       images,
@@ -247,13 +261,14 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       // rest of the meal instead of discarding all of it over one value.
       repair: repairMealParse,
     });
+    const parsed = scaleMealComponentsToServing(extracted, Number(job.mealInput.servings ?? 1));
 
     // The normalized components are sufficient for a retry. Persisting them in
     // the explicit queue payload lets us delete private image bytes immediately
     // after successful extraction without making later resolver retries lossy.
     if (!cached.extraction) {
       await prisma.$transaction([
-        prisma.aiJob.update({ where: { id: job.id }, data: { metadata: { extraction: parsed, inputKind, sourceUrl: job.mealInput.sourceUrl ?? undefined } } }),
+        prisma.aiJob.update({ where: { id: job.id }, data: { metadata: { extraction: extracted, inputKind, sourceUrl: job.mealInput.sourceUrl ?? undefined } } }),
         prisma.mealInput.update({ where: { id: job.mealInput.id }, data: { imageData: null, imageMime: null, imageExpiresAt: null } }),
       ]);
     }

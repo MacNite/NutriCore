@@ -58,6 +58,7 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
   if (!record) throw new Error("Recipe import not found");
 
   let prompt = record.text || "Extract the recipe from the supplied source.";
+  prompt += `\n\nThe user states that the complete recipe yields ${Number(record.servings)} servings. Use this as the authoritative servings value.`;
   if (record.sourceUrl) {
     const source = await fetchResearchSource(record.sourceUrl);
     prompt += `\n\n${asUntrustedExcerpt(source.url, source.excerpt)}`;
@@ -86,7 +87,7 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
     else unmatched.push(ingredient.name);
   }
 
-  const draft: RecipeImportDraft = { ...parsed, ingredients, unmatched };
+  const draft: RecipeImportDraft = { ...parsed, servings: Number(record.servings), ingredients, unmatched };
   await prisma.recipeImport.update({
     where: { id: importId },
     data: {

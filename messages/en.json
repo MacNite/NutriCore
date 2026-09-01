@@ -181,8 +181,11 @@
       "sourceUrlHint": "A public recipe URL can be used by itself; text and a photo are optional context.",
       "image": "Meal photo (optional)",
       "imageHint": "JPEG, PNG or WebP, up to {maxMb} MB. On supported mobile devices you can take a photo. The image is held temporarily for processing for no more than 24 hours, then deleted.",
+      "servings": "Number of servings",
+      "servingsHint": "How many servings do all quantities in the text, URL, or photo make? Quick meal logs one serving.",
       "meal": "Meal",
       "submit": "Save and queue enrichment",
+      "createRecipe": "Create as recipe",
       "unsafeUrl": "That address could not be fetched safely, so nothing was saved.",
       "errors": {
         "inputRequired": "Add text, a URL, or an image.",
@@ -484,6 +487,8 @@
       "url": "Recipe link",
       "image": "Recipe photo",
       "imageHint": "JPEG, PNG or WebP, up to {maxMb} MB. A vision-capable model is required.",
+      "servings": "Number of servings",
+      "servingsHint": "How many servings do the source's total quantities make? This determines nutrition and weight per serving.",
       "submit": "Extract recipe",
       "unmatched": "These ingredients were not found in your foods and must be added manually: {names}",
       "errors": {
@@ -516,6 +521,7 @@
     "portionWeight": "Portion weight",
     "coverage": "Nutrition coverage",
     "servingsToLog": "Number of servings",
+    "servingSummary": "1 serving ({grams, number, maximumFractionDigits: 1} g)",
     "meal": "Meal",
     "date": "Date",
     "log": "Log recipe",
