@@ -107,11 +107,11 @@ export class OllamaProvider implements AIProvider {
     images?: string[];
     repair?: (value: unknown) => unknown;
   }): Promise<T> {
-    const body = (think: boolean | undefined) =>
+    const body = (think: boolean | undefined, format: unknown = jsonSchema ?? "json") =>
       JSON.stringify({
         model: this.model,
         stream: true,
-        format: jsonSchema ?? "json",
+        format,
         options: { temperature: 0.2, num_predict: this.maxOutputTokens },
         // Structured extraction wants an answer, not a deliberation. A reasoning
         // model left to think spends `num_predict` on the chain of thought and
@@ -124,15 +124,42 @@ export class OllamaProvider implements AIProvider {
         ],
       });
 
-    let response = await this.post(body(false));
+    let format: unknown = jsonSchema ?? "json";
+    let think: boolean | undefined = false;
+    let response = await this.post(body(think, format));
     // Older Ollama builds, and models with no thinking template, reject the
     // field outright. Retry once without it rather than failing the job.
     if (response.status === 400) {
-      const complaint = await response.text().catch(() => "");
-      if (/think/i.test(complaint)) response = await this.post(body(undefined));
-      else if (images?.length && /(?:image|vision|multimodal).*(?:not support|unsupported)|does not support.*(?:image|vision)/i.test(complaint)) {
-        throw new AIVisionUnsupportedError();
-      } else throw new AIUnavailableError(this.name, `Ollama responded with 400`, complaint.slice(0, 300));
+      let complaint = await response.text().catch(() => "");
+      if (/think/i.test(complaint)) {
+        think = undefined;
+        response = await this.post(body(think, format));
+        if (response.status === 400) complaint = await response.text().catch(() => "");
+      }
+
+      // Ollama versions and model runners differ in which JSON Schema keywords
+      // their grammar builder accepts. The recipe schema is deliberately richer
+      // than the quick-meal schema (defaults, bounded arrays and longer fields),
+      // so rejecting that schema must not make text, URL and image imports all
+      // fail before inference even starts. Plain JSON mode still constrains the
+      // response to JSON; Zod validation and the repair hook below remain the
+      // authoritative shape check.
+      // A few runners return only a generic "bad request" here, so the response
+      // text cannot reliably identify a grammar failure. Retrying once without
+      // the optional schema is safe: if another request field is invalid the
+      // same 400 is returned, while successful output is still validated below.
+      if (response.status === 400 && jsonSchema) {
+        format = "json";
+        response = await this.post(body(think, format));
+        if (response.status === 400) complaint = await response.text().catch(() => "");
+      }
+
+      if (response.status === 400) {
+        if (images?.length && /(?:image|vision|multimodal).*(?:not support|unsupported)|does not support.*(?:image|vision)/i.test(complaint)) {
+          throw new AIVisionUnsupportedError();
+        }
+        throw new AIUnavailableError(this.name, "Ollama responded with 400", complaint.slice(0, 300));
+      }
     }
 
     if (!response.ok) throw new AIUnavailableError(this.name, `Ollama responded with ${response.status}`);

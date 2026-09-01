@@ -70,7 +70,11 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
     prompt,
     images,
     schema: extractedRecipeSchema,
-    jsonSchema: z.toJSONSchema(extractedRecipeSchema),
+    // Recipe drafts contain bounded ingredient arrays plus several defaulted
+    // fields. Some Ollama grammar builders reject that richer JSON Schema with
+    // HTTP 400 before the model sees text, URLs, or images. Plain JSON mode is
+    // compatible across those versions; the repair hook and Zod schema below
+    // still enforce the exact same trusted output shape locally.
     // The derived grammar constrains shape only, so an amount the model did not
     // know arrives as 0. Dropping that one ingredient beats discarding the recipe.
     repair: repairExtractedRecipe,
