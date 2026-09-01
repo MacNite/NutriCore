@@ -4,7 +4,7 @@ import type { IScannerControls } from "@zxing/browser";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
-export function BarcodeScanner({ onScan }: { onScan: (barcode: string) => void }) {
+export function BarcodeScanner({ onScan, compact = false }: { onScan: (barcode: string) => void; compact?: boolean }) {
   const t = useTranslations("barcodeScanner");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +60,7 @@ export function BarcodeScanner({ onScan }: { onScan: (barcode: string) => void }
         onClick={() => { setError(null); setOpen(true); }}
         aria-haspopup="dialog"
       >
-        <span aria-hidden="true">▣</span> {t("open")}
+        <span aria-hidden="true">▣</span> <span className={compact ? "sr-only" : undefined}>{t("open")}</span>
       </button>
       {open ? (
         <div className="scanner-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>

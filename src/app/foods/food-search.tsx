@@ -142,28 +142,30 @@ export function FoodSearch({
         <form onSubmit={(event) => { event.preventDefault(); void run(query, true); }}>
         <div className="field" style={{ marginBottom: 0 }}>
           <label htmlFor="food-query">{t("searchPlaceholder")}</label>
-          <input
-            id="food-query"
-            type="search"
-            inputMode="search"
-            value={query}
-            autoFocus={autoFocus}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("searchPlaceholder")}
-            aria-describedby={statusId}
-            autoComplete="off"
-          />
+          <div className="search-with-action">
+            <input
+              id="food-query"
+              type="search"
+              inputMode="search"
+              value={query}
+              autoFocus={autoFocus}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("searchPlaceholder")}
+              aria-describedby={statusId}
+              autoComplete="off"
+            />
+            <BarcodeScanner compact onScan={(barcode) => {
+              immediateQuery.current = barcode;
+              setQuery(barcode);
+              void run(barcode, true);
+            }} />
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
           <button type="submit" className="btn btn-quiet" disabled={loading || query.trim().length < 3}>
             {t("searchExternal")}
           </button>
-          <BarcodeScanner onScan={(barcode) => {
-            immediateQuery.current = barcode;
-            setQuery(barcode);
-            void run(barcode, true);
-          }} />
           <span id={statusId} role="status" aria-live="polite" className="muted" style={{ fontSize: 13 }}>
           {status}
           </span>
@@ -228,25 +230,26 @@ export function FoodSearch({
           </div>
         ) : (
           outcome.results.map((result) => (
-            <div className="row" key={result.id}>
-              <div className="row-body">
-                <strong>{result.name}</strong>
-                <span>
-                  {result.brand ? `${result.brand} · ` : ""}
-                  {result.nutrients.energyKcal === null
-                    ? "–"
-                    : `${formatKcal(result.nutrients.energyKcal, locale)} kcal`}{" "}
-                  {t("perBasis", {
-                    amount: formatNumber(result.basisAmount, locale, 0),
-                    unit: result.basisUnit === "ML" ? "ml" : "g",
-                  })}
-                </span>
-              </div>
+            <div className="row clickable-row" key={result.id}>
+              <Link className="row-main-link" href={result.recipeId ? `/recipes/${result.recipeId}` : `/foods/${result.id}?meal=${meal}&date=${date}`}>
+                <div className="row-body">
+                  <strong>{result.name}</strong>
+                  <span>
+                    {result.brand ? `${result.brand} · ` : ""}
+                    {result.nutrients.energyKcal === null
+                      ? "–"
+                      : `${formatKcal(result.nutrients.energyKcal, locale)} kcal`}{" "}
+                    {t("perBasis", {
+                      amount: formatNumber(result.basisAmount, locale, 0),
+                      unit: result.basisUnit === "ML" ? "ml" : "g",
+                    })}
+                  </span>
+                </div>
+                <SourceBadge source={result.sourceType} />
+              </Link>
 
-              <SourceBadge source={result.sourceType} />
-
-              <Link className="btn btn-primary" href={result.recipeId ? `/recipes/${result.recipeId}` : `/foods/${result.id}?meal=${meal}&date=${date}`}>
-                {t("servingLabel")}
+              <Link className="btn btn-primary add-food-button" aria-label={t("servingLabel")} href={result.recipeId ? `/recipes/${result.recipeId}` : `/foods/${result.id}?meal=${meal}&date=${date}`}>
+                <span aria-hidden="true">＋</span>
               </Link>
             </div>
           ))

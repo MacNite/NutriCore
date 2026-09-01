@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
-import { EnergyRing } from "@/components/energy-ring";
-import { MacroBar } from "@/components/macro-bar";
+import { DailyEnergySummary } from "@/components/daily-energy-summary";
 import { MicronutrientSummary } from "@/components/micronutrient-summary";
 import { CoverageNotice } from "@/components/coverage-notice";
 import { SourceBadge } from "@/components/source-badge";
@@ -26,7 +25,6 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
   const t = await getTranslations("today");
   const diaryT = await getTranslations("diary");
-  const targetT = await getTranslations("target");
   const common = await getTranslations("common");
   const aiT = await getTranslations("aiReview");
   const locale = user.language;
@@ -50,7 +48,6 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
   const consumed = day.totals.energyKcal ?? 0;
   const targetKcal = target?.kcal ?? null;
-  const remaining = targetKcal !== null ? targetKcal - consumed : null;
 
   return (
     <AppShell displayName={user.displayName}>
@@ -96,56 +93,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
               })}
             </h2>
 
-            <div className="energy">
-              <EnergyRing
-                consumed={consumed}
-                target={targetKcal}
-                locale={locale}
-                summary={t("energyRing")}
-                label={
-                  targetKcal
-                    ? `${common("of")} ${formatKcal(targetKcal, locale)} ${common("kcal")}`
-                    : common("kcal")
-                }
-              />
-
-              <div>
-                <MacroBar
-                  label={targetT("protein")}
-                  value={day.totals.protein}
-                  target={target?.proteinG ?? null}
-                  locale={locale}
-                />
-                <MacroBar
-                  label={targetT("carbohydrate")}
-                  value={day.totals.carbohydrate}
-                  target={target?.carbohydrateG ?? null}
-                  locale={locale}
-                  variant="carb"
-                />
-                <MacroBar
-                  label={targetT("fat")}
-                  value={day.totals.fat}
-                  target={target?.fatG ?? null}
-                  locale={locale}
-                  variant="fat"
-                />
-
-                <p className="muted" style={{ margin: "12px 0 0", fontSize: 13.5 }}>
-                  {remaining === null ? (
-                    <Link href="/settings">{t("noTarget")}</Link>
-                  ) : remaining >= 0 ? (
-                    <strong style={{ color: "var(--text)" }}>
-                      {t("remaining", { amount: formatKcal(remaining, locale) })}
-                    </strong>
-                  ) : (
-                    <strong style={{ color: "var(--text)" }}>
-                      {t("over", { amount: formatKcal(Math.abs(remaining), locale) })}
-                    </strong>
-                  )}
-                </p>
-              </div>
-            </div>
+            <DailyEnergySummary consumed={consumed} totals={day.totals} target={target} locale={locale} />
           </section>
 
           <section className="card" aria-labelledby="meals-heading">
@@ -162,22 +110,17 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
               const kcal = mealData?.totals.energyKcal ?? null;
 
               return (
-                <div className="row" key={meal}>
-                  <div className="row-body">
-                    <strong>{diaryT(`meals.${meal}`)}</strong>
-                    <span>
-                      {entries.length === 0
-                        ? diaryT("empty")
-                        : entries.map((e) => e.label).slice(0, 3).join(" · ")}
-                    </span>
-                  </div>
-                  <span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span>
-                  <Link
-                    className="icon-btn"
-                    href={`/diary?date=${selectedDate}#meal-${meal}`}
-                    aria-label={`${common("edit")}: ${diaryT(`meals.${meal}`)}`}
-                  >
-                    <span aria-hidden="true">✎</span>
+                <div className="row clickable-row" key={meal}>
+                  <Link className="row-main-link" href={`/diary?date=${selectedDate}#meal-${meal}`} aria-label={`${common("edit")}: ${diaryT(`meals.${meal}`)}`}>
+                    <div className="row-body">
+                      <strong>{diaryT(`meals.${meal}`)}</strong>
+                      <span>
+                        {entries.length === 0
+                          ? diaryT("empty")
+                          : entries.map((e) => e.label).slice(0, 3).join(" · ")}
+                      </span>
+                    </div>
+                    <span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span>
                   </Link>
                   <QuickAddLink meal={meal} date={selectedDate} label={diaryT("addTo", { meal: diaryT(`meals.${meal}`) })} />
                 </div>
