@@ -271,7 +271,10 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     }
 
     const provenance = { model: capabilities.model, processedAt: new Date().toISOString(), principle: PRINCIPLE };
-    const proposed = { components, warnings: parsed.warnings };
+    // `ProposedComponent` is an interface, so it carries no index signature and
+    // Prisma's `InputJsonValue` will not take it directly. The shape is JSON by
+    // construction - the review page reads it back through the same interface.
+    const proposed = { components, warnings: parsed.warnings } as unknown as Prisma.InputJsonValue;
 
     await prisma.$transaction([
       prisma.aiProposal.upsert({
