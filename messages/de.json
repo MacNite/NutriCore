@@ -340,7 +340,6 @@
     "researchEnabled": "Web-Recherche erlauben",
     "researchEnabledHint": "Erlaubt der KI-Recherche, öffentliche Webseiten als Quelle abzurufen. Ohne diese Option schätzt die KI weiterhin ohne Webzugriff.",
     "providers": "Datenanbieter",
-    "diagnostics": "Diagnose",
     "dataExport": "Daten exportieren",
     "dataExportHint": "Lade alles herunter, was über dich gespeichert ist.",
     "exportJson": "Als JSON exportieren",

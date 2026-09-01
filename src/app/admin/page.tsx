@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/db";
@@ -5,6 +6,7 @@ import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { CopyField } from "@/components/copy-field";
 import { formatDate } from "@/lib/format";
+import { runDiagnostics } from "@/server/diagnostics";
 import { enqueueFoodEnrichmentAction, inviteUserAction, resendInvitationAction, retryAiJobAction, setUserActiveAction } from "@/server/admin-actions";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +17,7 @@ export async function generateMetadata() {
 }
 
 const JOB_LABEL = { QUEUED: "jobQueued", RUNNING: "jobRunning", COMPLETED: "jobCompleted", FAILED: "jobFailed" } as const;
+const DIAGNOSTICS_ICON: Record<string, string> = { ok: "✓", error: "×", disabled: "○", unknown: "?" };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ token?: string; enrichmentQueued?: string }> }) {
   const current = await getSessionUser();
@@ -23,13 +26,15 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   if (current.role !== "ADMIN") redirect("/");
 
   const t = await getTranslations("admin");
+  const tDiagnostics = await getTranslations("diagnostics");
   const locale = current.language;
   const { token, enrichmentQueued } = await searchParams;
 
-  const [users, jobs, invitations] = await Promise.all([
+  const [users, jobs, invitations, diagnosticsChecks] = await Promise.all([
     prisma.user.findMany({ include: { profile: true }, orderBy: { createdAt: "desc" } }),
     prisma.aiJob.findMany({ include: { proposal: true }, orderBy: { createdAt: "desc" }, take: 100 }),
     prisma.userInvitation.findMany({ orderBy: { createdAt: "desc" }, take: 20 }),
+    runDiagnostics(),
   ]);
 
   const invitationLink = token
@@ -211,6 +216,45 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             </table>
           </div>
         )}
+      </section>
+
+      <section className="card" style={{ marginTop: 20 }}>
+        <div className="card-head">
+          <div>
+            <h2>{tDiagnostics("title")}</h2>
+            <p className="muted">{tDiagnostics("subtitle")}</p>
+          </div>
+          <Link className="btn" href="/admin">
+            {tDiagnostics("refresh")}
+          </Link>
+        </div>
+        <div className="table-scroll">
+          <table className="table">
+            <caption className="sr-only">{tDiagnostics("title")}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{tDiagnostics("title")}</th>
+                <th scope="col">{tDiagnostics("status.unknown")}</th>
+                <th scope="col">Detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diagnosticsChecks.map((check) => (
+                <tr key={check.key}>
+                  <th scope="row" style={{ fontWeight: 500 }}>
+                    {tDiagnostics(check.key as "database")}
+                  </th>
+                  <td>
+                    {/* Status is icon + text, never colour alone. */}
+                    <span aria-hidden="true">{DIAGNOSTICS_ICON[check.status]}</span>{" "}
+                    {tDiagnostics(`status.${check.status}` as "status.ok")}
+                  </td>
+                  <td className="muted">{check.detail ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </AppShell>
   );

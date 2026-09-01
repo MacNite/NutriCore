@@ -35,11 +35,12 @@ Implemented and covered by tests:
   per serving and per 100 g with coverage, and log immutable recipe snapshots.
 - **Weight tracking** — entries, chart with a 7-day moving average and goal
   line, plus an accessible text summary and table.
-- **Settings and diagnostics** — profile, target override, language, AI and
-  research toggles, service reachability. Secrets are never displayed.
+- **Settings** — profile, target override, language, AI and research toggles.
+  Secrets are never displayed.
 - **Administration** — for the `ADMIN` role only: invite users with single-use
-  links, activate and deactivate accounts, and watch the AI job queue with its
-  retries and errors. Reachable from Settings → Administration.
+  links, activate and deactivate accounts, watch the AI job queue with its
+  retries and errors, and check service reachability (diagnostics). Reachable
+  from Settings → Administration.
 - **Export** — versioned JSON of all personal records, plus diary and weight
   CSV. Credentials are excluded.
 - **German and English** throughout, with locale-correct number formatting
@@ -177,7 +178,7 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `DATABASE_URL` | outside compose | Standard PostgreSQL URL |
 | `DEFAULT_LOCALE` | no | `de` (default) or `en` |
 | `OPENFOODFACTS_ENABLED` | no | Default `true` |
-| `OPENFOODFACTS_USER_AGENT` | recommended | App name plus a real contact address, e.g. `NutriCore/0.1 (you@example.com)`. OFF answers 403 to callers it cannot identify; `/settings/diagnostics` flags a placeholder value |
+| `OPENFOODFACTS_USER_AGENT` | recommended | App name plus a real contact address, e.g. `NutriCore/0.1 (you@example.com)`. OFF answers 403 to callers it cannot identify; `/admin` flags a placeholder value |
 | `OPENFOODFACTS_SEARCH_URL` | no | Search-a-licious service; default `https://search.openfoodfacts.org` |
 | `OPENFOODFACTS_SEARCH_BACKEND` | no | `search-a-licious` (default) or `legacy` to pin `/cgi/search.pl` |
 | `AI_ENABLED` / `AI_BASE_URL` / `AI_MODEL` | no | Where the model lives and which one to use; defaults to `http://ollama:11434` and `qwen3.5:4b`. The superseded `OLLAMA_BASE_URL` / `OLLAMA_MODEL` are still read as a fallback |
@@ -221,7 +222,7 @@ npm run worker
 
 Compose starts both `app` and `worker`; the worker is the same image started
 with `NUTRICORE_PROCESS=worker`, and without it queued meals stay queued.
-Settings → Diagnostics reports an old queued job as a worker error. A deployment
+The admin panel's diagnostics reports an old queued job as a worker error. A deployment
 that does not use this Compose file must therefore create a second container
 from the same image, with the same environment and `NUTRICORE_PROCESS=worker`.
 SearXNG is intentionally not bundled:
@@ -241,7 +242,7 @@ administrator can hand it a fresh budget from `/admin`.
 `AI_MODEL` selects one model, by name, from those already installed there.
 There is no list of models in the compose file because NutriCore neither
 downloads nor manages them; adding one would only duplicate state that lives on
-the Ollama host. Settings → Diagnostics reports whether the configured model is
+the Ollama host. The admin panel's diagnostics reports whether the configured model is
 actually installed on the instance NutriCore can reach — it reads the same
 `AI_BASE_URL` and `AI_MODEL` the AI client uses, so a green row always refers to
 the instance that actually serves requests.

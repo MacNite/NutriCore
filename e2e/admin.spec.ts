@@ -41,3 +41,17 @@ test("a non-administrator is turned away from the admin panel", async ({ page })
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/$/);
 });
+
+test("admin panel reports diagnostics status without revealing secrets", async ({ page }) => {
+  const user = await registerAndOnboard(page);
+  await completeOnboarding(page);
+
+  await prisma.user.update({ where: { username: user.username }, data: { role: "ADMIN" } });
+
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: /diagnose|diagnostics/i })).toBeVisible();
+  await expect(page.getByRole("rowheader", { name: /datenbank|database/i })).toBeVisible();
+
+  const body = (await page.locator("body").textContent()) ?? "";
+  expect(body).not.toContain("0123456789abcdef");
+});

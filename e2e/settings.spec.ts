@@ -58,12 +58,3 @@ test("personal data can be exported as JSON and CSV", async ({ page }) => {
   expect(csv.headers()["content-type"]).toContain("text/csv");
   expect(await csv.text()).toContain("date,meal,food");
 });
-
-test("diagnostics reports service status without revealing secrets", async ({ page }) => {
-  await page.goto("/settings/diagnostics");
-  await expect(page.getByRole("heading", { name: /diagnose|diagnostics/i })).toBeVisible();
-  await expect(page.getByRole("rowheader", { name: /datenbank|database/i })).toBeVisible();
-
-  const body = (await page.locator("body").textContent()) ?? "";
-  expect(body).not.toContain("0123456789abcdef");
-});

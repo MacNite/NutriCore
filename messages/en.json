@@ -340,7 +340,6 @@
     "researchEnabled": "Allow web research",
     "researchEnabledHint": "Lets AI research fetch public web pages as sources. Without it, AI still estimates without any web access.",
     "providers": "Data providers",
-    "diagnostics": "Diagnostics",
     "dataExport": "Export data",
     "dataExportHint": "Download everything stored about you.",
     "exportJson": "Export as JSON",
