@@ -107,20 +107,28 @@ export type ResearchStatus =
   | "FAILED";
 
 /**
- * Every path to ACCEPTED runs through AWAITING_CONFIRMATION, so a result can
- * never be stored without the user explicitly confirming it.
+ * Every path to ACCEPTED still runs through AWAITING_CONFIRMATION, so a result
+ * can never be stored without the user confirming it.
+ *
+ * Each working state may also go back to REQUESTED. That is what lets the worker
+ * retry a run: the chain is otherwise forward-only, so a second attempt starting
+ * from EXTRACTING could not re-fetch its sources. Going back is only ever a
+ * restart from the beginning - it is not a route to ACCEPTED.
  */
 export const researchTransitions: Record<ResearchStatus, readonly ResearchStatus[]> = {
   REQUESTED: ["SEARCHING", "EXTRACTING", "FAILED"],
-  SEARCHING: ["SOURCES_FOUND", "EXTRACTING", "FAILED"],
-  SOURCES_FOUND: ["EXTRACTING", "FAILED"],
-  EXTRACTING: ["MATCHING_INGREDIENTS", "FAILED"],
-  MATCHING_INGREDIENTS: ["CALCULATING", "FAILED"],
-  CALCULATING: ["AWAITING_CONFIRMATION", "FAILED"],
-  AWAITING_CONFIRMATION: ["ACCEPTED", "REJECTED"],
+  SEARCHING: ["SOURCES_FOUND", "EXTRACTING", "REQUESTED", "FAILED"],
+  SOURCES_FOUND: ["EXTRACTING", "REQUESTED", "FAILED"],
+  EXTRACTING: ["MATCHING_INGREDIENTS", "REQUESTED", "FAILED"],
+  MATCHING_INGREDIENTS: ["CALCULATING", "REQUESTED", "FAILED"],
+  CALCULATING: ["AWAITING_CONFIRMATION", "REQUESTED", "FAILED"],
+  AWAITING_CONFIRMATION: ["ACCEPTED", "REJECTED", "REQUESTED"],
+  // A user's own decision is final. A failure is not: "Run again" in the admin
+  // panel requeues the AI job, and the run behind it has to be able to start
+  // over. It restarts at the beginning, never straight into ACCEPTED.
   ACCEPTED: [],
   REJECTED: [],
-  FAILED: [],
+  FAILED: ["REQUESTED"],
 };
 
 export const TERMINAL_STATUSES: ResearchStatus[] = ["ACCEPTED", "REJECTED", "FAILED"];

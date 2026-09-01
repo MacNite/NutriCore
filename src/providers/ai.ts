@@ -24,10 +24,35 @@ export class AIInvalidOutputError extends Error {
   }
 }
 
+/**
+ * The model was stopped by the output limit rather than by finishing. Its own
+ * class because the remedy is different from every other invalid answer: either
+ * the schema permits an answer that is too long, or the limit is too low. Left
+ * as valid JSON it would be reported as "response was not valid JSON", which
+ * points at the wrong thing entirely.
+ */
+export class AIOutputTruncatedError extends Error {
+  constructor(public readonly maxOutputTokens: number) {
+    super(`Model output was cut off at the ${maxOutputTokens} token limit`);
+    this.name = "AIOutputTruncatedError";
+  }
+}
+
 export interface AIProvider {
   readonly name: string;
   readonly enabled: boolean;
   capabilities(): Promise<AICapabilities>;
-  /** Output is always validated against `schema`; prose is never parsed. */
-  complete<T>(input: { system: string; prompt: string; schema: z.ZodType<T>; jsonSchema?: unknown; images?: string[] }): Promise<T>;
+  /**
+   * Output is always validated against `schema`; prose is never parsed. `repair`
+   * runs on the decoded JSON before validation, for the values a grammar cannot
+   * constrain - see `src/server/ai-repair.ts`.
+   */
+  complete<T>(input: {
+    system: string;
+    prompt: string;
+    schema: z.ZodType<T>;
+    jsonSchema?: unknown;
+    images?: string[];
+    repair?: (value: unknown) => unknown;
+  }): Promise<T>;
 }

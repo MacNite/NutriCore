@@ -118,6 +118,7 @@ model User {
   invitationsSent UserInvitation[]  @relation("InvitationSender")
   aiJobs          AiJob[]
   mealInputs      MealInput[]
+  recipeImports   RecipeImport[]
 }
 
 model UserInvitation {
@@ -151,6 +152,30 @@ model MealInput {
   @@index([userId, createdAt])
 }
 
+/**
+ * One "create a recipe from a URL, an image or free text" request.
+ *
+ * It exists because the extraction moved into the worker: the input has to
+ * outlive the request that submitted it, and the resulting draft has to be
+ * somewhere the page can pick it up afterwards. Doing it inline held a page
+ * interaction open for the whole model call, which on a local model is minutes.
+ */
+model RecipeImport {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String?
+  sourceUrl String?
+  /** Transient: cleared as soon as the worker has read it. Never re-served. */
+  imageMime String?
+  imageData Bytes?
+  /** The extracted recipe plus the ingredient names nothing matched. */
+  draft     Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
 model AiJob {
   id           String      @id @default(cuid())
   userId       String
@@ -158,6 +183,12 @@ model AiJob {
   entityId     String
   mealInputId  String?
   status       AiJobStatus @default(QUEUED)
+  /**
+   * Higher runs first. A "Backfill missing nutrition" sweep can queue hundreds
+   * of jobs at once, and a strictly chronological queue put every quick meal
+   * behind all of them - hours of waiting for a request the user is watching.
+   */
+  priority     Int         @default(10)
   retryCount   Int         @default(0)
   maxRetries   Int         @default(2)
   model        String?
@@ -167,12 +198,39 @@ model AiJob {
   startedAt    DateTime?
   completedAt  DateTime?
   failedAt     DateTime?
+  /** Machine-readable cause of the last failure; see `AiFailureKind`. */
+  failureKind  String?
+  /** Longest useful diagnostic detail, e.g. the underlying fetch/undici cause. */
+  errorDetail  String?
   user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   mealInput    MealInput?  @relation(fields: [mealInputId], references: [id], onDelete: Cascade)
   proposal     AiProposal?
+  attempts     AiJobAttempt[]
 
-  @@index([status, createdAt])
+  @@index([status, priority, createdAt])
   @@index([userId, createdAt])
+}
+
+/**
+ * One recorded attempt at a job. `AiJob.errorMessage` only ever holds the most
+ * recent failure, which hides the pattern that actually explains a job: three
+ * different reasons across three retries mean something else than the same
+ * reason three times. Kept per attempt so the admin page can show that pattern.
+ */
+model AiJobAttempt {
+  id         String   @id @default(cuid())
+  jobId      String
+  /** Value of `AiJob.retryCount` when the attempt ran; 0 is the first try. */
+  attempt    Int
+  kind       String
+  message    String
+  detail     String?
+  model      String?
+  durationMs Int?
+  createdAt  DateTime @default(now())
+  job        AiJob    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, attempt])
 }
 
 model AiProposal {
@@ -294,6 +352,12 @@ model Food {
   dataConfidence   Decimal?   @db.Decimal(4, 3)
   isEstimated      Boolean    @default(false)
   rawState         String?
+  /**
+   * When enrichment last ran for this food, whatever it found. Without it the
+   * "Backfill missing nutrition" sweep re-queued every food whose gaps could
+   * not be filled, on every click, for ever.
+   */
+  enrichedAt       DateTime?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
@@ -524,6 +588,12 @@ model ResearchJob {
   userId             String
   query              String
   language           Locale
+  /**
+   * URLs the user supplied, already validated against their consent. Stored
+   * because the run happens later, in the worker, rather than inline in the
+   * request that submitted the form.
+   */
+  requestedSourceUrls Json?
   status             ResearchStatus @default(REQUESTED)
   model              String?
   assumptions        Json?

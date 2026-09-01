@@ -1,13 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { OllamaProvider, ollamaTimeoutMs } from "./ollama";
-import { AIInvalidOutputError, AIUnavailableError } from "./ai";
+import { OllamaProvider, ollamaMaxOutputTokens, ollamaTimeoutMs } from "./ollama";
+import { AIInvalidOutputError, AIOutputTruncatedError, AIUnavailableError } from "./ai";
 
 const schema = z.object({ name: z.string(), kcal: z.number() });
-const provider = () => new OllamaProvider("http://ollama.test", "deepseek-r1", true, 1000);
+const provider = () => new OllamaProvider("http://ollama.test", "deepseek-r1", true, 1000, 256);
 
+/** A single non-streamed object, which Ollama still returns for short answers. */
 const reply = (content: string, status = 200) =>
   vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: { content } }), { status }));
+
+/** The newline-delimited stream Ollama actually sends for a longer answer. */
+const stream = (lines: object[]) =>
+  vi.fn().mockResolvedValue(
+    new Response(lines.map((line) => `${JSON.stringify(line)}\n`).join(""), { status: 200 }),
+  );
+
+/** Splits text into one chunk per token-ish fragment, as a real stream does. */
+const chunks = (text: string) => text.split("").map((character) => ({ message: { content: character } }));
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -30,14 +40,58 @@ describe("Ollama adapter", () => {
     });
   });
 
-  it("requests JSON format and does not stream", async () => {
+  it("uses a 2048 token output cap and accepts a configured override", () => {
+    expect(ollamaMaxOutputTokens(undefined)).toBe(2048);
+    expect(ollamaMaxOutputTokens("512")).toBe(512);
+    expect(ollamaMaxOutputTokens("0")).toBe(2048);
+  });
+
+  /**
+   * Streaming is not cosmetic: with stream:false Ollama sends no headers until
+   * generation ends, and Node's HTTP client aborts after its own 300 second
+   * headers deadline no matter what timeout this adapter passes.
+   */
+  it("streams, requests JSON format and caps the generated tokens", async () => {
     const fetchMock = reply('{"name":"Rice","kcal":130}');
     vi.stubGlobal("fetch", fetchMock);
     await provider().complete({ system: "s", prompt: "p", schema });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.stream).toBe(false);
+    expect(body.stream).toBe(true);
     expect(body.format).toBe("json");
+    expect(body.options.num_predict).toBe(256);
     expect(body.messages[0].role).toBe("system");
+  });
+
+  it("reassembles an answer that arrived in many chunks", async () => {
+    vi.stubGlobal("fetch", stream([...chunks('{"name":"Rice","kcal":130}'), { done: true }]));
+    await expect(provider().complete({ system: "s", prompt: "p", schema })).resolves.toEqual({
+      name: "Rice",
+      kcal: 130,
+    });
+  });
+
+  it("reports a cut-off answer as truncated, not as malformed JSON", async () => {
+    vi.stubGlobal("fetch", stream([...chunks('{"name":"Rice","kcal":'), { done: true, done_reason: "length" }]));
+    await expect(provider().complete({ system: "s", prompt: "p", schema })).rejects.toBeInstanceOf(
+      AIOutputTruncatedError,
+    );
+  });
+
+  it("surfaces an error Ollama reports inside the stream", async () => {
+    vi.stubGlobal("fetch", stream([{ error: "model requires more system memory" }]));
+    await expect(provider().complete({ system: "s", prompt: "p", schema })).rejects.toBeInstanceOf(AIUnavailableError);
+  });
+
+  it("applies a repair hook before validating", async () => {
+    vi.stubGlobal("fetch", reply('{"name":"Rice","kcal":"130"}'));
+    await expect(
+      provider().complete({
+        system: "s",
+        prompt: "p",
+        schema,
+        repair: (value) => ({ ...(value as object), kcal: Number((value as { kcal: string }).kcal) }),
+      }),
+    ).resolves.toEqual({ name: "Rice", kcal: 130 });
   });
 
   it("passes a JSON schema through when one is supplied", async () => {

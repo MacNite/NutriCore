@@ -41,10 +41,15 @@ COPY --from=build --chown=nutricore:nutricore /app/tsconfig.json ./tsconfig.json
 # produces an incomplete runtime even though the application bundle is present.
 COPY --from=prod-deps --chown=nutricore:nutricore /app/node_modules ./node_modules
 COPY --chown=nutricore:nutricore docker/entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
+COPY --chown=nutricore:nutricore docker/healthcheck.sh ./healthcheck.sh
+RUN chmod +x ./entrypoint.sh ./healthcheck.sh
 
 USER nutricore
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:3000/api/health || exit 1
+# One image runs both processes, so the check has to know which one it is in.
+# A plain HTTP probe marked the worker unhealthy for ever - it serves no HTTP -
+# which is what held the whole stack in "Deploying" on TrueNAS. The start period
+# covers `prisma migrate deploy`, which runs before either process answers.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD ./healthcheck.sh || exit 1
 ENTRYPOINT ["./entrypoint.sh"]

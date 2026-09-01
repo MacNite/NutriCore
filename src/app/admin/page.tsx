@@ -7,7 +7,10 @@ import { AppShell } from "@/components/app-shell";
 import { CopyField } from "@/components/copy-field";
 import { formatDate } from "@/lib/format";
 import { runDiagnostics } from "@/server/diagnostics";
-import { enqueueFoodEnrichmentAction, inviteUserAction, resendInvitationAction, retryAiJobAction, setUserActiveAction } from "@/server/admin-actions";
+import { enqueueFoodEnrichmentAction, inviteUserAction, manageAiJobsAction, resendInvitationAction, setUserActiveAction } from "@/server/admin-actions";
+import { AI_JOB_OPERATIONS, AI_JOB_STATUSES, STUCK_RUNNING_MS, type AiJobStatusName } from "@/server/ai-types";
+import { AI_FAILURE_KINDS } from "@/server/ai-failures";
+import { AiJobsPanel, type JobLabels, type JobRow } from "./ai-jobs-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +20,28 @@ export async function generateMetadata() {
 }
 
 const JOB_LABEL = { QUEUED: "jobQueued", RUNNING: "jobRunning", COMPLETED: "jobCompleted", FAILED: "jobFailed" } as const;
+/** Cancelling is not a classifier output, but it is a reason a row can carry. */
+const REASON_KINDS = [...AI_FAILURE_KINDS, "CANCELLED"];
+const JOBS_PER_PAGE = 150;
+
+/** Entity ids of the rows on this page for one entity type, deduplicated. */
+const entityIds = (jobs: { entityType: string; entityId: string }[], entityType: string) => [
+  ...new Set(jobs.filter((job) => job.entityType === entityType).map((job) => job.entityId)),
+];
 const DIAGNOSTICS_ICON: Record<string, string> = { ok: "✓", error: "×", disabled: "○", unknown: "?" };
 
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ token?: string; enrichmentQueued?: string }> }) {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    token?: string;
+    enrichmentQueued?: string;
+    enrichmentRemaining?: string;
+    jobs?: string;
+    jobsOp?: string;
+    jobsCount?: string;
+  }>;
+}) {
   const current = await getSessionUser();
   if (!current) redirect("/login");
   if (current.mustChangePassword) redirect("/change-password");
@@ -28,14 +50,130 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const t = await getTranslations("admin");
   const tDiagnostics = await getTranslations("diagnostics");
   const locale = current.language;
-  const { token, enrichmentQueued } = await searchParams;
+  const { token, enrichmentQueued, enrichmentRemaining, jobs: jobsFilterRaw, jobsOp: jobsOpRaw, jobsCount } = await searchParams;
+  // Never feed an unvalidated query value into a translation key.
+  const jobsOp = (AI_JOB_OPERATIONS as readonly string[]).includes(jobsOpRaw ?? "")
+    ? jobsOpRaw
+    : jobsOpRaw === "noSelection"
+      ? "noSelection"
+      : undefined;
+  // An unknown value in the query string must show everything, not nothing.
+  const jobsFilter = (AI_JOB_STATUSES as readonly string[]).includes(jobsFilterRaw ?? "") ? (jobsFilterRaw as AiJobStatusName) : "";
 
-  const [users, jobs, invitations, diagnosticsChecks] = await Promise.all([
+  const [users, jobs, jobCountsByStatus, invitations, diagnosticsChecks] = await Promise.all([
     prisma.user.findMany({ include: { profile: true }, orderBy: { createdAt: "desc" } }),
-    prisma.aiJob.findMany({ include: { proposal: true }, orderBy: { createdAt: "desc" }, take: 100 }),
+    prisma.aiJob.findMany({
+      where: jobsFilter ? { status: jobsFilter } : {},
+      include: {
+        proposal: { select: { approvalStatus: true } },
+        mealInput: { select: { text: true, sourceUrl: true } },
+        // Newest first. Ordering by `attempt` would interleave the numbers of a
+        // job that was manually run again, because a rerun resets the counter.
+        attempts: { orderBy: { createdAt: "desc" }, take: 10 },
+      },
+      orderBy: { createdAt: "desc" },
+      take: JOBS_PER_PAGE,
+    }),
+    prisma.aiJob.groupBy({ by: ["status"], _count: { _all: true } }),
     prisma.userInvitation.findMany({ orderBy: { createdAt: "desc" }, take: 20 }),
     runDiagnostics(),
   ]);
+
+  const jobCounts = { ALL: 0, QUEUED: 0, RUNNING: 0, COMPLETED: 0, FAILED: 0 } as Record<AiJobStatusName | "ALL", number>;
+  for (const group of jobCountsByStatus) {
+    jobCounts[group.status] = group._count._all;
+    jobCounts.ALL += group._count._all;
+  }
+
+  // What the job was actually asked to do. It lives on a different record for
+  // each entity type, and it is the single most useful thing to see next to a
+  // failure, so it is fetched for the rows on this page rather than guessed at.
+  const [researchInputs, recipeImportInputs] = await Promise.all([
+    prisma.researchJob.findMany({
+      where: { id: { in: entityIds(jobs, "RESEARCH") } },
+      select: { id: true, query: true },
+    }),
+    prisma.recipeImport.findMany({
+      where: { id: { in: entityIds(jobs, "RECIPE_IMPORT") } },
+      select: { id: true, text: true, sourceUrl: true },
+    }),
+  ]);
+  const researchById = new Map(researchInputs.map((row) => [row.id, row]));
+  const recipeImportById = new Map(recipeImportInputs.map((row) => [row.id, row]));
+
+  const jobInput = (job: (typeof jobs)[number]) => {
+    if (job.mealInput?.text) return { text: job.mealInput.text, sourceUrl: job.mealInput.sourceUrl };
+    const research = researchById.get(job.entityId);
+    if (research) return { text: research.query, sourceUrl: null };
+    const recipeImport = recipeImportById.get(job.entityId);
+    if (recipeImport) return { text: recipeImport.text, sourceUrl: recipeImport.sourceUrl };
+    return { text: null, sourceUrl: job.mealInput?.sourceUrl ?? null };
+  };
+
+  const stuckBefore = Date.now() - STUCK_RUNNING_MS;
+  const jobRows: JobRow[] = jobs.map((job) => {
+    const finishedAt = job.completedAt ?? job.failedAt;
+    const input = jobInput(job);
+    return {
+      id: job.id,
+      entityType: job.entityType,
+      entityId: job.entityId,
+      status: job.status,
+      retryCount: job.retryCount,
+      maxRetries: job.maxRetries,
+      model: job.model,
+      failureKind: job.failureKind,
+      errorMessage: job.errorMessage,
+      errorDetail: job.errorDetail,
+      createdAt: formatDate(job.createdAt, locale, { dateStyle: "medium", timeStyle: "short" }),
+      durationSeconds:
+        job.startedAt && finishedAt ? Math.round((finishedAt.getTime() - job.startedAt.getTime()) / 100) / 10 : null,
+      stuck: job.status === "RUNNING" && Boolean(job.startedAt && job.startedAt.getTime() < stuckBefore),
+      input: input.text ? input.text.slice(0, 400) : null,
+      sourceUrl: input.sourceUrl ?? null,
+      reviewStatus: job.proposal?.approvalStatus ?? null,
+      attempts: job.attempts.map((attempt) => ({
+        id: attempt.id,
+        attempt: attempt.attempt,
+        kind: attempt.kind,
+        message: attempt.message,
+        detail: attempt.detail,
+        durationMs: attempt.durationMs,
+        at: formatDate(attempt.createdAt, locale, { dateStyle: "short", timeStyle: "medium" }),
+      })),
+    };
+  });
+
+  const jobLabels: JobLabels = {
+    entity: t("entity"),
+    status: t("status"),
+    created: t("created"),
+    retries: t("retries"),
+    model: t("model"),
+    reason: t("jobReason"),
+    statusLabels: Object.fromEntries(AI_JOB_STATUSES.map((status) => [status, t(JOB_LABEL[status])])) as JobLabels["statusLabels"],
+    operations: Object.fromEntries(AI_JOB_OPERATIONS.map((operation) => [operation, t(`op.${operation}` as "op.requeue")])) as JobLabels["operations"],
+    kinds: Object.fromEntries(REASON_KINDS.map((kind) => [kind, t(`kind.${kind}` as "kind.UNKNOWN")])),
+    hints: Object.fromEntries(REASON_KINDS.map((kind) => [kind, t(`hint.${kind}` as "hint.UNKNOWN")])),
+    selectAll: t("selectAll"),
+    selectNone: t("selectNone"),
+    selectedLabel: t("selectedLabel"),
+    selectRow: t("selectRow"),
+    filterAll: t("filterAll"),
+    onSelection: t("onSelection"),
+    sweeps: t("sweeps"),
+    details: t("jobDetails"),
+    attemptHistory: t("attemptHistory"),
+    attemptLabel: t("attemptLabel"),
+    noAttempts: t("noAttempts"),
+    input: t("jobInput"),
+    source: t("jobSource"),
+    review: t("reviewLabel"),
+    stuck: t("jobStuck"),
+    confirmDelete: t("confirmDestructive"),
+    noJobs: t("noJobs"),
+    jobId: t("jobId"),
+  };
 
   const invitationLink = token
     ? new URL(`/invite/${token}`, process.env.APP_URL ?? "http://localhost:3000").toString()
@@ -159,63 +297,40 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         </div>
       </section>
 
-      <section className="card" style={{ marginTop: 20 }}>
-        <div className="card-head"><div><h2>{t("aiJobs")}</h2><p className="muted">{t("enrichmentHint")}</p></div><form action={enqueueFoodEnrichmentAction}><button className="btn btn-primary">{t("enqueueEnrichment")}</button></form></div>
-        {enrichmentQueued !== undefined ? <p>{t("enrichmentQueued", { count: Number(enrichmentQueued) })}</p> : null}
-        {jobs.length === 0 ? (
-          <p className="muted">{t("noJobs")}</p>
-        ) : (
-          <div className="table-scroll">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>{t("entity")}</th>
-                  <th>{t("status")}</th>
-                  <th>{t("created")}</th>
-                  <th>{t("retries")}</th>
-                  <th>{t("model")}</th>
-                  <th>{t("errorAction")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jobs.map((job) => {
-                  const finishedAt = job.completedAt ?? job.failedAt;
-                  const duration =
-                    job.startedAt && finishedAt ? (finishedAt.getTime() - job.startedAt.getTime()) / 1000 : null;
-                  return (
-                    <tr key={job.id}>
-                      <td>
-                        {job.entityType}
-                        <br />
-                        <code>{job.entityId}</code>
-                      </td>
-                      <td>{t(JOB_LABEL[job.status])}</td>
-                      <td>
-                        {formatDate(job.createdAt, locale, { dateStyle: "medium", timeStyle: "short" })}
-                        <br />
-                        <span className="muted">{duration === null ? "—" : `${duration}s`}</span>
-                      </td>
-                      <td>
-                        {job.retryCount} / {job.maxRetries}
-                      </td>
-                      <td>{job.model ?? "—"}</td>
-                      <td>
-                        {job.errorMessage ??
-                          (job.proposal?.approvalStatus ? t("reviewState", { status: job.proposal.approvalStatus }) : "—")}
-                        {job.status === "FAILED" ? (
-                          <form action={retryAiJobAction}>
-                            <input type="hidden" name="jobId" value={job.id} />
-                            <button className="btn btn-quiet">{t("retry")}</button>
-                          </form>
-                        ) : null}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      <section className="card" style={{ marginTop: 20 }} id="ai-jobs">
+        <div className="card-head">
+          <div>
+            <h2>{t("aiJobs")}</h2>
+            <p className="muted">{t("enrichmentHint")}</p>
           </div>
-        )}
+          <form action={enqueueFoodEnrichmentAction}>
+            <button className="btn btn-primary">{t("enqueueEnrichment")}</button>
+          </form>
+        </div>
+        {enrichmentQueued !== undefined ? (
+          <p>
+            {t("enrichmentQueued", { count: Number(enrichmentQueued) })}
+            {Number(enrichmentRemaining ?? 0) > 0
+              ? ` ${t("enrichmentRemaining", { count: Number(enrichmentRemaining) })}`
+              : ""}
+          </p>
+        ) : null}
+        {jobsOp ? (
+          <div className={jobsOp === "noSelection" ? "notice notice-warn" : "notice"}>
+            <span className="notice-icon" aria-hidden="true">
+              {jobsOp === "noSelection" ? "!" : "i"}
+            </span>
+            <span>
+              {jobsOp === "noSelection"
+                ? t("noSelectionWarning")
+                : t("operationDone", { count: Number(jobsCount ?? 0), operation: t(`op.${jobsOp}` as "op.requeue") })}
+            </span>
+          </div>
+        ) : null}
+        <AiJobsPanel jobs={jobRows} counts={jobCounts} filter={jobsFilter} labels={jobLabels} action={manageAiJobsAction} />
+        {jobCounts.ALL > jobRows.length ? (
+          <p className="muted">{t("jobsTruncated", { shown: jobRows.length, total: jobCounts.ALL })}</p>
+        ) : null}
       </section>
 
       <section className="card" style={{ marginTop: 20 }}>

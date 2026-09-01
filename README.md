@@ -228,16 +228,57 @@ from the same image, with the same environment and `NUTRICORE_PROCESS=worker`.
 SearXNG is intentionally not bundled:
 point `SEARXNG_URL` at the operator's existing instance with JSON output enabled.
 `SEARXNG_URL` itself selects SearXNG; do not set `RESEARCH_PROVIDER` for it.
-Saving a free-text meal only inserts `MealInput` and `AiJob`; it never waits for
-Ollama or SearXNG. The worker performs local canonical matching first, uses
-SearXNG only for source discovery, and stores a pending human-review proposal.
+
+**Every AI feature is asynchronous.** Submitting one inserts a record and an
+`AiJob` and returns immediately; nothing waits for Ollama. That covers all four:
+a free-text meal (`MEAL_INPUT`), logging a recipe to the diary (`RECIPE_LOG`),
+AI food research (`RESEARCH`), and creating a recipe from a link, an image or
+free text (`RECIPE_IMPORT`). Backfilling missing nutrition (`FOOD_ENRICHMENT`)
+is background work and runs behind all of them - see the priority note below.
+The review pages refresh themselves while the worker is busy, so a queued job
+does not look like a broken one.
+
+The worker performs local canonical matching first, uses SearXNG only for source
+discovery, and stores a pending human-review proposal.
 
 Nothing reaches the diary until a human approves it. On approval, only the
 components matched to a food already in the database are logged, each freezing
 its own nutrition snapshot; a component the matcher could not resolve is
 reported as skipped rather than guessed at. A job that fails is retried up to
 `maxRetries` times (2 by default) before it is marked failed, and an
-administrator can hand it a fresh budget from `/admin`.
+administrator can hand it a fresh budget from `/admin`. A reason that cannot
+change between attempts — a source page over the size limit, a deleted recipe, a
+model that is not installed — fails immediately instead of spending the budget
+and holding up the queue.
+
+#### Reading a failed job in the admin panel
+
+`/admin` classifies every failure rather than only storing its message, so
+"Ollama request failed" is now separated into *timed out*, *unreachable*, *error
+from Ollama* and *model not installed*, each with the underlying cause chain
+(`TypeError: fetch failed → Error: connect ECONNREFUSED …`) under **Show
+details**. Every attempt is kept, so a job that failed three different ways is
+distinguishable from one that failed the same way three times — `errorMessage`
+alone only ever held the last of them.
+
+The same panel manages the queue: filter by status, select rows (select all /
+select none), then run again, cancel or delete the selection. Four sweeps act on
+a whole status — run all failed again, requeue stuck, delete failed, delete
+completed. **Requeue stuck** is the one to reach for after a worker crash: a job
+the worker had claimed stays `RUNNING` for ever, because nothing in the queue
+loop reclaims it.
+
+#### Worker container health
+
+The image runs the app or the worker depending on `NUTRICORE_PROCESS`, and its
+healthcheck (`docker/healthcheck.sh`) switches with it. The worker serves no
+HTTP, so the previous HTTP-only healthcheck could never pass: the container sat
+in `health: starting` and then went `unhealthy`, which is what kept a TrueNAS
+stack in **Deploying** even while the worker was processing jobs. The worker now
+writes a heartbeat on every queue poll and the healthcheck reads it, allowing a
+single job the full `OLLAMA_TIMEOUT_SECONDS` budget plus a margin before calling
+a busy worker unhealthy. A deployment that defines its own healthcheck for the
+worker service should use `["CMD", "./healthcheck.sh"]`.
 
 `AI_MODEL` selects one model, by name, from those already installed there.
 There is no list of models in the compose file because NutriCore neither
@@ -259,6 +300,34 @@ rather than long reasoning.
 If the Ollama container lives in a different compose stack, attach its network
 to the `app` service — see the commented `networks` block in
 `docker-compose.yml`. Do not hardcode IP addresses.
+
+#### Why a job used to hang, and what changed
+
+Three things made AI jobs fail or never finish on a CPU-only Ollama host, and
+they are worth knowing about because the symptoms were indistinguishable:
+
+- **A hidden five-minute ceiling.** The request did not stream, so Ollama sent no
+  response headers until generation had finished, and Node's HTTP client aborts a
+  request whose headers have not arrived within its own 300-second deadline -
+  whatever `OLLAMA_TIMEOUT_SECONDS` said. At roughly 12 tokens a second that made
+  every longer answer impossible to deliver. The request now streams, so
+  `OLLAMA_TIMEOUT_SECONDS` is once again the only limit that applies.
+- **No ceiling on the answer.** A JSON schema with an open-ended object or a long
+  array becomes a grammar under which the model is never obliged to stop.
+  `OLLAMA_MAX_OUTPUT_TOKENS` (default 2048) is that ceiling; an answer stopped by
+  it is reported as *Answer cut off*, not as malformed JSON.
+- **Validation stricter than the code needed.** The grammar enforces shape only -
+  llama.cpp ignores numeric ranges and string lengths - so a model that did not
+  know a gram weight wrote `0`, and the whole meal was rejected over one value.
+  Answers are now repaired before validation (`src/server/ai-repair.ts`): an
+  unusable value is dropped, never replaced with a guess, and the component is
+  reported as skipped exactly as before.
+
+Two queue properties matter alongside them. `AiJob.priority` puts work a user is
+waiting for ahead of background enrichment, because a chronological queue put
+every quick meal behind an entire backfill sweep. And the worker reclaims a job
+left `RUNNING` by a worker that died - a claim is conditional on `QUEUED`, so
+otherwise nothing ever picked it up again.
 
 The compose file passes configuration through `env_file: .env` and sets only
 `DATABASE_URL` and `NUTRICORE_PROCESS` under `environment:`. That is deliberate:
@@ -289,7 +358,8 @@ accepted result is always marked as an AI estimate.
 AI food search needs `AI_ENABLED` (default `true`), a reachable Ollama with the
 configured model, and the per-user AI switch in Settings. It does **not** need
 `RESEARCH_ENABLED`: estimating from the model alone sends nothing to the web.
-Runs are rate-limited per user.
+Runs are rate-limited per user, and they run in the worker: starting one takes
+you straight to the result page, which fills itself in when the run finishes.
 
 ### Web research
 
@@ -299,9 +369,11 @@ source URLs — AI food search works without it. A source that cannot be fetched
 is reported on the review screen and the run continues with the remaining
 sources. When enabled, retrieved pages are treated as untrusted data: only
 HTTP(S) URLs on standard ports, DNS resolved and checked against loopback,
-private, link-local and carrier-grade-NAT ranges, size- and time-limited,
-stripped of scripts and markup, and delimited so page text is never read as
-instructions.
+private, link-local and carrier-grade-NAT ranges, time-limited, stripped of
+scripts and markup, and delimited so page text is never read as instructions.
+Only the first 512 KB of a page is read and the rest is abandoned mid-transfer;
+a larger page is used up to that point rather than rejected, since only the
+first 20,000 characters of text ever reach a prompt.
 
 ## Database migrations, upgrade, backup and restore
 

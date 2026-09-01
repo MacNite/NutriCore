@@ -77,6 +77,16 @@ services:
       # The one variable that makes this the worker rather than a second app.
       # Everything else comes from .env via `env_file`, exactly as for `app`.
       NUTRICORE_PROCESS: worker
+    # The image healthcheck reads NUTRICORE_PROCESS and switches to the worker's
+    # heartbeat file, so the worker reports healthy instead of sitting in
+    # "starting" for ever. Repeated here only to give it a start period long
+    # enough for `prisma migrate deploy` on a slow disk.
+    healthcheck:
+      test: ["CMD", "./healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     depends_on:
       db:
         condition: service_healthy

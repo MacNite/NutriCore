@@ -1,0 +1,153 @@
+import { describe, expect, it } from "vitest";
+import { researchResultSchema } from "@/lib/research";
+import { mealParseSchema } from "./ai-jobs";
+import { partitionComponents, type ProposedComponent } from "./ai-types";
+import {
+  confidenceBand,
+  positiveOrAbsent,
+  repairMealParse,
+  repairNutrientExtraction,
+  repairResearchResult,
+} from "./ai-repair";
+
+describe("repairing a meal parse", () => {
+  /** The exact shape that used to fail the whole job in production. */
+  const modelAnswer = {
+    components: [
+      { name: "Rührei", quantity: 2, unit: "Stück", estimatedGrams: 0 },
+      { name: "Vollkornbrot", quantity: 0, unit: "Scheibe", estimatedGrams: 0 },
+      { name: "Butter", quantity: 0, unit: "g", estimatedGrams: 0 },
+    ],
+    confidence: "medium",
+    warnings: [],
+  };
+
+  it("keeps a meal that only lacked the weights", () => {
+    const result = mealParseSchema.safeParse(repairMealParse(modelAnswer));
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.components.map((c) => c.name)).toEqual([
+      "Rührei",
+      "Vollkornbrot",
+      "Butter",
+    ]);
+  });
+
+  it("rejects the same answer without repair, which is what happened before", () => {
+    expect(mealParseSchema.safeParse(modelAnswer).success).toBe(false);
+  });
+
+  it("removes the unusable value rather than inventing one", () => {
+    const result = mealParseSchema.parse(repairMealParse(modelAnswer));
+    expect(result.components[0].estimatedGrams).toBeUndefined();
+    // Which means the component is still reported as skipped, not logged.
+    const { loggable, skipped } = partitionComponents(result.components as ProposedComponent[]);
+    expect(loggable).toHaveLength(0);
+    expect(skipped).toEqual(["Rührei", "Vollkornbrot", "Butter"]);
+  });
+
+  it("keeps the weights it can use", () => {
+    const result = mealParseSchema.parse(
+      repairMealParse({
+        components: [{ name: "Haferflocken", quantity: 80, unit: "g", estimatedGrams: 80 }],
+        confidence: "high",
+      }),
+    );
+    expect(result.components[0].estimatedGrams).toBe(80);
+    expect(result.confidence).toBe("high");
+  });
+
+  it("drops a component with no name and an over-long list", () => {
+    const result = mealParseSchema.parse(
+      repairMealParse({
+        components: [{ name: "   ", estimatedGrams: 10 }, { name: "Reis", estimatedGrams: 150 }, "nonsense"],
+        confidence: "low",
+      }),
+    );
+    expect(result.components.map((c) => c.name)).toEqual(["Reis"]);
+  });
+
+  it("reads a decimal comma and refuses an absurd magnitude", () => {
+    expect(positiveOrAbsent("12,5", 10000)).toBe(12.5);
+    expect(positiveOrAbsent(99999999, 10000)).toBeUndefined();
+    expect(positiveOrAbsent("not a number", 10000)).toBeUndefined();
+  });
+
+  it("downgrades a confidence the model spelt its own way", () => {
+    expect(confidenceBand("HIGH")).toBe("high");
+    expect(confidenceBand("certain")).toBe("low");
+    expect(confidenceBand(0.9)).toBe("low");
+  });
+});
+
+describe("repairing a nutrient extraction", () => {
+  const repair = repairNutrientExtraction(["energyKcal", "protein", "fiber"]);
+
+  it("keeps only the keys that were asked for", () => {
+    const result = repair({ nutrients: { energyKcal: 240, protein: 8.1, vitaminQ: 5, fat: 3 } }) as {
+      nutrients: Record<string, number>;
+    };
+    expect(Object.keys(result.nutrients).sort()).toEqual(["energyKcal", "protein"]);
+  });
+
+  it("drops values that cannot be per 100 g", () => {
+    const result = repair({ nutrients: { protein: -4, fiber: 1200, energyKcal: 310 } }) as {
+      nutrients: Record<string, number>;
+    };
+    expect(result.nutrients).toEqual({ energyKcal: 310 });
+  });
+
+  it("drops a serving size of zero instead of storing it", () => {
+    const result = repair({ nutrients: {}, servingSizeG: 0 }) as { servingSizeG?: number };
+    expect(result.servingSizeG).toBeUndefined();
+  });
+});
+
+describe("repairing a research result", () => {
+  it("accepts an answer with a bad unit and a zero-amount ingredient", () => {
+    const parsed = researchResultSchema.safeParse(
+      repairResearchResult({
+        kind: "recipe",
+        name: "Linsensuppe",
+        language: "de",
+        ingredients: [
+          { name: "Linsen", amount: 200, unit: "gramm", confidence: 0.8 },
+          { name: "Salz", amount: 0, unit: "g", confidence: 0.5 },
+        ],
+        servings: 4,
+        confidence: 0.7,
+      }),
+    );
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.ingredients).toEqual([
+      { name: "Linsen", amount: 200, unit: "g", confidence: 0.8 },
+    ]);
+  });
+
+  it("drops an incomplete nutrition block instead of zero-filling it", () => {
+    const repaired = repairResearchResult({
+      kind: "food",
+      name: "Apfel",
+      language: "de",
+      ingredients: [{ name: "Apfel", amount: 100, unit: "g", confidence: 1 }],
+      servings: 1,
+      confidence: 0.5,
+      // No fat: an understated dish is worse than no numbers at all.
+      nutritionPer100g: { energyKcal: 52, protein: 0.3, carbohydrate: 14 },
+    }) as { nutritionPer100g?: unknown };
+    expect(repaired.nutritionPer100g).toBeUndefined();
+    expect(researchResultSchema.safeParse(repaired).success).toBe(true);
+  });
+
+  it("discards a source URL the model made up in the wrong shape", () => {
+    const repaired = repairResearchResult({
+      kind: "food",
+      name: "Reis",
+      language: "de",
+      ingredients: [{ name: "Reis", amount: 100, unit: "g", confidence: 1 }],
+      servings: 1,
+      confidence: 0.5,
+      sources: [{ title: "Quelle", url: "not-a-url" }, { title: "Ok", url: "https://example.org/reis" }],
+    }) as { sources: { url: string }[] };
+    expect(repaired.sources.map((s) => s.url)).toEqual(["https://example.org/reis"]);
+  });
+});

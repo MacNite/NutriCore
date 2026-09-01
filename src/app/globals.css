@@ -1165,3 +1165,116 @@ legend {
     margin-bottom: 1px;
   }
 }
+
+/* ------------------------------------------------------- Admin: AI job queue */
+
+.job-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.job-filters a {
+  text-decoration: none;
+}
+
+.job-filters a[aria-current="page"] {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.job-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.job-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.job-toolbar-label {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.job-toolbar .btn {
+  padding: 6px 11px;
+  font-size: 13px;
+}
+
+.job-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 44ch;
+}
+
+.job-reason-message {
+  font-size: 13px;
+}
+
+.job-reason-hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.job-details summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.job-detail-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 3px 12px;
+  margin: 8px 0;
+  font-size: 12.5px;
+}
+
+.job-detail-list dt {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.job-detail-list dd {
+  margin: 0;
+}
+
+/* A cause chain and a URL are both long and unbreakable; let them wrap. */
+.job-detail-break {
+  overflow-wrap: anywhere;
+}
+
+.job-detail-heading {
+  margin: 10px 0 6px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.job-attempts {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.job-attempts code {
+  overflow-wrap: anywhere;
+}

@@ -435,8 +435,8 @@
     },
     "rateLimited": "Too many research runs. Please try again later.",
     "rateLimitedRetry": "Too many research runs. Please try again in {seconds} seconds.",
-    "running": "Researching …",
-    "runningHint": "Depending on your hardware the model takes a few seconds up to two minutes. Please do not reload.",
+    "running": "Queueing …",
+    "runningHint": "The run is queued and the worker does the work. You land on the result page straight away, and it refreshes itself.",
     "sourceUrlN": "Source URL {n} (optional)",
     "webSourcesUnavailable": "Web research is not active. The estimate comes from the model alone, without fetching any page.",
     "portionWeight": "Portion weight",
@@ -455,7 +455,8 @@
       "redirects": "Too many redirects: {url}",
       "http": "Source responded with an error: {url}"
     },
-    "rateLimitedRetryMinutes": "Too many research runs. Please try again in {minutes} minutes."
+    "rateLimitedRetryMinutes": "Too many research runs. Please try again in {minutes} minutes.",
+    "working": "The worker is on it. This page refreshes itself."
   },
   "recipes": {
     "title": "Recipes",
@@ -476,8 +477,10 @@
         "imageInvalid": "Use a JPEG, PNG, or WebP image.",
         "imageTooLarge": "The image must be no larger than 6 MB.",
         "aiDisabled": "AI features are disabled in your settings or on this server.",
-        "extractionFailed": "The recipe could not be extracted. Check the AI service, link, and image, then try again."
-      }
+        "extractionFailed": "The recipe could not be extracted. Check the AI service, link, and image, then try again.",
+        "unsafeUrl": "That address is not allowed. Use a public http(s) link without credentials."
+      },
+      "queued": "Queued. The worker is reading the recipe; this page refreshes itself and fills in the form below once the draft is ready."
     },
     "create": "Create recipe",
     "edit": "Edit recipe",
@@ -535,7 +538,9 @@
     "logged": "{count} of {total} components were logged to your diary.",
     "skipped": "Not logged, because no matching food was found:",
     "nothingLogged": "No component could be matched to a known food, so nothing was logged.",
-    "addManually": "Search foods"
+    "addManually": "Search foods",
+    "modelEstimate": "AI estimate",
+    "loggedAsEstimate": "No database match – logged as an estimate from the model's own numbers: {names}. These values are not sourced; check them if they matter."
   },
   "admin": {
     "title": "Administration",
@@ -583,7 +588,70 @@
     "jobFailed": "Failed",
     "enqueueEnrichment": "Backfill missing nutrition",
     "enrichmentHint": "Queue one reviewable, attributed enrichment job for every food with nutrition or serving gaps.",
-    "enrichmentQueued": "Queued {count} enrichment jobs."
+    "enrichmentQueued": "Queued {count} enrichment jobs.",
+    "jobReason": "Reason / diagnosis",
+    "jobId": "Job ID",
+    "jobInput": "Input",
+    "jobSource": "Source",
+    "jobDetails": "Show details",
+    "jobStuck": "stuck",
+    "reviewLabel": "Review",
+    "attemptHistory": "Attempt history",
+    "attemptLabel": "Attempt",
+    "noAttempts": "No attempts recorded. Older jobs predate this diagnostic.",
+    "selectAll": "Select all",
+    "selectNone": "Select none",
+    "selectedLabel": "Selected",
+    "selectRow": "Select job:",
+    "filterAll": "All",
+    "onSelection": "On selection:",
+    "sweeps": "On all:",
+    "noSelectionWarning": "Nothing was selected, so nothing changed.",
+    "operationDone": "{operation}: {count, plural, =0 {no jobs} one {1 job} other {# jobs}} affected.",
+    "jobsTruncated": "Showing {shown} of {total} jobs. Filter by status to see the rest.",
+    "confirmDestructive": "Permanently delete the selected jobs? This cannot be undone.",
+    "op": {
+      "requeue": "Run again",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "requeueAllFailed": "Run all failed again",
+      "deleteCompleted": "Delete completed",
+      "deleteFailed": "Delete failed",
+      "unstickRunning": "Requeue stuck"
+    },
+    "kind": {
+      "MODEL_TIMEOUT": "Timed out",
+      "MODEL_UNREACHABLE": "Model unreachable",
+      "MODEL_MISSING": "Model not installed",
+      "MODEL_HTTP_ERROR": "Error from Ollama",
+      "MODEL_OUTPUT_INVALID": "Invalid model output",
+      "SOURCE_TOO_LARGE": "Source too large",
+      "SOURCE_BLOCKED": "Source blocked",
+      "SOURCE_UNAVAILABLE": "Source unreachable",
+      "SEARCH_UNAVAILABLE": "Search unreachable",
+      "RATE_LIMITED": "Rate limited",
+      "DATA_MISSING": "Data missing",
+      "CANCELLED": "Cancelled",
+      "UNKNOWN": "Unclassified",
+      "MODEL_OUTPUT_TRUNCATED": "Answer cut off"
+    },
+    "hint": {
+      "MODEL_TIMEOUT": "The model did not answer in time. Usually a model that is too slow, a prompt that is too long, or an answer that never terminates.",
+      "MODEL_UNREACHABLE": "The connection to Ollama was never established. Check AI_BASE_URL and whether the worker container can reach the Ollama network.",
+      "MODEL_MISSING": "The configured model is not present on this Ollama instance. Pull it on the Ollama host with `ollama pull`.",
+      "MODEL_HTTP_ERROR": "Ollama answered with an error status. Its own log names the reason - most often not enough memory for the model.",
+      "MODEL_OUTPUT_INVALID": "The answer was JSON but did not match the expected schema. The field paths above name the rejected values.",
+      "SOURCE_TOO_LARGE": "The page is larger than the 512 KB limit. Another attempt cannot change that.",
+      "SOURCE_BLOCKED": "The address was refused for safety: a private network, a disallowed port, or a disallowed scheme.",
+      "SOURCE_UNAVAILABLE": "The page could not be retrieved - a redirect limit, a timeout, or an error status.",
+      "SEARCH_UNAVAILABLE": "SearXNG was unreachable or did not answer with JSON. Without source discovery no nutrition source can be found.",
+      "RATE_LIMITED": "NutriCore's own rate limit stopped the job. Run it again later.",
+      "DATA_MISSING": "A record the job needs is gone, such as a deleted recipe or food. Another attempt will not help.",
+      "UNKNOWN": "Not classified. The full cause chain is under “Show details”.",
+      "CANCELLED": "Cancelled by an administrator.",
+      "MODEL_OUTPUT_TRUNCATED": "The model was stopped at the token limit before it finished. Either the schema permits an answer that is too long, or OLLAMA_MAX_OUTPUT_TOKENS is too low."
+    },
+    "enrichmentRemaining": "{count, plural, one {One more food is waiting} other {# more foods are waiting}} – click again for the next batch."
   },
   "account": {
     "changePasswordTitle": "Choose a new password",

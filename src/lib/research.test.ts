@@ -80,6 +80,22 @@ describe("research state machine", () => {
   it("can skip web search when research is disabled", () => {
     expect(mayTransition("REQUESTED", "EXTRACTING")).toBe(true);
   });
+
+  /**
+   * The run happens in the worker now, and a retry re-runs the whole chain. The
+   * chain is otherwise forward-only, so a second attempt starting from
+   * EXTRACTING could not re-fetch its sources.
+   */
+  it("lets a working state and a failure restart from the beginning", () => {
+    for (const status of ["SEARCHING", "EXTRACTING", "CALCULATING", "FAILED"] as ResearchStatus[]) {
+      expect(mayTransition(status, "REQUESTED")).toBe(true);
+    }
+    // A restart is never a shortcut into acceptance.
+    expect(mayTransition("FAILED", "AWAITING_CONFIRMATION")).toBe(false);
+    // A decision the user made themselves stays made.
+    expect(mayTransition("ACCEPTED", "REQUESTED")).toBe(false);
+    expect(mayTransition("REJECTED", "REQUESTED")).toBe(false);
+  });
 });
 
 describe("confidence scoring", () => {

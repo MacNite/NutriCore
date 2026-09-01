@@ -4,8 +4,9 @@ import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { reviewAiProposalAction } from "@/server/meal-ai-actions";
-import type { AcceptedOutcome, ProposedComponent } from "@/server/ai-types";
+import { isEstimatedComponent, type AcceptedOutcome, type ProposedComponent } from "@/server/ai-types";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,12 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
         <p>
           <span className={`ai-state ai-${job?.status.toLowerCase()}`}>{job ? t(STATUS_LABEL[job.status]) : t("statusFailed")}</span>
         </p>
-        {pending ? <p className="muted">{t("keepWorking")}</p> : null}
+        {pending ? (
+          <>
+            <p className="muted">{t("keepWorking")}</p>
+            <AutoRefresh />
+          </>
+        ) : null}
         {job?.errorMessage ? <div className="notice notice-warn">{job.errorMessage}</div> : null}
       </section>
 
@@ -99,7 +105,14 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
                     </td>
                     <td>{component.estimatedGrams ? t("estimated", { grams: component.estimatedGrams }) : "—"}</td>
                     <td>
-                      {component.canonicalFoodId ? t("matched") : t("unmatched")}
+                      {component.canonicalFoodId ? (
+                        t("matched")
+                      ) : isEstimatedComponent(component) ? (
+                        // Marked by text and a badge, never by colour alone.
+                        <span className="badge badge-ai">{t("modelEstimate")}</span>
+                      ) : (
+                        t("unmatched")
+                      )}
                       {component.sources?.[0]?.url ? (
                         <>
                           <br />
@@ -136,7 +149,17 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
                 <strong>{t("approved")}</strong>
               </p>
               {outcome && outcome.logged.length > 0 ? (
-                <p>{t("logged", { count: outcome.logged.length, total: outcome.logged.length + outcome.skipped.length })}</p>
+                <>
+                  <p>{t("logged", { count: outcome.logged.length, total: outcome.logged.length + outcome.skipped.length })}</p>
+                  {outcome.estimated?.length ? (
+                    <div className="notice notice-warn">
+                      <span className="notice-icon" aria-hidden="true">
+                        !
+                      </span>
+                      <span>{t("loggedAsEstimate", { names: outcome.estimated.join(", ") })}</span>
+                    </div>
+                  ) : null}
+                </>
               ) : (
                 <p>{t("nothingLogged")}</p>
               )}

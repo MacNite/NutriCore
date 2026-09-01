@@ -8,7 +8,8 @@ import { logger } from "@/lib/logger";
 import { hashPassword, passwordProblem } from "@/lib/auth";
 import { endSession, requireAdmin, requireUser } from "./session";
 import { issueInvitation, redeemableInvitation } from "./admin";
-import { missingNutritionKeys } from "./food-enrichment";
+import { ENRICHMENT_BATCH_LIMIT, ENRICHMENT_RETRY_MS, missingNutritionKeys } from "./food-enrichment";
+import { AI_JOB_OPERATIONS, AI_JOB_SELECTION_OPERATIONS, jobPriority, STUCK_RUNNING_MS, type AiJobOperation } from "./ai-types";
 
 /**
  * The token travels back in the redirect so `/admin` can show the link once.
@@ -61,32 +62,155 @@ export async function setUserActiveAction(formData: FormData) {
   redirect("/admin");
 }
 
+/** Shared by every path that puts a job back on the queue. */
+const requeueData = {
+  status: "QUEUED" as const,
+  errorMessage: null,
+  errorDetail: null,
+  failureKind: null,
+  failedAt: null,
+  startedAt: null,
+  completedAt: null,
+  retryCount: 0,
+};
+
 /** A manual retry hands the job a fresh budget, not one more attempt on an exhausted one. */
 export async function retryAiJobAction(formData: FormData) {
   await requireAdmin();
   await prisma.aiJob.updateMany({
     where: { id: String(formData.get("jobId")), status: "FAILED" },
-    data: { status: "QUEUED", errorMessage: null, failedAt: null, startedAt: null, retryCount: 0 },
+    data: requeueData,
   });
   redirect("/admin");
 }
 
-/** On-demand only: deliberately no scheduler, so an administrator controls network use. */
+const SELECTION_OPERATIONS = new Set<AiJobOperation>(AI_JOB_SELECTION_OPERATIONS);
+
+/**
+ * Bulk queue management. Selection-scoped operations act on the checked rows
+ * only; the four sweep operations act on a status and need no selection, which
+ * is what makes a queue of several hundred enrichment jobs recoverable at all.
+ *
+ * The `filter` field round-trips so the administrator lands back on the view
+ * they were looking at rather than on the unfiltered list.
+ */
+export async function manageAiJobsAction(formData: FormData) {
+  await requireAdmin();
+  const operation = z.enum(AI_JOB_OPERATIONS).catch("requeue").parse(String(formData.get("operation") ?? ""));
+  const filter = String(formData.get("filter") ?? "");
+  const ids = formData
+    .getAll("jobId")
+    .map(String)
+    .filter((id) => /^[a-z0-9]{20,40}$/i.test(id))
+    .slice(0, 1000);
+
+  // A selection operation with nothing selected is a no-op, never a sweep.
+  if (SELECTION_OPERATIONS.has(operation) && ids.length === 0) {
+    redirect(adminJobsUrl(filter, "noSelection", 0));
+  }
+
+  let affected = 0;
+  switch (operation) {
+    case "requeue": {
+      const result = await prisma.aiJob.updateMany({ where: { id: { in: ids } }, data: requeueData });
+      affected = result.count;
+      break;
+    }
+    case "cancel": {
+      // Cancelling is recorded as a failure with a reason, so the row still
+      // explains itself later instead of looking like an unexplained stop.
+      const result = await prisma.aiJob.updateMany({
+        where: { id: { in: ids }, status: { in: ["QUEUED", "RUNNING"] } },
+        data: { status: "FAILED", failedAt: new Date(), failureKind: "CANCELLED", errorMessage: "Cancelled by an administrator", errorDetail: null },
+      });
+      affected = result.count;
+      break;
+    }
+    case "delete": {
+      const result = await prisma.aiJob.deleteMany({ where: { id: { in: ids } } });
+      affected = result.count;
+      break;
+    }
+    case "requeueAllFailed": {
+      const result = await prisma.aiJob.updateMany({ where: { status: "FAILED" }, data: requeueData });
+      affected = result.count;
+      break;
+    }
+    case "deleteCompleted": {
+      const result = await prisma.aiJob.deleteMany({ where: { status: "COMPLETED" } });
+      affected = result.count;
+      break;
+    }
+    case "deleteFailed": {
+      const result = await prisma.aiJob.deleteMany({ where: { status: "FAILED" } });
+      affected = result.count;
+      break;
+    }
+    case "unstickRunning": {
+      const result = await prisma.aiJob.updateMany({
+        where: { status: "RUNNING", startedAt: { lt: new Date(Date.now() - STUCK_RUNNING_MS) } },
+        data: requeueData,
+      });
+      affected = result.count;
+      break;
+    }
+  }
+
+  logger.info("AI jobs managed", { operation, affected, ids: ids.length });
+  redirect(adminJobsUrl(filter, operation, affected));
+}
+
+const adminJobsUrl = (filter: string, operation: string, affected: number) => {
+  const params = new URLSearchParams({ jobsOp: operation, jobsCount: String(affected) });
+  if (filter) params.set("jobs", filter);
+  return `/admin?${params}#ai-jobs`;
+};
+
+/**
+ * On-demand only: deliberately no scheduler, so an administrator controls
+ * network use.
+ *
+ * Bounded in two ways. `ENRICHMENT_BATCH_LIMIT` caps one click, because each job
+ * holds the single worker for the length of a model call and an uncapped sweep
+ * over a large catalogue buried every user-facing job behind it. And a food is
+ * skipped for `ENRICHMENT_RETRY_MS` after an attempt: most gaps cannot be filled
+ * from one page, so without that the same foods were re-queued on every click.
+ *
+ * Press it again to take the next batch.
+ */
 export async function enqueueFoodEnrichmentAction() {
   const admin = await requireAdmin();
+  const retryBefore = new Date(Date.now() - ENRICHMENT_RETRY_MS);
   const [definitions, foods] = await Promise.all([
     prisma.nutrientDefinition.findMany({ select: { key: true } }),
-    prisma.food.findMany({ include: { nutrients: true, servings: true } }),
+    prisma.food.findMany({
+      where: { OR: [{ enrichedAt: null }, { enrichedAt: { lt: retryBefore } }] },
+      include: { nutrients: true, servings: true },
+      // Oldest attempt first, so repeated clicks work through the catalogue
+      // instead of offering the same foods again.
+      orderBy: [{ enrichedAt: "asc" }, { createdAt: "asc" }],
+    }),
   ]);
+
   let queued = 0;
+  let remaining = 0;
   for (const food of foods) {
     const missing = missingNutritionKeys(definitions, food.nutrients);
     const missingServing = !food.servingSize && !food.servings.some((s) => s.gramEquivalent || s.mlEquivalent);
     if (!missing.length && !missingServing) continue;
+    if (queued >= ENRICHMENT_BATCH_LIMIT) {
+      remaining++;
+      continue;
+    }
     const active = await prisma.aiJob.findFirst({ where: { entityType: "FOOD_ENRICHMENT", entityId: food.id, status: { in: ["QUEUED", "RUNNING"] } } });
-    if (!active) { await prisma.aiJob.create({ data: { userId: admin.id, entityType: "FOOD_ENRICHMENT", entityId: food.id } }); queued++; }
+    if (!active) {
+      await prisma.aiJob.create({
+        data: { userId: admin.id, entityType: "FOOD_ENRICHMENT", entityId: food.id, priority: jobPriority("FOOD_ENRICHMENT") },
+      });
+      queued++;
+    }
   }
-  redirect(`/admin?enrichmentQueued=${queued}`);
+  redirect(`/admin?enrichmentQueued=${queued}&enrichmentRemaining=${remaining}#ai-jobs`);
 }
 
 export async function changeRequiredPasswordAction(formData: FormData) {

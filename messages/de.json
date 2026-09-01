@@ -435,8 +435,8 @@
     },
     "rateLimited": "Zu viele Recherchen. Bitte später erneut versuchen.",
     "rateLimitedRetry": "Zu viele Recherchen. Bitte in {seconds} Sekunden erneut versuchen.",
-    "running": "Recherche läuft …",
-    "runningHint": "Das Modell antwortet je nach Hardware in einigen Sekunden bis zu zwei Minuten. Bitte nicht neu laden.",
+    "running": "Wird eingereiht …",
+    "runningHint": "Der Auftrag wird eingereiht; die Auswertung übernimmt der Worker. Du landest sofort auf der Ergebnisseite, die sich selbst aktualisiert.",
     "sourceUrlN": "Quell-URL {n} (optional)",
     "webSourcesUnavailable": "Web-Recherche ist nicht aktiv. Die Schätzung entsteht ohne Webseitenabruf allein aus dem Modell.",
     "portionWeight": "Portionsgewicht",
@@ -455,7 +455,8 @@
       "redirects": "Zu viele Weiterleitungen: {url}",
       "http": "Quelle antwortete mit einem Fehler: {url}"
     },
-    "rateLimitedRetryMinutes": "Zu viele Recherchen. Bitte in {minutes} Minuten erneut versuchen."
+    "rateLimitedRetryMinutes": "Zu viele Recherchen. Bitte in {minutes} Minuten erneut versuchen.",
+    "working": "Der Worker arbeitet daran. Die Seite aktualisiert sich selbst."
   },
   "recipes": {
     "title": "Rezepte",
@@ -476,8 +477,10 @@
         "imageInvalid": "Verwende ein JPEG-, PNG- oder WebP-Bild.",
         "imageTooLarge": "Das Bild darf höchstens 6 MB groß sein.",
         "aiDisabled": "KI-Funktionen sind in deinen Einstellungen oder auf diesem Server deaktiviert.",
-        "extractionFailed": "Das Rezept konnte nicht ausgelesen werden. Prüfe KI-Dienst, Link und Bild und versuche es erneut."
-      }
+        "extractionFailed": "Das Rezept konnte nicht ausgelesen werden. Prüfe KI-Dienst, Link und Bild und versuche es erneut.",
+        "unsafeUrl": "Diese Adresse ist nicht erlaubt. Verwende einen öffentlichen http(s)-Link ohne Zugangsdaten."
+      },
+      "queued": "Eingereiht. Der Worker liest das Rezept aus; diese Seite aktualisiert sich selbst und füllt das Formular unten, sobald der Entwurf fertig ist."
     },
     "create": "Rezept erstellen",
     "edit": "Rezept bearbeiten",
@@ -535,7 +538,9 @@
     "logged": "{count} von {total} Bestandteilen wurden in dein Tagebuch eingetragen.",
     "skipped": "Nicht eingetragen, weil kein passendes Lebensmittel gefunden wurde:",
     "nothingLogged": "Kein Bestandteil konnte einem bekannten Lebensmittel zugeordnet werden, es wurde nichts eingetragen.",
-    "addManually": "Lebensmittel suchen"
+    "addManually": "Lebensmittel suchen",
+    "modelEstimate": "KI-Schätzung",
+    "loggedAsEstimate": "Ohne Treffer in der Datenbank – aus den Zahlen des Modells als Schätzung übernommen: {names}. Diese Werte sind nicht belegt; prüfe sie, wenn sie zählen sollen."
   },
   "admin": {
     "title": "Administration",
@@ -583,7 +588,70 @@
     "jobFailed": "Fehlgeschlagen",
     "enqueueEnrichment": "Fehlende Nährwerte ergänzen",
     "enrichmentHint": "Für jedes Lebensmittel mit Nährwert- oder Portionslücken einen nachvollziehbaren Ergänzungsauftrag einreihen.",
-    "enrichmentQueued": "{count} Ergänzungsaufträge eingereiht."
+    "enrichmentQueued": "{count} Ergänzungsaufträge eingereiht.",
+    "jobReason": "Grund / Diagnose",
+    "jobId": "Auftrags-ID",
+    "jobInput": "Eingabe",
+    "jobSource": "Quelle",
+    "jobDetails": "Details anzeigen",
+    "jobStuck": "hängt",
+    "reviewLabel": "Prüfung",
+    "attemptHistory": "Versuchsverlauf",
+    "attemptLabel": "Versuch",
+    "noAttempts": "Keine Versuche aufgezeichnet. Ältere Aufträge liegen vor dieser Diagnosefunktion.",
+    "selectAll": "Alle auswählen",
+    "selectNone": "Auswahl aufheben",
+    "selectedLabel": "Ausgewählt",
+    "selectRow": "Auftrag auswählen:",
+    "filterAll": "Alle",
+    "onSelection": "Für die Auswahl:",
+    "sweeps": "Für alle:",
+    "noSelectionWarning": "Nichts ausgewählt – es wurde nichts geändert.",
+    "operationDone": "{operation}: {count, plural, =0 {kein Auftrag} one {1 Auftrag} other {# Aufträge}} betroffen.",
+    "jobsTruncated": "{shown} von {total} Aufträgen angezeigt. Filtere nach Status, um die übrigen zu sehen.",
+    "confirmDestructive": "Ausgewählte Aufträge endgültig löschen? Das kann nicht rückgängig gemacht werden.",
+    "op": {
+      "requeue": "Neu starten",
+      "cancel": "Abbrechen",
+      "delete": "Löschen",
+      "requeueAllFailed": "Alle fehlgeschlagenen neu starten",
+      "deleteCompleted": "Abgeschlossene löschen",
+      "deleteFailed": "Fehlgeschlagene löschen",
+      "unstickRunning": "Hängende zurückstellen"
+    },
+    "kind": {
+      "MODEL_TIMEOUT": "Zeitüberschreitung",
+      "MODEL_UNREACHABLE": "Modell nicht erreichbar",
+      "MODEL_MISSING": "Modell nicht installiert",
+      "MODEL_HTTP_ERROR": "Fehler von Ollama",
+      "MODEL_OUTPUT_INVALID": "Ungültige Modellantwort",
+      "SOURCE_TOO_LARGE": "Quelle zu groß",
+      "SOURCE_BLOCKED": "Quelle gesperrt",
+      "SOURCE_UNAVAILABLE": "Quelle nicht erreichbar",
+      "SEARCH_UNAVAILABLE": "Suche nicht erreichbar",
+      "RATE_LIMITED": "Ratenbegrenzung",
+      "DATA_MISSING": "Daten fehlen",
+      "CANCELLED": "Abgebrochen",
+      "UNKNOWN": "Unbekannt",
+      "MODEL_OUTPUT_TRUNCATED": "Antwort abgeschnitten"
+    },
+    "hint": {
+      "MODEL_TIMEOUT": "Das Modell hat nicht rechtzeitig geantwortet. Häufig ein zu langsames Modell, ein zu langer Prompt oder eine Antwort, die kein Ende findet.",
+      "MODEL_UNREACHABLE": "Die Verbindung zu Ollama kam nicht zustande. Prüfe AI_BASE_URL und ob der Worker-Container das Ollama-Netzwerk erreicht.",
+      "MODEL_MISSING": "Das konfigurierte Modell ist auf dieser Ollama-Instanz nicht vorhanden. Auf dem Ollama-Host mit „ollama pull“ laden.",
+      "MODEL_HTTP_ERROR": "Ollama hat mit einem Fehlerstatus geantwortet. Das Ollama-Log nennt den Grund – häufig zu wenig Speicher für das Modell.",
+      "MODEL_OUTPUT_INVALID": "Die Antwort war JSON, entsprach aber nicht dem erwarteten Schema. Die Feldpfade oben nennen die abgelehnten Werte.",
+      "SOURCE_TOO_LARGE": "Die Seite ist größer als die erlaubten 512 KB. Ein erneuter Versuch ändert daran nichts.",
+      "SOURCE_BLOCKED": "Die Adresse wurde aus Sicherheitsgründen abgelehnt (privates Netz, unerlaubter Port oder unerlaubtes Schema).",
+      "SOURCE_UNAVAILABLE": "Die Seite war nicht abrufbar – Umleitungsgrenze, Zeitüberschreitung oder ein Fehlerstatus.",
+      "SEARCH_UNAVAILABLE": "SearXNG war nicht erreichbar oder hat keine JSON-Antwort geliefert. Ohne Quellensuche kann keine Nährwertquelle gefunden werden.",
+      "RATE_LIMITED": "Die eigene Ratenbegrenzung hat den Auftrag gestoppt. Später neu starten.",
+      "DATA_MISSING": "Ein benötigter Datensatz fehlt, etwa ein gelöschtes Rezept oder Lebensmittel. Ein erneuter Versuch hilft nicht.",
+      "CANCELLED": "Von einem Administrator abgebrochen.",
+      "UNKNOWN": "Nicht zugeordnet. Der vollständige Fehlerpfad steht unter „Details anzeigen“.",
+      "MODEL_OUTPUT_TRUNCATED": "Das Modell wurde am Token-Limit gestoppt, bevor es fertig war. Entweder erlaubt das Schema eine zu lange Antwort, oder OLLAMA_MAX_OUTPUT_TOKENS ist zu niedrig."
+    },
+    "enrichmentRemaining": "{count, plural, one {Ein weiteres Lebensmittel wartet} other {# weitere Lebensmittel warten}} – erneut klicken für den nächsten Stapel."
   },
   "account": {
     "changePasswordTitle": "Neues Passwort wählen",

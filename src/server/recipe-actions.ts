@@ -44,7 +44,7 @@ export async function logRecipeAction(_state: FormState, formData: FormData): Pr
   const recipe = await prisma.recipe.findFirst({ where: { id: parsed.data.recipeId, ownerId: user.id } });
   if (!recipe) return { error: "notFound" };
   const input = await prisma.mealInput.create({ data: { userId: user.id, text: recipe.name, meal: parsed.data.meal, diaryDate: new Date(`${parsed.data.date}T00:00:00.000Z`) } });
-  await prisma.aiJob.create({ data: { userId: user.id, entityType: "RECIPE_LOG", entityId: input.id, mealInputId: input.id, model: resolveAiModel(), metadata: { recipeId: recipe.id, servings: parsed.data.quantity } } });
+  await prisma.aiJob.create({ data: { userId: user.id, entityType: "RECIPE_LOG", entityId: input.id, mealInputId: input.id, model: resolveAiModel(), priority: jobPriority("RECIPE_LOG"), metadata: { recipeId: recipe.id, servings: parsed.data.quantity } } });
   redirect(`/ai-review/${input.id}?queued=1`);
 }
 

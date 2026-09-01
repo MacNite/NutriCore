@@ -1,9 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { AppShell } from "@/components/app-shell";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { prisma } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
-import { hasAnyNutrient } from "@/lib/research";
+import { hasAnyNutrient, TERMINAL_STATUSES } from "@/lib/research";
 import { nutrientUnit, NUTRIENT_BY_KEY } from "@/lib/nutrients";
 import { getSessionUser } from "@/server/session";
 import { decideResearchAction, type ResearchCandidatePayload } from "@/server/research";
@@ -39,6 +40,9 @@ export default async function ResearchReviewPage({
     ([a], [b]) => (NUTRIENT_BY_KEY.get(a)?.sortOrder ?? 9999) - (NUTRIENT_BY_KEY.get(b)?.sortOrder ?? 9999),
   );
   const usable = hasAnyNutrient(payload?.nutrients);
+  // The run happens in the worker now, so the page has to be told when it is
+  // still waiting rather than finished with nothing to show.
+  const pending = !TERMINAL_STATUSES.includes(job.status) && job.status !== "AWAITING_CONFIRMATION";
 
   return (
     <AppShell displayName={user.displayName}>
@@ -175,6 +179,7 @@ export default async function ResearchReviewPage({
       ) : (
         <section className="card">
           <p>{t("status", { status: job.status })}</p>
+          {pending ? <AutoRefresh label={t("working")} /> : null}
         </section>
       )}
     </AppShell>

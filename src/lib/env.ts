@@ -28,6 +28,8 @@ const schema = z.object({
   SEARXNG_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   INVITATION_EXPIRY_HOURS: z.coerce.number().positive().default(48),
   OLLAMA_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(600),
+  /** Hard ceiling on generated tokens; see `ollamaMaxOutputTokens`. */
+  OLLAMA_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(2048),
   RESEARCH_ENABLED: bool(false),
   RESEARCH_PROVIDER: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),

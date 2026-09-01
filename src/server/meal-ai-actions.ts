@@ -6,11 +6,12 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { resolveAiModel } from "@/lib/env";
+import { normalizeName } from "@/lib/units";
 import { requireUser } from "./session";
 import { addDiaryEntry, formatDateKey } from "./diary";
 import { checkUrl } from "@/lib/url-guard";
 import { validDateKey } from "@/lib/date";
-import { partitionComponents, type AcceptedOutcome, type ProposedComponent } from "./ai-types";
+import { jobPriority, partitionComponents, type AcceptedOutcome, type ProposedComponent } from "./ai-types";
 
 export async function queueMealInputAction(formData: FormData) {
   const user = await requireUser();
@@ -52,17 +53,61 @@ export async function queueMealInputAction(formData: FormData) {
       entityId: input.id,
       mealInputId: input.id,
       model: resolveAiModel(),
+      // A meal the user is watching for goes ahead of background enrichment.
+      priority: jobPriority("MEAL_INPUT"),
     },
   });
   redirect(`/ai-review/${input.id}?queued=1`);
 }
 
 /**
- * Approving a proposal is what finally writes to the diary. Only components the
- * worker matched to a food the user can see are logged, and each one goes
- * through `addDiaryEntry`, so it freezes a nutrition snapshot exactly like a
- * manually logged entry. Everything else is reported back as skipped rather
- * than guessed at.
+ * Creates the food behind an approved estimate.
+ *
+ * `sourceType: AI_RESEARCH` and `isEstimated` are deliberate: ranking must keep
+ * treating these with the low trust an estimate deserves, so they never
+ * outrank a sourced food in search. `AI_MEAL_ESTIMATE` on the source row records
+ * where the numbers came from, and it is the only provider value that means "the
+ * model said so and a human accepted it".
+ */
+async function createEstimatedFood(user: { id: string; language: "de" | "en" }, component: ProposedComponent) {
+  const nutrients = Object.entries(component.nutritionPer100g ?? {})
+    .filter((entry): entry is [string, number] => typeof entry[1] === "number")
+    .map(([nutrientKey, value]) => ({ nutrientKey, value }));
+
+  return prisma.food.create({
+    data: {
+      ownerId: user.id,
+      name: component.name,
+      normalizedName: normalizeName(component.name),
+      locale: user.language,
+      sourceType: "AI_RESEARCH",
+      foodType: "GENERIC",
+      basisAmount: 100,
+      basisUnit: "G",
+      isEstimated: true,
+      nutrients: { createMany: { data: nutrients } },
+      sources: {
+        create: [
+          {
+            provider: "AI_MEAL_ESTIMATE",
+            retrievedAt: new Date(),
+            model: resolveAiModel(),
+            estimated: true,
+          },
+        ],
+      },
+    },
+  });
+}
+
+/**
+ * Approving a proposal is what finally writes to the diary. A component is
+ * logged when the worker matched it to a food the user can see, or - failing
+ * that - when the model stated nutrition for it, in which case it is logged
+ * against a food created here and marked as an estimate. Either way it goes
+ * through `addDiaryEntry` and freezes a nutrition snapshot exactly like a
+ * manually logged entry. A component with neither is reported back as skipped
+ * rather than logged as zero calories.
  */
 export async function reviewAiProposalAction(formData: FormData) {
   const user = await requireUser();
@@ -90,18 +135,25 @@ export async function reviewAiProposalAction(formData: FormData) {
   const { loggable, skipped } = partitionComponents(components);
   const date = formatDateKey(mealInput.diaryDate);
   const logged: string[] = [];
+  const estimated: string[] = [];
 
   for (const component of loggable) {
     try {
+      // A component nothing matched is logged against a food created here from
+      // the model's own numbers, marked as an estimate. Creating it is what makes
+      // the entry auditable afterwards: the diary entry then freezes a snapshot
+      // exactly like any other, and the food carries its provenance.
+      const foodId = component.canonicalFoodId ?? (await createEstimatedFood(user, component)).id;
       await addDiaryEntry({
         userId: user.id,
         date,
         meal: mealInput.meal,
-        foodId: component.canonicalFoodId!,
+        foodId,
         quantity: component.estimatedGrams!,
         unit: "g",
       });
       logged.push(component.name);
+      if (!component.canonicalFoodId) estimated.push(component.name);
     } catch (error) {
       // A food deleted since the proposal was made, or a portion that cannot be
       // resolved, is a skip and not a failed approval.
@@ -113,7 +165,7 @@ export async function reviewAiProposalAction(formData: FormData) {
     }
   }
 
-  const outcome: AcceptedOutcome = { logged, skipped, acceptedAt: new Date().toISOString() };
+  const outcome: AcceptedOutcome = { logged, estimated, skipped, acceptedAt: new Date().toISOString() };
   await prisma.aiProposal.update({
     where: { id },
     data: {

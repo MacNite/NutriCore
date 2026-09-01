@@ -81,8 +81,34 @@ requested as schema-constrained JSON and always validated with Zod — prose is
 never parsed, and a malformed answer is rejected rather than guessed at.
 Reasoning-model `<think>` blocks are stripped before parsing.
 
+The grammar Ollama derives from a JSON schema constrains *shape only*: llama.cpp
+ignores numeric ranges, string lengths and array bounds. Answers therefore pass
+through `src/server/ai-repair.ts` before validation. Repair only ever removes or
+clamps — an unusable value becomes absent rather than a guess, so a component
+with no weight is still reported as skipped instead of being logged as zero. That
+is what keeps validation strict about facts while tolerant about what a grammar
+cannot promise; rejecting the whole answer over one unknown number was the
+stricter-looking option and the worse one.
+
+`src/server/ai-failures.ts` classifies a thrown error by flattening its `cause`
+chain — Node's `fetch` reports every transport failure as a bare
+`TypeError: fetch failed` — into one of a small set of kinds. Kinds that cannot
+change between attempts (an over-sized source, a deleted record, a model that is
+not installed) skip the retry budget entirely, and every attempt is recorded on
+`AiJobAttempt` so a job that failed three different ways is distinguishable from
+one that failed the same way three times.
+
+Every AI feature is a queued `AiJob`, never inline work in a request: a local
+model can take minutes, which no page interaction survives. `AiJob.priority`
+keeps work a user is waiting for ahead of background enrichment, and the worker
+reclaims jobs left `RUNNING` by a worker that died, since a claim is conditional
+on `QUEUED` and nothing else would ever pick them up.
+
 Research is a persisted state machine. Every path to `ACCEPTED` runs through
-`AWAITING_CONFIRMATION`, so nothing is stored without the user confirming it.
+`AWAITING_CONFIRMATION`, so nothing is stored without the user confirming it. A
+working state and `FAILED` may go back to `REQUESTED` — that is what lets the
+worker retry a run through a chain that is otherwise forward-only — but a restart
+is never a route into acceptance, and a decision the user made stays made.
 The model reconstructs a dish from ingredients with explicit quantities;
 nutrition is then calculated deterministically from resolved database foods
 rather than invented by the model. Confidence is an interpretable sum of named
@@ -91,9 +117,10 @@ signals, and the reasons are shown to the user.
 Retrieved web content is untrusted input. `checkUrl` allows only HTTP(S) on
 standard ports, rejects embedded credentials, resolves DNS and blocks loopback,
 private, link-local, unique-local, carrier-grade-NAT and multicast targets —
-which also stops a public hostname that resolves inward. Content is size- and
-time-limited, stripped of scripts and markup, and wrapped in a delimiter that
-tells the model it is reference data and not instructions.
+which also stops a public hostname that resolves inward. Content is time-limited,
+read only up to `MAX_RESEARCH_BYTES` with the remainder abandoned mid-transfer,
+stripped of scripts and markup, and wrapped in a delimiter that tells the model
+it is reference data and not instructions.
 
 ## Authorisation
 

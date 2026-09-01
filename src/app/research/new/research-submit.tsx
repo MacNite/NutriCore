@@ -3,9 +3,9 @@
 import { useFormStatus } from "react-dom";
 
 /**
- * The model call runs inside the request, so the form can sit for a minute or
- * more. Without a pending state the page looks unchanged and invites a second
- * submit, which would start a second run.
+ * Submitting only queues the run, so the wait is short - but a slow database or
+ * a slow network still leaves the page looking unchanged, which invites a second
+ * submit and a second run. The pending state is what prevents that.
  */
 export function ResearchSubmit({ label, pendingLabel, hint, disabled }: { label: string; pendingLabel: string; hint: string; disabled?: boolean }) {
   const { pending } = useFormStatus();
