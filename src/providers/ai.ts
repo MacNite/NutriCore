@@ -29,5 +29,5 @@ export interface AIProvider {
   readonly enabled: boolean;
   capabilities(): Promise<AICapabilities>;
   /** Output is always validated against `schema`; prose is never parsed. */
-  complete<T>(input: { system: string; prompt: string; schema: z.ZodType<T>; jsonSchema?: unknown }): Promise<T>;
+  complete<T>(input: { system: string; prompt: string; schema: z.ZodType<T>; jsonSchema?: unknown; images?: string[] }): Promise<T>;
 }

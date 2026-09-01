@@ -444,6 +444,21 @@
     "rateLimitedRetryMinutes": "Too many research runs. Please try again in {minutes} minutes."
   },
   "recipes": {
+    "title": "Recipes",
+    "combinedHint": "Foods and recipes live together so they are easier to find and log.",
+    "ingredientCount": "{count, plural, one {# ingredient} other {# ingredients}}",
+    "import": {
+      "title": "Fill recipe with AI",
+      "hint": "Use free text, a recipe link, or a photo. The image is sent directly to your configured AI and is not stored by NutriCore.",
+      "text": "Recipe text",
+      "textPlaceholder": "Paste ingredients and instructions, or describe the recipe…",
+      "url": "Recipe link",
+      "image": "Recipe photo",
+      "imageHint": "JPEG, PNG or WebP, up to 6 MB. A vision-capable model is required.",
+      "submit": "Extract recipe",
+      "unmatched": "These ingredients were not found in your foods and must be added manually: {names}",
+      "errors": { "inputRequired": "Add text, a link, or a picture.", "imageInvalid": "Use a JPEG, PNG, or WebP image.", "imageTooLarge": "The image must be no larger than 6 MB.", "aiDisabled": "AI features are disabled in your settings or on this server.", "extractionFailed": "The recipe could not be extracted. Check the AI service, link, and image, then try again." }
+    },
     "create": "Create recipe",
     "edit": "Edit recipe",
     "name": "Name",

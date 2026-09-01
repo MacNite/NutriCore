@@ -444,6 +444,21 @@
     "rateLimitedRetryMinutes": "Zu viele Recherchen. Bitte in {minutes} Minuten erneut versuchen."
   },
   "recipes": {
+    "title": "Rezepte",
+    "combinedHint": "Lebensmittel und Rezepte sind gemeinsam leichter zu finden und einzutragen.",
+    "ingredientCount": "{count, plural, one {# Zutat} other {# Zutaten}}",
+    "import": {
+      "title": "Rezept mit KI ausfüllen",
+      "hint": "Nutze Freitext, einen Rezept-Link oder ein Foto. Das Bild wird direkt an deine konfigurierte KI gesendet und nicht von NutriCore gespeichert.",
+      "text": "Rezepttext",
+      "textPlaceholder": "Zutaten und Zubereitung einfügen oder das Rezept beschreiben…",
+      "url": "Rezept-Link",
+      "image": "Rezeptfoto",
+      "imageHint": "JPEG, PNG oder WebP bis 6 MB. Ein bildfähiges Modell ist erforderlich.",
+      "submit": "Rezept auslesen",
+      "unmatched": "Diese Zutaten wurden nicht in deinen Lebensmitteln gefunden und müssen manuell ergänzt werden: {names}",
+      "errors": { "inputRequired": "Füge Text, einen Link oder ein Bild hinzu.", "imageInvalid": "Verwende ein JPEG-, PNG- oder WebP-Bild.", "imageTooLarge": "Das Bild darf höchstens 6 MB groß sein.", "aiDisabled": "KI-Funktionen sind in deinen Einstellungen oder auf diesem Server deaktiviert.", "extractionFailed": "Das Rezept konnte nicht ausgelesen werden. Prüfe KI-Dienst, Link und Bild und versuche es erneut." }
+    },
     "create": "Rezept erstellen",
     "edit": "Rezept bearbeiten",
     "name": "Name",

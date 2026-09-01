@@ -10,13 +10,12 @@ const NAV = [
   { href: "/", key: "today", icon: "◉" },
   { href: "/diary", key: "diary", icon: "▤" },
   { href: "/foods", key: "foods", icon: "⌕" },
-  { href: "/recipes", key: "recipes", icon: "❑" },
   { href: "/progress", key: "progress", icon: "◔" },
   { href: "/settings", key: "settings", icon: "⚙" },
 ] as const;
 
 /** Bottom navigation keeps the five most-used destinations within thumb reach. */
-const MOBILE_NAV = NAV.filter((item) => item.key !== "recipes");
+const MOBILE_NAV = NAV;
 
 export function AppShell({ displayName, children }: { displayName: string; children: React.ReactNode }) {
   const t = useTranslations("nav");

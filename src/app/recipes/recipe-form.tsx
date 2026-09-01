@@ -8,14 +8,14 @@ import type { FormState } from "@/server/profile-actions";
 interface Ingredient { foodId: string; name: string; amount: number; unit: string }
 interface SearchResult { id: string; name: string; brand: string | null; basisUnit: string }
 
-export function RecipeForm({ recipe }: { recipe?: { id: string; name: string; description: string; servings: number; yieldWeightG: number | null; instructions: string; tags: string[]; ingredients: Ingredient[] } }) {
+export function RecipeForm({ recipe, createMode = false }: { recipe?: { id: string; name: string; description: string; servings: number; yieldWeightG: number | null; instructions: string; tags: string[]; ingredients: Ingredient[] }; createMode?: boolean }) {
   const t = useTranslations("recipes"); const common = useTranslations("common"); const errors = useTranslations("errors");
   const [state, action, pending] = useActionState<FormState, FormData>(saveRecipeAction, {});
   const [ingredients, setIngredients] = useState<Ingredient[]>(recipe?.ingredients ?? []);
   const [query, setQuery] = useState(""); const [results, setResults] = useState<SearchResult[]>([]);
   useEffect(() => { if (query.trim().length < 2) { setResults([]); return; } const controller = new AbortController(); const timer = setTimeout(async () => { const response = await fetch(`/api/foods/search?q=${encodeURIComponent(query)}`, { signal: controller.signal }); if (response.ok) setResults(((await response.json()) as { results: SearchResult[] }).results); }, 300); return () => { clearTimeout(timer); controller.abort(); }; }, [query]);
   return <form action={action}>
-    {recipe ? <input type="hidden" name="id" value={recipe.id} /> : null}
+    {recipe && !createMode ? <input type="hidden" name="id" value={recipe.id} /> : null}
     <input type="hidden" name="ingredients" value={JSON.stringify(ingredients.map(({ foodId, amount, unit }) => ({ foodId, amount, unit })))} />
     {state.error ? <div className="notice notice-error" role="alert"><span>{state.error.startsWith("portion.") ? errors(state.error as "portion.unknown-unit") : errors(state.error as "validation")}</span></div> : null}
     <div className="grid-main"><div className="stack"><section className="card">

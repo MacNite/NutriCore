@@ -48,6 +48,14 @@ describe("Ollama adapter", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).format).toEqual(jsonSchema);
   });
 
+  it("passes transient image data to a vision-capable model", async () => {
+    const fetchMock = reply('{"name":"Rice","kcal":130}');
+    vi.stubGlobal("fetch", fetchMock);
+    await provider().complete({ system: "s", prompt: "read this", schema, images: ["base64-image"] });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.messages[1]).toMatchObject({ role: "user", images: ["base64-image"] });
+  });
+
   it("strips a reasoning model's thinking block", async () => {
     vi.stubGlobal("fetch", reply('<think>Let me work this out…</think>{"name":"Rice","kcal":130}'));
     await expect(provider().complete({ system: "s", prompt: "p", schema })).resolves.toMatchObject({ name: "Rice" });
