@@ -540,7 +540,18 @@
     "nothingLogged": "No component could be matched to a known food, so nothing was logged.",
     "addManually": "Search foods",
     "modelEstimate": "AI estimate",
-    "loggedAsEstimate": "No database match – logged as an estimate from the model's own numbers: {names}. These values are not sourced; check them if they matter."
+    "loggedAsEstimate": "No database match – logged as an estimate from the model's own numbers: {names}. These values are not sourced; check them if they matter.",
+    "skipComponent": "Do not log",
+    "origin": {
+      "LOCAL": "From your database",
+      "OPEN_FOOD_FACTS": "Open Food Facts",
+      "WEB_EXTRACT": "Read off a web source"
+    },
+    "gramsSource": {
+      "SERVING": "the food's own serving size",
+      "UNIT": "the amount as stated",
+      "MODEL": "AI portion estimate"
+    }
   },
   "admin": {
     "title": "Administration",

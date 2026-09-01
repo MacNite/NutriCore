@@ -5,7 +5,7 @@
  * that grammar enforces *shape only*: llama.cpp ignores numeric ranges, string
  * lengths and array bounds. So a model that does not know a weight writes `0`,
  * which `z.number().positive()` then rejects - discarding the entire meal over
- * one unknown value, even though `partitionComponents` already skips a component
+ * one unknown value, even though `decideComponents` already skips a component
  * without a usable weight. Repairing first keeps the parts the model did get
  * right and drops only what cannot be used.
  *

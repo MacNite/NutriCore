@@ -10,6 +10,47 @@
  * known food matched, which is the case that must never become a diary entry:
  * the model may name a food, but it is never a source of nutrition values.
  */
+/** Where a candidate's numbers came from, in descending order of trust. */
+export type CandidateOrigin = "LOCAL" | "OPEN_FOOD_FACTS" | "WEB_EXTRACT";
+
+/**
+ * One food the resolver offers for a component.
+ *
+ * Offered rather than silently applied: Open Food Facts is a database of branded
+ * products, so a generic word like "Brot" resolves to one specific supermarket
+ * loaf. Which one has to be visible to the person approving the meal, and
+ * changeable by them.
+ */
+export interface ComponentCandidate {
+  foodId: string;
+  name: string;
+  brand: string | null;
+  origin: CandidateOrigin;
+  score: number;
+  isEstimated: boolean;
+  /** The page a web extraction read, so the numbers stay traceable. */
+  url: string | null;
+  /**
+   * Grams for this component against *this* food. It belongs on the candidate,
+   * not on the component: "2 Scheiben" is 60 g of a bread with a 30 g slice
+   * serving and 50 g of one with a 25 g slice, so switching the choice in the
+   * review screen has to switch the weight with it.
+   */
+  grams: number | null;
+  gramsSource: GramsSource;
+}
+
+/** Where the gram weight for a component came from. */
+export type GramsSource = "SERVING" | "UNIT" | "MODEL" | "NONE";
+
+export interface ResolvedComponent {
+  candidates: ComponentCandidate[];
+  /** Pre-selected only when the candidate's name plausibly matches. */
+  selectedFoodId: string | null;
+  grams: number | null;
+  gramsSource: GramsSource;
+}
+
 export interface ProposedComponent {
   name: string;
   quantity?: number;
@@ -17,6 +58,11 @@ export interface ProposedComponent {
   estimatedGrams?: number;
   preparation?: string;
   canonicalFoodId?: string | null;
+  /** What the resolver found, for the reviewer to choose from. */
+  candidates?: ComponentCandidate[];
+  /** Grams as resolved, preferring the food's own serving data. */
+  grams?: number | null;
+  gramsSource?: GramsSource;
   /**
    * True when `nutritionPer100g` came from the model rather than from a food in
    * the database. Such a component may still be approved, but only ever as a
@@ -41,30 +87,89 @@ export const isEstimatedComponent = (component: ProposedComponent) =>
   !component.canonicalFoodId &&
   component.estimated === true &&
   hasNutrition(component.nutritionPer100g) &&
-  hasWeight(component);
-
-const hasWeight = (component: ProposedComponent) =>
-  typeof component.estimatedGrams === "number" && component.estimatedGrams > 0;
+  componentGrams(component) !== null;
 
 const hasNutrition = (values: ProposedComponent["nutritionPer100g"]) =>
   Boolean(values && Object.values(values).some((value) => typeof value === "number"));
 
+const positive = (value: number | null | undefined) =>
+  typeof value === "number" && value > 0 ? value : null;
+
 /**
- * Splits a proposal into what may be logged and what may not.
+ * The weight to log for a component, given the food finally chosen for it.
  *
- * A component needs a weight and a source of nutrition. The source is a food the
- * user can see, or - failing that - numbers the model stated for it, which are
- * logged only as a marked estimate. What is never allowed is an entry with no
- * nutrition behind it at all: that would log as zero calories and silently
- * understate the day, which is worse than no entry.
+ * The chosen candidate's own serving data wins, because a serving weight is a
+ * fact about a food. The model's `estimatedGrams` is the fallback, because a
+ * portion size is an interpretation of the sentence rather than a fact - and it
+ * is the one number a nutrition source rarely carries.
  */
-export function partitionComponents(components: ProposedComponent[]) {
-  const loggable: ProposedComponent[] = [];
+export function componentGrams(component: ProposedComponent, foodId?: string | null): number | null {
+  const candidate = foodId ? component.candidates?.find((entry) => entry.foodId === foodId) : undefined;
+  return positive(candidate?.grams) ?? positive(component.grams) ?? positive(component.estimatedGrams);
+}
+
+/** What approving a component actually does. */
+export interface ComponentDecision {
+  component: ProposedComponent;
+  /** null means "log the model's own estimate", which needs its own food. */
+  foodId: string | null;
+  grams: number;
+}
+
+/** The reviewer's choices, beyond naming a food id outright. */
+export const SKIP_CHOICE = "";
+export const ESTIMATE_CHOICE = "estimate";
+
+/**
+ * Decides what a proposal logs, honouring the reviewer's choice per component.
+ *
+ * A component needs a weight and a source of nutrition. The source is the food
+ * chosen for it - pre-selected by the resolver or picked in the review screen -
+ * or, when nothing resolved, the numbers the model stated, logged only as a
+ * marked estimate. What is never allowed is an entry with no nutrition behind it
+ * at all: that logs as zero calories and silently understates the day, which is
+ * worse than no entry.
+ *
+ * `selection` returns a food id, `ESTIMATE_CHOICE` to accept the model's own
+ * numbers, `SKIP_CHOICE` to leave the component out, or undefined to let the
+ * resolver's own choice stand.
+ */
+export function decideComponents(
+  components: ProposedComponent[],
+  selection: (index: number) => string | null | undefined = () => undefined,
+) {
+  const loggable: ComponentDecision[] = [];
   const skipped: string[] = [];
-  for (const component of components) {
-    if ((component.canonicalFoodId && hasWeight(component)) || isEstimatedComponent(component)) loggable.push(component);
-    else skipped.push(component.name);
-  }
+
+  components.forEach((component, index) => {
+    const picked = selection(index);
+
+    // An explicit decline is final: it never falls back to an estimate.
+    if (picked === SKIP_CHOICE) {
+      skipped.push(component.name);
+      return;
+    }
+
+    const wantsEstimate = picked === ESTIMATE_CHOICE || (picked === undefined && !component.canonicalFoodId);
+    const foodId = wantsEstimate ? null : (picked ?? component.canonicalFoodId ?? null);
+    const grams = componentGrams(component, foodId);
+
+    if (grams === null) {
+      skipped.push(component.name);
+      return;
+    }
+    if (foodId) {
+      loggable.push({ component, foodId, grams });
+      return;
+    }
+    // Only the model's own numbers are left, and only if it actually gave any.
+    if (isEstimatedComponent(component)) {
+      loggable.push({ component, foodId: null, grams });
+      return;
+    }
+    skipped.push(component.name);
+  });
+
   return { loggable, skipped };
 }
 

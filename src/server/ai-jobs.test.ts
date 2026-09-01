@@ -3,17 +3,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { prismaMock, aiJob, aiJobAttempt } = vi.hoisted(() => {
   const aiJob = { findFirst: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() };
   const aiJobAttempt = { create: vi.fn() };
-  return { aiJob, aiJobAttempt, prismaMock: { aiJob, aiJobAttempt, aiProposal: { upsert: vi.fn() }, food: { findFirst: vi.fn() }, $transaction: vi.fn() } };
+  const user = { findUnique: vi.fn(async () => ({ profile: { language: "de", researchEnabled: false } })) };
+  return {
+    aiJob,
+    aiJobAttempt,
+    prismaMock: { aiJob, aiJobAttempt, user, aiProposal: { upsert: vi.fn() }, food: { findFirst: vi.fn() }, $transaction: vi.fn() },
+  };
 });
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
-vi.mock("./foods", () => ({ visibleFoodWhere: (userId: string) => ({ OR: [{ ownerId: null }, { ownerId: userId }] }) }));
+// The worker resolves a component through `component-resolver` now, which pulls
+// the whole food-search pipeline. These tests drive the retry paths, so the
+// resolver is stubbed rather than exercised here.
+vi.mock("./component-resolver", () => ({
+  resolveComponent: vi.fn(async () => ({ candidates: [], selectedFoodId: null, grams: null, gramsSource: "NONE" })),
+}));
 vi.mock("./research", () => ({ fetchResearchSource: vi.fn(), runResearchJob: vi.fn(), failResearchJob: vi.fn() }));
 vi.mock("./recipe-import", () => ({ runRecipeImport: vi.fn(), discardRecipeImportImage: vi.fn() }));
 vi.mock("./food-enrichment", () => ({ enrichFood: vi.fn(), missingNutritionKeys: vi.fn(() => []) }));
 
 import { claimNextJob, findConservativeDuplicate, mealParseSchema, processNextAiJob, reclaimStaleJobs } from "./ai-jobs";
-import { jobPriority, partitionComponents, STUCK_RUNNING_MS } from "./ai-types";
+import { decideComponents, jobPriority, STUCK_RUNNING_MS } from "./ai-types";
 import { failResearchJob, runResearchJob } from "./research";
 import { runRecipeImport } from "./recipe-import";
 
@@ -196,15 +206,55 @@ describe("features the worker owns", () => {
 });
 
 describe("what an approved proposal may log", () => {
-  it("logs only components with both a matched food and a weight", () => {
-    const { loggable, skipped } = partitionComponents([
+  it("logs only components with both a resolved food and a weight", () => {
+    const { loggable, skipped } = decideComponents([
       { name: "egg", canonicalFoodId: "food-1", estimatedGrams: 120 },
       { name: "grandma's secret sauce", canonicalFoodId: null, estimatedGrams: 30 },
       { name: "rye bread", canonicalFoodId: "food-2" },
       { name: "water", canonicalFoodId: "food-3", estimatedGrams: 0 },
     ]);
 
-    expect(loggable.map((c) => c.name)).toEqual(["egg"]);
+    expect(loggable.map((entry) => entry.component.name)).toEqual(["egg"]);
     expect(skipped).toEqual(["grandma's secret sauce", "rye bread", "water"]);
+  });
+
+  it("logs the food the reviewer chose, with that food's own weight", () => {
+    const component = {
+      name: "Brot",
+      quantity: 2,
+      unit: "Scheibe",
+      estimatedGrams: 60,
+      canonicalFoodId: "loaf-a",
+      candidates: [
+        { foodId: "loaf-a", name: "Toastbrot", brand: null, origin: "OPEN_FOOD_FACTS" as const, score: 400, isEstimated: false, url: null, grams: 60, gramsSource: "SERVING" as const },
+        { foodId: "loaf-b", name: "Vollkornbrot", brand: null, origin: "OPEN_FOOD_FACTS" as const, score: 380, isEstimated: false, url: null, grams: 90, gramsSource: "SERVING" as const },
+      ],
+    };
+
+    const { loggable } = decideComponents([component], () => "loaf-b");
+    expect(loggable).toHaveLength(1);
+    expect(loggable[0].foodId).toBe("loaf-b");
+    // Switching the choice switches the weight: a thicker slice is more grams.
+    expect(loggable[0].grams).toBe(90);
+  });
+
+  it("treats an explicit decline as final, never falling back to an estimate", () => {
+    const component = {
+      name: "Mett",
+      estimatedGrams: 30,
+      canonicalFoodId: null,
+      estimated: true,
+      nutritionPer100g: { energyKcal: 250 },
+    };
+
+    expect(decideComponents([component]).loggable).toHaveLength(1);
+    expect(decideComponents([component], () => "").loggable).toHaveLength(0);
+    expect(decideComponents([component], () => "").skipped).toEqual(["Mett"]);
+  });
+
+  it("accepts the model's own numbers only when it actually gave any", () => {
+    const withoutNumbers = { name: "Marmelade", estimatedGrams: 20, canonicalFoodId: null, estimated: true };
+    expect(decideComponents([withoutNumbers], () => "estimate").loggable).toHaveLength(0);
+    expect(decideComponents([withoutNumbers], () => "estimate").skipped).toEqual(["Marmelade"]);
   });
 });

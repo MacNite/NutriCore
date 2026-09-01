@@ -6,7 +6,8 @@ import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { reviewAiProposalAction } from "@/server/meal-ai-actions";
-import { isEstimatedComponent, type AcceptedOutcome, type ProposedComponent } from "@/server/ai-types";
+import { componentGrams, type AcceptedOutcome, type ProposedComponent } from "@/server/ai-types";
+import { ComponentChoice, type ChoiceLabels } from "./component-choice";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,26 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
   const proposed = proposal?.proposed as { components?: ProposedComponent[]; warnings?: string[] } | undefined;
   const outcome = proposal?.accepted as AcceptedOutcome | null | undefined;
   const pending = job?.status === "QUEUED" || job?.status === "RUNNING";
+  const pendingReview = proposal?.approvalStatus === "PENDING";
+
+  // Built here so `ComponentChoice` stays free of translation plumbing.
+  const choiceLabels: ChoiceLabels = {
+    matched: t("matched"),
+    unmatched: t("unmatched"),
+    modelEstimate: t("modelEstimate"),
+    skip: t("skipComponent"),
+    origin: {
+      LOCAL: t("origin.LOCAL"),
+      OPEN_FOOD_FACTS: t("origin.OPEN_FOOD_FACTS"),
+      WEB_EXTRACT: t("origin.WEB_EXTRACT"),
+    },
+    gramsSource: {
+      SERVING: t("gramsSource.SERVING"),
+      UNIT: t("gramsSource.UNIT"),
+      MODEL: t("gramsSource.MODEL"),
+      NONE: "",
+    },
+  };
 
   return (
     <AppShell displayName={user.displayName}>
@@ -78,8 +99,13 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
             <span className="muted">{t("confidence", { value: proposal.confidence })}</span>
           </div>
 
-          <div className="table-scroll">
-            <table className="table">
+          {/* The table is inside the form: the choice per component and the
+              approval are one submission, so nothing can be approved against a
+              selection that was never sent. */}
+          <form action={reviewAiProposalAction}>
+            <input type="hidden" name="proposalId" value={proposal.id} />
+            <div className="table-scroll">
+              <table className="table">
               <thead>
                 <tr>
                   <th>{t("food")}</th>
@@ -89,7 +115,9 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
                 </tr>
               </thead>
               <tbody>
-                {proposed.components?.map((component, index) => (
+                {proposed.components?.map((component, index) => {
+                  const grams = componentGrams(component);
+                  return (
                   <tr key={index}>
                     <td>
                       <strong>{component.name}</strong>
@@ -103,47 +131,42 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
                     <td>
                       {component.quantity ?? "—"} {component.unit ?? ""}
                     </td>
-                    <td>{component.estimatedGrams ? t("estimated", { grams: component.estimatedGrams }) : "—"}</td>
                     <td>
-                      {component.canonicalFoodId ? (
-                        t("matched")
-                      ) : isEstimatedComponent(component) ? (
-                        // Marked by text and a badge, never by colour alone.
-                        <span className="badge badge-ai">{t("modelEstimate")}</span>
-                      ) : (
-                        t("unmatched")
-                      )}
-                      {component.sources?.[0]?.url ? (
-                        <>
-                          <br />
-                          <a href={component.sources[0].url} rel="noreferrer" target="_blank">
-                            {component.sources[0].title}
-                          </a>
-                        </>
-                      ) : null}
+                      {grams ? t("estimated", { grams: Math.round(grams) }) : "—"}
+                    </td>
+                    <td>
+                      <ComponentChoice
+                        component={component}
+                        index={index}
+                        labels={choiceLabels}
+                        readOnly={!pendingReview}
+                      />
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  );
+                })}
+                </tbody>
+              </table>
+            </div>
+
+            {pendingReview ? (
+              <div className="button-row">
+                <button className="btn btn-primary" name="decision" value="accept">
+                  {t("accept")}
+                </button>
+                <button className="btn btn-quiet" name="decision" value="reject">
+                  {t("reject")}
+                </button>
+              </div>
+            ) : null}
+          </form>
 
           <details>
             <summary>{t("provenance")}</summary>
             <pre className="provenance">{JSON.stringify(proposal.provenance, null, 2)}</pre>
           </details>
 
-          {proposal.approvalStatus === "PENDING" ? (
-            <form action={reviewAiProposalAction} className="button-row">
-              <input type="hidden" name="proposalId" value={proposal.id} />
-              <button className="btn btn-primary" name="decision" value="accept">
-                {t("accept")}
-              </button>
-              <button className="btn btn-quiet" name="decision" value="reject">
-                {t("reject")}
-              </button>
-            </form>
-          ) : proposal.approvalStatus === "ACCEPTED" ? (
+          {proposal.approvalStatus === "PENDING" ? null : proposal.approvalStatus === "ACCEPTED" ? (
             <div>
               <p>
                 <strong>{t("approved")}</strong>

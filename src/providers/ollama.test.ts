@@ -51,7 +51,7 @@ describe("Ollama adapter", () => {
    * generation ends, and Node's HTTP client aborts after its own 300 second
    * headers deadline no matter what timeout this adapter passes.
    */
-  it("streams, requests JSON format and caps the generated tokens", async () => {
+  it("streams, requests JSON format, caps the tokens and asks for no reasoning", async () => {
     const fetchMock = reply('{"name":"Rice","kcal":130}');
     vi.stubGlobal("fetch", fetchMock);
     await provider().complete({ system: "s", prompt: "p", schema });
@@ -59,7 +59,59 @@ describe("Ollama adapter", () => {
     expect(body.stream).toBe(true);
     expect(body.format).toBe("json");
     expect(body.options.num_predict).toBe(256);
+    // A reasoning model left to think spends the whole token budget on the
+    // chain of thought and never reaches the JSON.
+    expect(body.think).toBe(false);
     expect(body.messages[0].role).toBe("system");
+  });
+
+  it("retries without the think flag when Ollama rejects it", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "model does not support thinking" }), { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: { content: '{"name":"Rice","kcal":130}' } })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider().complete({ system: "s", prompt: "p", schema })).resolves.toMatchObject({ name: "Rice" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).think).toBe(false);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).think).toBeUndefined();
+  });
+
+  it("does not swallow an unrelated 400", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "invalid format" }), { status: 400 })),
+    );
+    await expect(provider().complete({ system: "s", prompt: "p", schema })).rejects.toBeInstanceOf(AIUnavailableError);
+  });
+
+  /**
+   * The failure that reached production: a six-word meal, an empty `content`,
+   * and the entire budget spent in `message.thinking`.
+   */
+  it("blames reasoning when the budget went to thinking and no answer arrived", async () => {
+    vi.stubGlobal(
+      "fetch",
+      stream([
+        { message: { thinking: "Let me consider the bread. ".repeat(20) } },
+        { done: true, done_reason: "length", eval_count: 256 },
+      ]),
+    );
+
+    await expect(provider().complete({ system: "s", prompt: "p", schema })).rejects.toMatchObject({
+      name: "AIOutputTruncatedError",
+      message: expect.stringContaining("reasoning rather than answering"),
+    });
+  });
+
+  it("reports how many tokens a cut-off answer used", async () => {
+    vi.stubGlobal(
+      "fetch",
+      stream([...chunks('{"name":"Rice","kcal":'), { done: true, done_reason: "length", eval_count: 256 }]),
+    );
+    await expect(provider().complete({ system: "s", prompt: "p", schema })).rejects.toMatchObject({
+      message: expect.stringContaining("after 256 tokens"),
+    });
   });
 
   it("reassembles an answer that arrived in many chunks", async () => {

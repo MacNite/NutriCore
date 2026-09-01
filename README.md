@@ -238,8 +238,34 @@ is background work and runs behind all of them - see the priority note below.
 The review pages refresh themselves while the worker is busy, so a queued job
 does not look like a broken one.
 
-The worker performs local canonical matching first, uses SearXNG only for source
-discovery, and stores a pending human-review proposal.
+#### How a quick meal becomes diary entries
+
+The model decomposes the sentence; it is not asked what a food contains. Each
+component it names is then resolved by `src/server/component-resolver.ts`, which
+stops at the first step that yields nutrition:
+
+1. **Your own database**, through the same local-first pipeline the food search
+   uses - substrings, brands and aliases, not exact equality.
+2. **Open Food Facts**, reached by that same pipeline when nothing local is
+   convincing, and cached locally as a real food with provenance.
+3. **The open web**, only with `RESEARCH_ENABLED` and the per-user consent:
+   SearXNG finds a page, the model reads the per-100 g values off it, and a food
+   is created carrying that URL.
+4. **The model's own numbers**, last and only if it offered any, stored as a
+   clearly badged estimate.
+
+Nothing is chosen silently. Open Food Facts is a database of *branded products*,
+so a generic word like "Brot" resolves to one specific supermarket loaf - the
+review screen therefore lists the candidates it found, names each one and where
+it came from, shows the grams each would log, and lets you pick another or leave
+the component out. A component with no nutrition behind it is reported as skipped
+rather than logged as zero calories.
+
+Gram weights prefer the chosen food's own serving data: "2 Scheiben" against a
+bread with a 30 g slice serving is 60 g, and switching to a bread with a 45 g
+slice makes it 90 g. Only when neither the unit nor the food settles it does the
+model's portion estimate stand - a portion size is an interpretation of the
+sentence, while a serving weight is a fact about a food.
 
 Nothing reaches the diary until a human approves it. On approval, only the
 components matched to a food already in the database are logged, each freezing
@@ -316,6 +342,12 @@ they are worth knowing about because the symptoms were indistinguishable:
   array becomes a grammar under which the model is never obliged to stop.
   `OLLAMA_MAX_OUTPUT_TOKENS` (default 2048) is that ceiling; an answer stopped by
   it is reported as *Answer cut off*, not as malformed JSON.
+- **Reasoning eating the whole budget.** A hybrid reasoning model emits its chain
+  of thought before the grammar-constrained JSON, in its own `thinking` field,
+  and those tokens count against the same ceiling. A six-word quick meal spent
+  1950 tokens and 161 seconds thinking and never reached the JSON. Requests now
+  send `think: false`, and when a model ignores that the panel says how much of
+  the budget was reasoning rather than answering.
 - **Validation stricter than the code needed.** The grammar enforces shape only -
   llama.cpp ignores numeric ranges and string lengths - so a model that did not
   know a gram weight wrote `0`, and the whole meal was rejected over one value.

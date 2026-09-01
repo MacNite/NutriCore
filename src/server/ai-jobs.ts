@@ -1,19 +1,20 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { env } from "@/lib/env";
 import { normalizeName } from "@/lib/units";
 import { modelNutritionSchema } from "@/lib/research";
 import { OllamaProvider } from "@/providers/ollama";
 import { SearxngClient } from "@/providers/searxng";
 import { logger } from "@/lib/logger";
 import { failResearchJob, fetchResearchSource, runResearchJob } from "./research";
-import { visibleFoodWhere } from "./foods";
 import { asUntrustedExcerpt } from "@/lib/url-guard";
 import { enrichFood } from "./food-enrichment";
 import { discardRecipeImportImage, runRecipeImport } from "./recipe-import";
 import { describeFailure } from "./ai-failures";
 import { repairMealParse } from "./ai-repair";
-import { jobPriority, STUCK_RUNNING_MS } from "./ai-types";
+import { jobPriority, STUCK_RUNNING_MS, type ProposedComponent } from "./ai-types";
+import { resolveComponent, type ResolverContext } from "./component-resolver";
 
 export const mealParseSchema = z.object({
   components: z
@@ -234,41 +235,38 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       repair: repairMealParse,
     });
 
-    const components = [];
+    // Where the component's nutrition comes from. `resolveComponent` runs the
+    // local -> Open Food Facts -> open web chain and offers what it found; the
+    // model's own numbers are only ever the last resort, and are marked as such.
+    const owner = await prisma.user.findUnique({
+      where: { id: job.userId },
+      select: { profile: { select: { language: true, researchEnabled: true } } },
+    });
+    const context: ResolverContext = {
+      userId: job.userId,
+      locale: owner?.profile?.language ?? "de",
+      webSourcesAllowed: env().RESEARCH_ENABLED && Boolean(owner?.profile?.researchEnabled),
+      deps,
+    };
+
+    const components: ProposedComponent[] = [];
     for (const component of parsed.components) {
-      const normalized = normalizeName(component.name);
-      // Scoped to what this user may see: another account's custom food must not
-      // surface in a proposal, let alone be logged from one.
-      const food = await prisma.food.findFirst({
-        where: {
-          AND: [
-            visibleFoodWhere(job.userId),
-            { OR: [{ normalizedName: normalized }, { aliases: { some: { name: { equals: component.name, mode: "insensitive" } } } }] },
-          ],
-        },
-        include: { nutrients: true, sources: true },
-      });
+      const resolved = await resolveComponent(component, context);
+      const estimated = !resolved.selectedFoodId && Boolean(component.nutritionPer100g);
 
-      let sources = food?.sources.map((s) => ({ title: s.provider, url: s.url })).filter((s) => s.url) ?? [];
-      if (!food)
-        try {
-          sources = await (deps.search ?? new SearxngClient()).search(`${component.name} nutrition per 100g`);
-        } catch (error) {
-          logger.warn("SearXNG lookup failed", { jobId: job.id, reason: error instanceof Error ? error.message : "unknown" });
-        }
-
-      // Database values always win. The model's own numbers are a fallback for a
-      // component nothing matched, and they are marked as an estimate so nothing
-      // downstream can mistake them for a sourced fact.
-      const estimated = !food && Boolean(component.nutritionPer100g);
       components.push({
         ...component,
-        canonicalFoodId: food?.id ?? null,
+        canonicalFoodId: resolved.selectedFoodId,
+        candidates: resolved.candidates,
+        grams: resolved.grams,
+        gramsSource: resolved.gramsSource,
         estimated,
-        nutritionPer100g: food
-          ? Object.fromEntries(food.nutrients.map((n) => [n.nutrientKey, n.value === null ? null : Number(n.value)]))
-          : (component.nutritionPer100g ?? null),
-        sources,
+        // Only carried when nothing resolved: a sourced candidate supplies its
+        // own values, and duplicating them here would let a stale copy be logged.
+        nutritionPer100g: estimated ? (component.nutritionPer100g ?? null) : null,
+        sources: resolved.candidates
+          .filter((candidate) => candidate.url)
+          .map((candidate) => ({ title: candidate.name, url: candidate.url! })),
       });
     }
 

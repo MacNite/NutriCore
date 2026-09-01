@@ -540,7 +540,18 @@
     "nothingLogged": "Kein Bestandteil konnte einem bekannten Lebensmittel zugeordnet werden, es wurde nichts eingetragen.",
     "addManually": "Lebensmittel suchen",
     "modelEstimate": "KI-Schätzung",
-    "loggedAsEstimate": "Ohne Treffer in der Datenbank – aus den Zahlen des Modells als Schätzung übernommen: {names}. Diese Werte sind nicht belegt; prüfe sie, wenn sie zählen sollen."
+    "loggedAsEstimate": "Ohne Treffer in der Datenbank – aus den Zahlen des Modells als Schätzung übernommen: {names}. Diese Werte sind nicht belegt; prüfe sie, wenn sie zählen sollen.",
+    "skipComponent": "Nicht übernehmen",
+    "origin": {
+      "LOCAL": "Aus deiner Datenbank",
+      "OPEN_FOOD_FACTS": "Open Food Facts",
+      "WEB_EXTRACT": "Aus einer Webquelle ausgelesen"
+    },
+    "gramsSource": {
+      "SERVING": "Portionsangabe des Lebensmittels",
+      "UNIT": "Menge direkt angegeben",
+      "MODEL": "Portionsschätzung der KI"
+    }
   },
   "admin": {
     "title": "Administration",

@@ -7,7 +7,7 @@ vi.mock("@/lib/db", () => ({ prisma: {} }));
 
 import { researchResultSchema } from "@/lib/research";
 import { mealParseSchema } from "./ai-jobs";
-import { partitionComponents, type ProposedComponent } from "./ai-types";
+import { decideComponents, type ProposedComponent } from "./ai-types";
 import {
   confidenceBand,
   positiveOrAbsent,
@@ -46,7 +46,7 @@ describe("repairing a meal parse", () => {
     const result = mealParseSchema.parse(repairMealParse(modelAnswer));
     expect(result.components[0].estimatedGrams).toBeUndefined();
     // Which means the component is still reported as skipped, not logged.
-    const { loggable, skipped } = partitionComponents(result.components as ProposedComponent[]);
+    const { loggable, skipped } = decideComponents(result.components as ProposedComponent[]);
     expect(loggable).toHaveLength(0);
     expect(skipped).toEqual(["Rührei", "Vollkornbrot", "Butter"]);
   });

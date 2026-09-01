@@ -2,12 +2,25 @@ import { z } from "zod";
 import { resolveAiBaseUrl, resolveAiModel } from "@/lib/env";
 import { AIInvalidOutputError, AIOutputTruncatedError, AIUnavailableError, type AICapabilities, type AIProvider } from "./ai";
 
-/** One line of Ollama's streaming response. Everything but the text is optional. */
+/**
+ * One line of Ollama's streaming response. Everything but the text is optional.
+ *
+ * `thinking` matters: a reasoning model's chain of thought arrives in its own
+ * field, not in `content`, and it is counted against `num_predict` like any
+ * other token. Reading it is the only way to tell "the model wrote too much
+ * JSON" apart from "the model spent its whole budget thinking and never got to
+ * the JSON" - which look identical from `content` alone, because `content` is
+ * then empty.
+ */
 const streamChunk = z.object({
-  message: z.object({ content: z.string().optional() }).optional(),
+  message: z
+    .object({ content: z.string().optional(), thinking: z.string().optional() })
+    .optional(),
   response: z.string().optional(),
+  thinking: z.string().optional(),
   done: z.boolean().optional(),
   done_reason: z.string().optional(),
+  eval_count: z.number().optional(),
   error: z.string().optional(),
 });
 
@@ -94,33 +107,39 @@ export class OllamaProvider implements AIProvider {
     images?: string[];
     repair?: (value: unknown) => unknown;
   }): Promise<T> {
-    let response: Response;
-    try {
-      response = await fetch(`${this.baseUrl}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: this.model,
-          stream: true,
-          format: jsonSchema ?? "json",
-          options: { temperature: 0.2, num_predict: this.maxOutputTokens },
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: prompt, ...(images?.length ? { images } : {}) },
-          ],
-        }),
-        signal: AbortSignal.timeout(this.timeoutMs),
+    const body = (think: boolean | undefined) =>
+      JSON.stringify({
+        model: this.model,
+        stream: true,
+        format: jsonSchema ?? "json",
+        options: { temperature: 0.2, num_predict: this.maxOutputTokens },
+        // Structured extraction wants an answer, not a deliberation. A reasoning
+        // model left to think spends `num_predict` on the chain of thought and
+        // can be stopped before it ever reaches the JSON - which is exactly what
+        // a six-word quick meal did, at 2048 tokens and 161 seconds.
+        ...(think === undefined ? {} : { think }),
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: prompt, ...(images?.length ? { images } : {}) },
+        ],
       });
-    } catch (error) {
-      throw new AIUnavailableError(this.name, "Ollama request failed", error);
+
+    let response = await this.post(body(false));
+    // Older Ollama builds, and models with no thinking template, reject the
+    // field outright. Retry once without it rather than failing the job.
+    if (response.status === 400) {
+      const complaint = await response.text().catch(() => "");
+      if (/think/i.test(complaint)) response = await this.post(body(undefined));
+      else throw new AIUnavailableError(this.name, `Ollama responded with 400`, complaint.slice(0, 300));
     }
 
     if (!response.ok) throw new AIUnavailableError(this.name, `Ollama responded with ${response.status}`);
 
-    const { content, truncated } = await this.readStream(response);
+    const { content, thinking, truncated, generatedTokens } = await this.readStream(response);
 
-    // Reasoning models emit a thinking block before the answer; drop it.
+    // A model that ignores `think: false` still emits an inline block; drop it.
     const cleaned = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    const cutOff = () => new AIOutputTruncatedError(this.maxOutputTokens, generatedTokens, thinking.length);
 
     let parsed: unknown;
     try {
@@ -128,16 +147,29 @@ export class OllamaProvider implements AIProvider {
     } catch {
       // A cut-off answer is almost never valid JSON, and reporting it as such
       // hides the real problem: the model was still writing when it was stopped.
-      if (truncated) throw new AIOutputTruncatedError(this.maxOutputTokens);
+      if (truncated || (!cleaned && thinking)) throw cutOff();
       throw new AIInvalidOutputError("response was not valid JSON");
     }
 
     const result = schema.safeParse(repair ? repair(parsed) : parsed);
     if (!result.success) {
-      if (truncated) throw new AIOutputTruncatedError(this.maxOutputTokens);
+      if (truncated) throw cutOff();
       throw new AIInvalidOutputError(result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
     }
     return result.data;
+  }
+
+  private async post(body: string): Promise<Response> {
+    try {
+      return await fetch(`${this.baseUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (error) {
+      throw new AIUnavailableError(this.name, "Ollama request failed", error);
+    }
   }
 
   /**
@@ -149,16 +181,29 @@ export class OllamaProvider implements AIProvider {
    * come back as a single object with no trailing newline, and a server that
    * chose not to stream at all still has to work.
    */
-  private async readStream(response: Response): Promise<{ content: string; truncated: boolean }> {
+  private async readStream(
+    response: Response,
+  ): Promise<{ content: string; thinking: string; truncated: boolean; generatedTokens: number | null }> {
     if (!response.body) throw new AIUnavailableError(this.name, "Ollama returned an empty response body");
 
     const decoder = new TextDecoder();
     const reader = response.body.getReader();
     let buffered = "";
     let content = "";
+    let thinking = "";
     let truncated = false;
+    let generatedTokens: number | null = null;
     let sawChunk = false;
     let drained = false;
+
+    const take = (line: string) => {
+      const chunk = takeChunk(line, this.name);
+      sawChunk = true;
+      content += chunk.text;
+      thinking += chunk.thinking;
+      truncated = truncated || chunk.truncated;
+      if (chunk.generatedTokens !== undefined) generatedTokens = chunk.generatedTokens;
+    };
 
     try {
       for (;;) {
@@ -170,12 +215,7 @@ export class OllamaProvider implements AIProvider {
         while (newline !== -1) {
           const line = buffered.slice(0, newline).trim();
           buffered = buffered.slice(newline + 1);
-          if (line) {
-            const chunk = takeChunk(line, this.name);
-            sawChunk = true;
-            content += chunk.text;
-            truncated = truncated || chunk.truncated;
-          }
+          if (line) take(line);
           newline = buffered.indexOf("\n");
         }
 
@@ -199,19 +239,17 @@ export class OllamaProvider implements AIProvider {
     // A response that never streamed is still valid JSON when the server chose
     // not to stream at all; accept it rather than failing on the envelope shape.
     const trailing = buffered.trim();
-    if (trailing) {
-      const chunk = takeChunk(trailing, this.name);
-      sawChunk = true;
-      content += chunk.text;
-      truncated = truncated || chunk.truncated;
-    }
+    if (trailing) take(trailing);
 
     if (!sawChunk) throw new AIUnavailableError(this.name, "Ollama returned an unexpected envelope");
-    return { content, truncated };
+    return { content, thinking, truncated, generatedTokens };
   }
 }
 
-function takeChunk(line: string, provider: string): { text: string; truncated: boolean } {
+function takeChunk(
+  line: string,
+  provider: string,
+): { text: string; thinking: string; truncated: boolean; generatedTokens?: number } {
   let raw: unknown;
   try {
     raw = JSON.parse(line);
@@ -225,7 +263,9 @@ function takeChunk(line: string, provider: string): { text: string; truncated: b
 
   return {
     text: parsed.data.message?.content ?? parsed.data.response ?? "",
+    thinking: parsed.data.message?.thinking ?? parsed.data.thinking ?? "",
     truncated: parsed.data.done_reason === "length",
+    generatedTokens: parsed.data.eval_count,
   };
 }
 

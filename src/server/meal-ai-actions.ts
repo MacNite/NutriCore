@@ -11,7 +11,7 @@ import { requireUser } from "./session";
 import { addDiaryEntry, formatDateKey } from "./diary";
 import { checkUrl } from "@/lib/url-guard";
 import { validDateKey } from "@/lib/date";
-import { jobPriority, partitionComponents, type AcceptedOutcome, type ProposedComponent } from "./ai-types";
+import { decideComponents, jobPriority, type AcceptedOutcome, type ProposedComponent } from "./ai-types";
 
 export async function queueMealInputAction(formData: FormData) {
   const user = await requireUser();
@@ -132,28 +132,35 @@ export async function reviewAiProposalAction(formData: FormData) {
   if (!mealInput) throw new Error("Proposal has no meal to log against");
 
   const components = (proposal.proposed as { components?: ProposedComponent[] }).components ?? [];
-  const { loggable, skipped } = partitionComponents(components);
+  // One radio group per component, named by its index. An absent field leaves
+  // the resolver's own choice standing, which is what a form submitted without
+  // JavaScript does for a component that offered only one option.
+  const { loggable, skipped } = decideComponents(components, (index) => {
+    const raw = formData.get(`component-${index}`);
+    return raw === null ? undefined : String(raw);
+  });
+
   const date = formatDateKey(mealInput.diaryDate);
   const logged: string[] = [];
   const estimated: string[] = [];
 
-  for (const component of loggable) {
+  for (const { component, foodId: chosenFoodId, grams } of loggable) {
     try {
-      // A component nothing matched is logged against a food created here from
+      // A component nothing resolved is logged against a food created here from
       // the model's own numbers, marked as an estimate. Creating it is what makes
       // the entry auditable afterwards: the diary entry then freezes a snapshot
       // exactly like any other, and the food carries its provenance.
-      const foodId = component.canonicalFoodId ?? (await createEstimatedFood(user, component)).id;
+      const foodId = chosenFoodId ?? (await createEstimatedFood(user, component)).id;
       await addDiaryEntry({
         userId: user.id,
         date,
         meal: mealInput.meal,
         foodId,
-        quantity: component.estimatedGrams!,
+        quantity: grams,
         unit: "g",
       });
       logged.push(component.name);
-      if (!component.canonicalFoodId) estimated.push(component.name);
+      if (!chosenFoodId) estimated.push(component.name);
     } catch (error) {
       // A food deleted since the proposal was made, or a portion that cannot be
       // resolved, is a skip and not a failed approval.

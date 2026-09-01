@@ -98,6 +98,16 @@ not installed) skip the retry budget entirely, and every attempt is recorded on
 `AiJobAttempt` so a job that failed three different ways is distinguishable from
 one that failed the same way three times.
 
+A component the model names is resolved against sources, never against the model:
+`component-resolver.ts` walks local database, then Open Food Facts, then - with
+consent - a web page whose values the model merely reads. The model's own numbers
+are the last resort and are stored as a badged estimate. Because Open Food Facts
+holds branded products, a generic name resolves to a specific one, so candidates
+are offered for approval rather than applied: which product supplied a number has
+to be visible to the person accepting it. Gram weights prefer the chosen food's
+own serving data, and fall back to the model only for the portion reading, which
+is interpretation rather than fact.
+
 Every AI feature is a queued `AiJob`, never inline work in a request: a local
 model can take minutes, which no page interaction survives. `AiJob.priority`
 keeps work a user is waiting for ahead of background enrichment, and the worker
