@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { logoutAction } from "@/server/auth-actions";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV = [
@@ -55,6 +56,11 @@ export function AppShell({ displayName, children }: { displayName: string; child
 
           <div className="topbar-actions">
             <ThemeToggle />
+            <form action={logoutAction}>
+              <button className="btn btn-quiet" type="submit">
+                {t("signOut")}
+              </button>
+            </form>
             <Link href="/settings" className="avatar" title={displayName}>
               <span aria-hidden="true">{initials || "?"}</span>
               <span className="sr-only">{t("account")}</span>

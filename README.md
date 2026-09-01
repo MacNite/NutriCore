@@ -104,6 +104,21 @@ invitation shows the single-use link once, on that page, for the administrator
 to pass on themselves. If the link is lost, "Resend" issues a new one and
 revokes the old.
 
+When upgrading an installation that already had exactly one account before
+roles were introduced, the database migration automatically promotes that
+account to `ADMIN`. Sign out and back in after upgrading, then open Settings →
+Administration. Installations with multiple legacy accounts are deliberately
+not changed automatically; an operator can promote a specific account with:
+
+```sh
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+UPDATE "User" SET "role" = 'ADMIN' WHERE "email" = 'you@example.com';
+SQL
+```
+
+Replace `you@example.com` with the account email. The Administration link is
+only rendered for administrators.
+
 ### Prebuilt image or local build
 
 `docker compose up -d` pulls the prebuilt image named by `APP_IMAGE`

@@ -40,3 +40,14 @@ test("sign-in rejects a wrong password", async ({ page }) => {
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(page).toHaveURL(/\/login/);
 });
+
+test("a signed-in user can sign out from the app header", async ({ page }) => {
+  await registerAndOnboard(page);
+  await completeOnboarding(page);
+
+  await page.getByRole("button", { name: /sign out|abmelden/i }).click();
+
+  await expect(page).toHaveURL(/\/login$/);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login$/);
+});
