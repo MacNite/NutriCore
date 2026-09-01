@@ -531,6 +531,7 @@
     "resolution": "Resolution",
     "matched": "Matched to a known food",
     "unmatched": "No matching food — will be skipped",
+    "missingWeight": "Food found, but portion weight is missing",
     "estimated": "{grams} g (estimated)",
     "provenance": "Provenance",
     "accept": "Accept and log matched components",
@@ -538,12 +539,19 @@
     "approved": "Approved",
     "rejected": "Rejected",
     "logged": "{count} of {total} components were logged to your diary.",
-    "skipped": "Not logged, because no matching food was found:",
-    "nothingLogged": "No component could be matched to a known food, so nothing was logged.",
+    "skipped": "Components not logged:",
+    "nothingLogged": "No component had both a matching food and a usable portion weight, so nothing was logged.",
     "addManually": "Search foods",
     "modelEstimate": "AI estimate",
     "loggedAsEstimate": "No database match – logged as an estimate from the model's own numbers: {names}. These values are not sourced; check them if they matter.",
     "skipComponent": "Do not log",
+    "skipReason": {
+      "DECLINED": "not selected for logging",
+      "NO_FOOD": "no matching food with nutrition was found",
+      "NO_WEIGHT": "no usable portion weight was found",
+      "LOG_FAILED": "an error occurred while logging",
+      "LEGACY": "the food or portion weight could not be resolved"
+    },
     "origin": {
       "LOCAL": "From your database",
       "OPEN_FOOD_FACTS": "Open Food Facts",
@@ -559,7 +567,7 @@
     "pendingIntro": "Accepting logs the matches below to the diary. Open the review only if you want to pick a different food.",
     "acceptNow": "Accept",
     "openReview": "Review",
-    "nothingLoggable": "None of it could be matched to a food with nutrition values.",
+    "nothingLoggable": "No component has both a food with nutrition values and a usable portion weight.",
     "skippedShort": "Not logged:"
   },
   "admin": {

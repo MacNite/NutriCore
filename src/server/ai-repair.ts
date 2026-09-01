@@ -75,16 +75,44 @@ function repairComponent(value: unknown) {
   // A component with no name cannot be matched against anything, so it is not a
   // component; keeping it would only produce an unnamed skip in the review.
   if (!name) return undefined;
+  const quantity = positiveOrAbsent(value.quantity, 10000);
+  const repairedUnit = repairMealUnit(value.unit, quantity);
   return compact({
     name,
-    quantity: positiveOrAbsent(value.quantity, 10000),
-    unit: textOrAbsent(value.unit, 30),
-    estimatedGrams: positiveOrAbsent(value.estimatedGrams, 10000),
+    quantity,
+    unit: repairedUnit.unit,
+    // A proper JSON field always wins. The fallback only recovers a common
+    // small-model response such as `unit: "Scheiben (approx. 50g)"`.
+    estimatedGrams: positiveOrAbsent(value.estimatedGrams, 10000) ?? repairedUnit.estimatedGrams,
     preparation: textOrAbsent(value.preparation, 80),
     // Dropped whole unless all four macronutrients are present: a partial block
     // would either fail validation or, filled with zeroes, understate the meal.
     nutritionPer100g: isRecord(value.nutritionPer100g) ? repairModelNutrition(value.nutritionPer100g) : undefined,
   });
+}
+
+/**
+ * Pulls a per-item gram estimate out of a unit when a small model put it there.
+ *
+ * `estimatedGrams` is the total component weight, while text appended to a unit
+ * describes one of those units. Consequently "2 Scheiben (ca. 50 g)" becomes
+ * unit "Scheiben" and 100 estimated grams. This is a syntactic recovery of a
+ * number the model already supplied, not a new portion guess made by the code.
+ */
+function repairMealUnit(
+  value: unknown,
+  quantity: number | undefined,
+): { unit?: string; estimatedGrams?: number } {
+  const unit = textOrAbsent(value, 30);
+  if (!unit) return {};
+
+  const embedded = unit.match(/\s*[([]\s*(?:(?:ca|approx|approximately)\.?\s*)?(\d+(?:[.,]\d+)?)\s*g(?:ramm?)?\s*[)\]]\s*$/i);
+  if (!embedded) return { unit };
+
+  const gramsEach = positiveOrAbsent(embedded[1], 10000);
+  const cleanUnit = textOrAbsent(unit.slice(0, embedded.index).trim(), 30);
+  const estimatedGrams = gramsEach && quantity ? positiveOrAbsent(gramsEach * quantity, 10000) : gramsEach;
+  return compact({ unit: cleanUnit, estimatedGrams });
 }
 
 export function repairMealParse(value: unknown): unknown {
