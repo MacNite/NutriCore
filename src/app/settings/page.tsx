@@ -29,9 +29,6 @@ export default async function SettingsPage() {
         <div>
           <h1>{t("title")}</h1>
         </div>
-        <Link className="btn" href="/settings/diagnostics">
-          {t("diagnostics")}
-        </Link>
       </div>
 
       <div className="grid-main">
