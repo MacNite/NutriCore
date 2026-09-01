@@ -9,6 +9,8 @@ import { MicronutrientSummary } from "@/components/micronutrient-summary";
 import { CoverageNotice } from "@/components/coverage-notice";
 import { SourceBadge } from "@/components/source-badge";
 import { QuickAddLink } from "@/components/quick-add";
+import { PendingProposals } from "@/components/pending-proposals";
+import { pendingProposals } from "@/server/pending-proposals";
 import { QuickMealDialog } from "@/components/quick-meal-dialog";
 import { QuickMealForm } from "@/components/quick-meal-form";
 import { prisma } from "@/lib/db";
@@ -26,12 +28,13 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const diaryT = await getTranslations("diary");
   const targetT = await getTranslations("target");
   const common = await getTranslations("common");
+  const aiT = await getTranslations("aiReview");
   const locale = user.language;
   const today = formatDateKey(new Date());
   const params = await searchParams;
   const selectedDate = validDateKey(params.date, today);
 
-  const [day, target, recent] = await Promise.all([
+  const [day, target, recent, pending] = await Promise.all([
     getDiaryDay(user.id, selectedDate),
     getCurrentTarget(user.id),
     prisma.foodUsageStats.findMany({
@@ -40,6 +43,9 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
       take: 5,
       include: { food: { select: { id: true, name: true, brand: true, sourceType: true } } },
     }),
+    // A proposal was previously reachable only through the redirect that
+    // followed submitting a meal, so one left undecided was invisible.
+    pendingProposals(user.id),
   ]);
 
   const consumed = day.totals.energyKcal ?? 0;
@@ -65,6 +71,20 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
           </Link>
         </nav>
       </div>
+
+      <PendingProposals
+        proposals={pending}
+        returnTo="/"
+        labels={{
+          heading: aiT("pendingHeading"),
+          intro: aiT("pendingIntro"),
+          accept: aiT("acceptNow"),
+          reject: aiT("reject"),
+          review: aiT("openReview"),
+          nothingLoggable: aiT("nothingLoggable"),
+          skipped: aiT("skippedShort"),
+        }}
+      />
 
       <div className="grid-main">
         <div className="stack">

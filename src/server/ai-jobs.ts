@@ -12,6 +12,7 @@ import { asUntrustedExcerpt } from "@/lib/url-guard";
 import { enrichFood } from "./food-enrichment";
 import { discardRecipeImportImage, runRecipeImport } from "./recipe-import";
 import { describeFailure } from "./ai-failures";
+import { autoApproveProposal } from "./ai-approval";
 import { repairMealParse } from "./ai-repair";
 import { jobPriority, STUCK_RUNNING_MS, type ProposedComponent } from "./ai-types";
 import { resolveComponent, type ResolverContext } from "./component-resolver";
@@ -240,7 +241,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     // model's own numbers are only ever the last resort, and are marked as such.
     const owner = await prisma.user.findUnique({
       where: { id: job.userId },
-      select: { profile: { select: { language: true, researchEnabled: true } } },
+      select: { profile: { select: { language: true, researchEnabled: true, autoApproveAi: true } } },
     });
     const context: ResolverContext = {
       userId: job.userId,
@@ -279,7 +280,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     // construction - the review page reads it back through the same interface.
     const proposed = { components, warnings: parsed.warnings } as unknown as Prisma.InputJsonValue;
 
-    await prisma.$transaction([
+    const [savedProposal] = await prisma.$transaction([
       prisma.aiProposal.upsert({
         where: { jobId: job.id },
         create: { jobId: job.id, confidence: parsed.confidence, proposed, provenance },
@@ -290,6 +291,23 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
         data: { status: "COMPLETED", completedAt: new Date(), model: capabilities.model, errorMessage: null, failureKind: null, errorDetail: null },
       }),
     ]);
+
+    // The job is already COMPLETED at this point, so nothing after the
+    // transaction may throw: recordFailure would flip it back to QUEUED and the
+    // whole parse would run again. Applying the proposal is therefore guarded
+    // here as well as inside `autoApproveProposal`, and a failure just leaves the
+    // proposal pending for the review screen.
+    if (owner?.profile?.autoApproveAi !== false) {
+      try {
+        await autoApproveProposal(savedProposal.id);
+      } catch (error) {
+        logger.warn("Applying the proposal failed after the job completed", {
+          jobId: job.id,
+          reason: error instanceof Error ? error.message : "unknown",
+        });
+      }
+    }
+
     await queueFoodEnrichments(job.userId, components.flatMap((component) => component.canonicalFoodId ? [component.canonicalFoodId] : []));
   } catch (error) {
     await recordFailure(job, error);
@@ -297,7 +315,25 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
   return true;
 }
 
+/**
+ * Queues background backfilling for the foods a proposal touched.
+ *
+ * Runs after the job is already COMPLETED, so it must not throw: recordFailure
+ * would flip the job back to QUEUED and the whole parse would run again for the
+ * sake of an optional follow-up.
+ */
 async function queueFoodEnrichments(userId: string, foodIds: string[]) {
+  try {
+    await enqueueEnrichments(userId, foodIds);
+  } catch (error) {
+    logger.warn("Could not queue follow-up enrichment", {
+      userId,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+}
+
+async function enqueueEnrichments(userId: string, foodIds: string[]) {
   for (const entityId of new Set(foodIds)) {
     const existing = await prisma.aiJob.findFirst({ where: { entityType: "FOOD_ENRICHMENT", entityId, status: { in: ["QUEUED", "RUNNING"] } } });
     if (!existing) await prisma.aiJob.create({ data: { userId, entityType: "FOOD_ENRICHMENT", entityId, priority: jobPriority("FOOD_ENRICHMENT") } });

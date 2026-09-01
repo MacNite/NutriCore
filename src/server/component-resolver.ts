@@ -59,6 +59,14 @@ const originOf = (food: FoodResult): ComponentCandidate["origin"] =>
 const PREFIX_MATCH_MIN = 4;
 
 /**
+ * Nobody eats five kilograms of anything in one diary entry, so a weight past
+ * this is a misread unit rather than a portion - "250 Stück" against a 30 g
+ * serving would otherwise log 7.5 kg. Such a result is discarded and the
+ * model's own reading is used instead.
+ */
+const MAX_PLAUSIBLE_GRAMS = 5000;
+
+/**
  * Whether the unit the model wrote and a serving's own wording are the same word.
  *
  * German plurals are the whole point: the model writes "2 Scheiben" while the
@@ -90,29 +98,53 @@ export function resolveGrams(
   const unit = component.unit?.trim().toLowerCase() ?? "";
   const quantity = component.quantity;
 
-  if (quantity && quantity > 0) {
-    if (GRAM_UNITS.has(unit)) return { grams: quantity, source: "UNIT" };
-    if (ML_UNITS.has(unit)) return { grams: quantity * (food?.densityGPerMl ?? 1), source: "UNIT" };
+  // Tried in order of how much the answer is a fact rather than a reading, and
+  // the first plausible one wins. An implausible result falls through instead of
+  // stopping the search, so a misread unit still ends up with the model's weight.
+  for (const attempt of weightAttempts(component, food, unit, quantity)) {
+    if (attempt.grams > 0 && attempt.grams <= MAX_PLAUSIBLE_GRAMS) return attempt;
+  }
+  return { grams: null, source: "NONE" };
+}
 
-    if (food && unit) {
+function* weightAttempts(
+  component: Pick<ProposedComponent, "estimatedGrams">,
+  food: Pick<FoodResult, "servingSize" | "servingUnit" | "servings" | "densityGPerMl"> | null,
+  unit: string,
+  quantity: number | undefined,
+): Generator<{ grams: number; source: GramsSource }> {
+  if (quantity && quantity > 0) {
+    // A stated weight or volume needs no lookup at all.
+    if (GRAM_UNITS.has(unit)) yield { grams: quantity, source: "UNIT" };
+    else if (ML_UNITS.has(unit)) yield { grams: quantity * (food?.densityGPerMl ?? 1), source: "UNIT" };
+    else if (food && unit) {
       const wanted = normalizeName(unit);
+
       // A serving whose label or unit is the word the model used: "2 Scheiben"
       // against a "Scheibe" serving of 30 g is 60 g of that food.
-      const serving = food.servings.find(
+      const named = food.servings.find(
         (entry) =>
           Boolean(entry.gramEquivalent) &&
           (sameUnitWord(wanted, entry.label) || sameUnitWord(wanted, entry.unit)),
       );
-      if (serving?.gramEquivalent) return { grams: quantity * serving.gramEquivalent, source: "SERVING" };
+      if (named?.gramEquivalent) yield { grams: quantity * named.gramEquivalent, source: "SERVING" };
 
       if (food.servingSize && food.servingUnit && sameUnitWord(wanted, food.servingUnit))
-        return { grams: quantity * food.servingSize, source: "SERVING" };
+        yield { grams: quantity * food.servingSize, source: "SERVING" };
+
+      /**
+       * The unit is neither a weight nor a volume, so it is a count of portions -
+       * and the food knows what one portion weighs even when it calls it
+       * something else. Open Food Facts labels its serving after the amount
+       * ("30 g"), never "Scheibe", so requiring the words to match meant "2
+       * Scheiben Brot" resolved to no weight at all and could not be logged.
+       */
+      const anyServing = food.servings.find((entry) => entry.gramEquivalent)?.gramEquivalent ?? food.servingSize;
+      if (anyServing) yield { grams: quantity * anyServing, source: "PORTION" };
     }
   }
 
-  if (component.estimatedGrams && component.estimatedGrams > 0)
-    return { grams: component.estimatedGrams, source: "MODEL" };
-  return { grams: null, source: "NONE" };
+  if (component.estimatedGrams) yield { grams: component.estimatedGrams, source: "MODEL" };
 }
 
 /**

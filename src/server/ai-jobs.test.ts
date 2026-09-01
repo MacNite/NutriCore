@@ -1,13 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock, aiJob, aiJobAttempt } = vi.hoisted(() => {
+const { prismaMock, aiJob, aiJobAttempt, user } = vi.hoisted(() => {
   const aiJob = { findFirst: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() };
   const aiJobAttempt = { create: vi.fn() };
-  const user = { findUnique: vi.fn(async () => ({ profile: { language: "de", researchEnabled: false } })) };
+  const user = {
+    findUnique: vi.fn(async () => ({ profile: { language: "de", researchEnabled: false, autoApproveAi: true } })),
+  };
+  // The worker reads the created proposal out of the transaction result.
+  const $transaction = vi.fn(async () => [{ id: "proposal-1" }, {}]);
   return {
     aiJob,
     aiJobAttempt,
-    prismaMock: { aiJob, aiJobAttempt, user, aiProposal: { upsert: vi.fn() }, food: { findFirst: vi.fn() }, $transaction: vi.fn() },
+    user,
+    prismaMock: { aiJob, aiJobAttempt, user, aiProposal: { upsert: vi.fn() }, food: { findFirst: vi.fn() }, $transaction },
   };
 });
 
@@ -21,11 +26,14 @@ vi.mock("./component-resolver", () => ({
 vi.mock("./research", () => ({ fetchResearchSource: vi.fn(), runResearchJob: vi.fn(), failResearchJob: vi.fn() }));
 vi.mock("./recipe-import", () => ({ runRecipeImport: vi.fn(), discardRecipeImportImage: vi.fn() }));
 vi.mock("./food-enrichment", () => ({ enrichFood: vi.fn(), missingNutritionKeys: vi.fn(() => []) }));
+vi.mock("./ai-approval", () => ({ autoApproveProposal: vi.fn() }));
 
 import { claimNextJob, findConservativeDuplicate, mealParseSchema, processNextAiJob, reclaimStaleJobs } from "./ai-jobs";
 import { decideComponents, jobPriority, STUCK_RUNNING_MS } from "./ai-types";
 import { failResearchJob, runResearchJob } from "./research";
 import { runRecipeImport } from "./recipe-import";
+import { resolveComponent } from "./component-resolver";
+import { autoApproveProposal } from "./ai-approval";
 
 /** An AI provider whose generation always fails, to drive the retry paths. */
 const failingAi = {
@@ -202,6 +210,62 @@ describe("features the worker owns", () => {
     vi.mocked(runResearchJob).mockRejectedValueOnce(new Error("ollama unreachable"));
     await processNextAiJob();
     expect(failResearchJob).toHaveBeenCalledWith("entity-1");
+  });
+});
+
+describe("applying a proposal without the review screen", () => {
+  /** A parse the worker can carry all the way to a proposal. */
+  const workingAi = () => ({
+    capabilities: vi.fn().mockResolvedValue({ model: "qwen3.5:4b" }),
+    complete: vi.fn().mockResolvedValue({
+      components: [{ name: "Brot", quantity: 2, unit: "Scheiben" }],
+      confidence: "medium",
+      warnings: [],
+    }),
+  });
+
+  /**
+   * The review screen was only reachable through the redirect that followed
+   * submitting a meal, so a proposal nobody reviewed at once was a meal that
+   * never reached the diary.
+   */
+  it("applies the proposal when the user asked not to review every meal", async () => {
+    queueJob();
+    vi.mocked(resolveComponent).mockResolvedValue({
+      candidates: [],
+      selectedFoodId: "food-1",
+      grams: 60,
+      gramsSource: "PORTION",
+    });
+
+    await processNextAiJob({ ai: workingAi() as never });
+    expect(autoApproveProposal).toHaveBeenCalledWith("proposal-1");
+  });
+
+  it("leaves it pending when the user wants to approve each one", async () => {
+    queueJob();
+    user.findUnique.mockResolvedValueOnce({
+      profile: { language: "de", researchEnabled: false, autoApproveAi: false },
+    } as never);
+
+    await processNextAiJob({ ai: workingAi() as never });
+    expect(autoApproveProposal).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The job is already COMPLETED inside the transaction, so a throw afterwards
+   * would flip it back to QUEUED through recordFailure and re-run the whole
+   * parse. The parse and the resolution are worth keeping either way.
+   */
+  it("does not requeue a completed job when applying the proposal fails", async () => {
+    queueJob();
+    vi.mocked(autoApproveProposal).mockRejectedValueOnce(new Error("diary unavailable"));
+
+    await expect(processNextAiJob({ ai: workingAi() as never })).resolves.toBe(true);
+    expect(aiJobAttempt.create).not.toHaveBeenCalled();
+    expect(aiJob.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "QUEUED" }) }),
+    );
   });
 });
 

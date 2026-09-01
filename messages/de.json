@@ -354,7 +354,9 @@
     "secretMissing": "Nicht konfiguriert",
     "saved": "Einstellungen gespeichert.",
     "administration": "Administration",
-    "administrationHint": "Personen einladen, Konten deaktivieren und KI-Aufgaben im Hintergrund verfolgen."
+    "administrationHint": "Personen einladen, Konten deaktivieren und KI-Aufgaben im Hintergrund verfolgen.",
+    "autoApproveAi": "KI-Mahlzeiten automatisch übernehmen",
+    "autoApproveAiHint": "Eine erkannte Mahlzeit wird direkt ins Tagebuch geschrieben, ohne die Prüfseite. Jede Zuordnung bleibt nachvollziehbar und Schätzungen bleiben als solche markiert. Ausgeschaltet wartet jede Mahlzeit auf deine Freigabe."
   },
   "diagnostics": {
     "title": "Diagnose",
@@ -550,8 +552,15 @@
     "gramsSource": {
       "SERVING": "Portionsangabe des Lebensmittels",
       "UNIT": "Menge direkt angegeben",
-      "MODEL": "Portionsschätzung der KI"
-    }
+      "MODEL": "Portionsschätzung der KI",
+      "PORTION": "Portionsgewicht des Lebensmittels"
+    },
+    "pendingHeading": "Wartet auf deine Freigabe",
+    "pendingIntro": "Übernehmen schreibt die Zuordnung unten ins Tagebuch. Öffne die Prüfung nur, wenn du ein anderes Lebensmittel wählen willst.",
+    "acceptNow": "Übernehmen",
+    "openReview": "Prüfen",
+    "nothingLoggable": "Nichts davon konnte einem Lebensmittel mit Nährwerten zugeordnet werden.",
+    "skippedShort": "Nicht übernommen:"
   },
   "admin": {
     "title": "Administration",

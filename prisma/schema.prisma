@@ -275,6 +275,14 @@ model UserProfile {
   isBreastfeeding Boolean       @default(false)
   aiEnabled       Boolean       @default(true)
   researchEnabled Boolean       @default(false)
+  /**
+   * Apply an AI meal proposal to the diary without opening the review screen.
+   * Defaults on because a queued meal that is never reviewed is a meal that was
+   * never logged, and the review screen is only reachable straight after
+   * submitting. Everything it logs is still recorded on the proposal and every
+   * value still carries its provenance; turn it off to approve each one by hand.
+   */
+  autoApproveAi   Boolean       @default(true)
   theme           String        @default("system")
   onboardedAt     DateTime?
   createdAt       DateTime      @default(now())

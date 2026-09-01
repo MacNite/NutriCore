@@ -40,8 +40,13 @@ export interface ComponentCandidate {
   gramsSource: GramsSource;
 }
 
-/** Where the gram weight for a component came from. */
-export type GramsSource = "SERVING" | "UNIT" | "MODEL" | "NONE";
+/**
+ * Where the gram weight for a component came from, most factual first.
+ * `SERVING` matched the food's own wording; `PORTION` used the food's serving
+ * weight for a portion word it does not name; `MODEL` is the model's reading of
+ * the sentence.
+ */
+export type GramsSource = "SERVING" | "PORTION" | "UNIT" | "MODEL" | "NONE";
 
 export interface ResolvedComponent {
   candidates: ComponentCandidate[];

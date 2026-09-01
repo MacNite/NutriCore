@@ -354,7 +354,9 @@
     "secretMissing": "Not configured",
     "saved": "Settings saved.",
     "administration": "Administration",
-    "administrationHint": "Invite people, deactivate accounts and watch background AI work."
+    "administrationHint": "Invite people, deactivate accounts and watch background AI work.",
+    "autoApproveAi": "Log AI meals automatically",
+    "autoApproveAiHint": "A recognised meal goes straight into the diary, without the review screen. Every match stays traceable and estimates stay marked as estimates. Switched off, each meal waits for your approval."
   },
   "diagnostics": {
     "title": "Diagnostics",
@@ -550,8 +552,15 @@
     "gramsSource": {
       "SERVING": "the food's own serving size",
       "UNIT": "the amount as stated",
-      "MODEL": "AI portion estimate"
-    }
+      "MODEL": "AI portion estimate",
+      "PORTION": "the food's portion weight"
+    },
+    "pendingHeading": "Waiting for your approval",
+    "pendingIntro": "Accepting logs the matches below to the diary. Open the review only if you want to pick a different food.",
+    "acceptNow": "Accept",
+    "openReview": "Review",
+    "nothingLoggable": "None of it could be matched to a food with nutrition values.",
+    "skippedShort": "Not logged:"
   },
   "admin": {
     "title": "Administration",

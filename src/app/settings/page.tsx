@@ -50,6 +50,7 @@ export default async function SettingsPage() {
             }}
             aiEnabled={profile?.aiEnabled ?? true}
             researchEnabled={profile?.researchEnabled ?? false}
+            autoApproveAi={profile?.autoApproveAi ?? true}
             overrideKcal={target?.overrideKcal ?? null}
           />
         </div>

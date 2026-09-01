@@ -262,17 +262,37 @@ stops at the first step that yields nutrition:
    clearly badged estimate.
 
 Nothing is chosen silently. Open Food Facts is a database of *branded products*,
-so a generic word like "Brot" resolves to one specific supermarket loaf - the
-review screen therefore lists the candidates it found, names each one and where
-it came from, shows the grams each would log, and lets you pick another or leave
-the component out. A component with no nutrition behind it is reported as skipped
-rather than logged as zero calories.
+so a generic word like "Brot" resolves to one specific supermarket loaf. A
+component with no nutrition behind it is reported as skipped rather than logged
+as zero calories.
 
-Gram weights prefer the chosen food's own serving data: "2 Scheiben" against a
-bread with a 30 g slice serving is 60 g, and switching to a bread with a 45 g
-slice makes it 90 g. Only when neither the unit nor the food settles it does the
-model's portion estimate stand - a portion size is an interpretation of the
-sentence, while a serving weight is a fact about a food.
+Gram weights prefer what the chosen food actually knows, in this order:
+
+1. **A stated weight or volume** — "80 g Haferflocken" is 80 g.
+2. **A serving the food names** — "2 Scheiben" against a `Scheibe` serving of
+   30 g is 60 g, and picking a bread with a 45 g slice makes it 90 g.
+3. **The food's portion weight** — Open Food Facts labels its serving after the
+   amount ("30 g"), never "Scheibe", so a portion word it does not name still
+   uses its serving weight. Without this step "2 Scheiben Brot" resolved to no
+   weight at all and could not be logged however well the bread matched.
+4. **The model's estimate** — a portion size is an interpretation of the
+   sentence, while a serving weight is a fact about a food, so this comes last.
+
+A result over 5 kg is treated as a misread unit and falls through to the next
+step rather than logging it.
+
+#### Approving, or not
+
+By default a proposal is applied to the diary as soon as the worker finishes it,
+because the review screen used to be reachable *only* through the redirect that
+followed submitting a meal: navigate away and the proposal was unreachable, so a
+queued meal quietly became a meal that was never logged. Everything logged is
+still recorded on the proposal, every value still carries its provenance, and an
+estimate is still stored as an estimate.
+
+Turn **Settings → Log AI meals automatically** off to approve each one by hand.
+Proposals then wait on the dashboard with a one-click **Accept**, and the review
+screen is only needed to pick a different food for a component.
 
 Nothing reaches the diary until a human approves it. On approval, only the
 components matched to a food already in the database are logged, each freezing

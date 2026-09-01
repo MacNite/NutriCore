@@ -41,12 +41,14 @@ export function SettingsForms({
   values,
   aiEnabled,
   researchEnabled,
+  autoApproveAi,
   overrideKcal,
 }: {
   username: string;
   values: ProfileValues;
   aiEnabled: boolean;
   researchEnabled: boolean;
+  autoApproveAi: boolean;
   overrideKcal: number | null;
 }) {
   const t = useTranslations("settings");
@@ -135,6 +137,22 @@ export function SettingsForms({
               <label htmlFor="researchEnabled">{t("researchEnabled")}</label>
               <div className="hint" id="research-hint">
                 {t("researchEnabledHint")}
+              </div>
+            </div>
+          </div>
+
+          <div className="checkbox">
+            <input
+              id="autoApproveAi"
+              name="autoApproveAi"
+              type="checkbox"
+              defaultChecked={autoApproveAi}
+              aria-describedby="auto-approve-hint"
+            />
+            <div>
+              <label htmlFor="autoApproveAi">{t("autoApproveAi")}</label>
+              <div className="hint" id="auto-approve-hint">
+                {t("autoApproveAiHint")}
               </div>
             </div>
           </div>

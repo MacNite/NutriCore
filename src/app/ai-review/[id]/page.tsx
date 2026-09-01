@@ -56,6 +56,7 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
     },
     gramsSource: {
       SERVING: t("gramsSource.SERVING"),
+      PORTION: t("gramsSource.PORTION"),
       UNIT: t("gramsSource.UNIT"),
       MODEL: t("gramsSource.MODEL"),
       NONE: "",
@@ -116,7 +117,9 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
               </thead>
               <tbody>
                 {proposed.components?.map((component, index) => {
-                  const grams = componentGrams(component);
+                  // Against the selected food: the component-level weight is
+                  // only the model's reading, and is null for "2 Scheiben".
+                  const grams = componentGrams(component, component.canonicalFoodId);
                   return (
                   <tr key={index}>
                     <td>

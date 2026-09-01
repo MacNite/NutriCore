@@ -98,6 +98,13 @@ not installed) skip the retry budget entirely, and every attempt is recorded on
 `AiJobAttempt` so a job that failed three different ways is distinguishable from
 one that failed the same way three times.
 
+Approval is a decision, not a screen. `ai-approval.ts` holds the rules and the
+writing, shared by the review screen, the one-click accept and the worker; a
+proposal is applied automatically unless the user asked to approve each one. What
+never changes is what may be logged: a weight and a real source of nutrition, or
+a marked estimate, or nothing. The `AiProposal.accepted` record is what makes an
+automatic approval as auditable as a manual one.
+
 A component the model names is resolved against sources, never against the model:
 `component-resolver.ts` walks local database, then Open Food Facts, then - with
 consent - a web page whose values the model merely reads. The model's own numbers

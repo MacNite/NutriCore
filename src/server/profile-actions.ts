@@ -134,6 +134,7 @@ const settingsSchema = z.object({
   language: z.enum(LOCALES),
   aiEnabled: z.boolean(),
   researchEnabled: z.boolean(),
+  autoApproveAi: z.boolean(),
 });
 
 export async function saveSettingsAction(_state: FormState, formData: FormData): Promise<FormState> {
@@ -142,6 +143,7 @@ export async function saveSettingsAction(_state: FormState, formData: FormData):
     language: formData.get("language"),
     aiEnabled: asBool(formData.get("aiEnabled")),
     researchEnabled: asBool(formData.get("researchEnabled")),
+    autoApproveAi: asBool(formData.get("autoApproveAi")),
   });
   if (!parsed.success) return { error: "validation" };
 

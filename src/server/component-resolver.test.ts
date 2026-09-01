@@ -41,6 +41,44 @@ describe("how many grams a component logs", () => {
     expect(resolveGrams(component, bread)).toEqual({ grams: 90, source: "SERVING" });
   });
 
+  /**
+   * The failure that reached production: Open Food Facts labels its serving
+   * after the amount ("30 g"), never "Scheibe", so requiring the words to match
+   * left "2 Scheiben Brot" with no weight - and a component with no weight
+   * cannot be logged, however well the food matched.
+   */
+  it("uses the food's portion weight for a portion word it does not name", () => {
+    const offBread = food({
+      servingSize: 30,
+      servingUnit: "g",
+      servings: [{ label: "30 g", amount: 30, unit: "g", gramEquivalent: 30, mlEquivalent: null }],
+    });
+    expect(resolveGrams({ quantity: 2, unit: "Scheiben" }, offBread)).toEqual({ grams: 60, source: "PORTION" });
+  });
+
+  it("prefers a named serving over the generic portion weight", () => {
+    const bread = food({
+      servingSize: 30,
+      servingUnit: "g",
+      servings: [
+        { label: "Scheibe", amount: 1, unit: "Scheibe", gramEquivalent: 45, mlEquivalent: null },
+        { label: "30 g", amount: 30, unit: "g", gramEquivalent: 30, mlEquivalent: null },
+      ],
+    });
+    expect(resolveGrams({ quantity: 2, unit: "Scheiben" }, bread)).toEqual({ grams: 90, source: "SERVING" });
+  });
+
+  /** A misread unit must not log kilograms; the model's reading takes over. */
+  it("discards an implausible weight and falls through to the model", () => {
+    const bread = food({ servingSize: 30, servingUnit: "g" });
+    expect(resolveGrams({ quantity: 400, unit: "Scheiben", estimatedGrams: 60 }, bread)).toEqual({
+      grams: 60,
+      source: "MODEL",
+    });
+    // With nothing to fall back to, no weight is reported rather than a wrong one.
+    expect(resolveGrams({ quantity: 400, unit: "Scheiben" }, bread)).toEqual({ grams: null, source: "NONE" });
+  });
+
   it("uses servingSize when the food carries no serving rows", () => {
     const component = { quantity: 2, unit: "Portion" };
     const yoghurt = food({ servingSize: 150, servingUnit: "Portion" });
@@ -68,6 +106,7 @@ describe("how many grams a component logs", () => {
   });
 
   it("reports no weight rather than inventing one", () => {
+    // A food that knows no portion weight at all cannot answer "1 Scheibe".
     expect(resolveGrams({ quantity: 1, unit: "Scheibe" }, food())).toEqual({ grams: null, source: "NONE" });
     expect(resolveGrams({ estimatedGrams: 0 }, null)).toEqual({ grams: null, source: "NONE" });
   });
@@ -75,9 +114,11 @@ describe("how many grams a component logs", () => {
   it("does not mistake a short unit for a different short serving", () => {
     // "Eis" against an "Ei" serving must not match on a shared opening.
     const eggs = food({ servings: [{ label: "Ei", amount: 1, unit: "Ei", gramEquivalent: 60, mlEquivalent: null }] });
+    // The words do not match, so this is the generic portion rule rather than a
+    // claimed match on "Ei" - 2 portions of 60 g, and the source says so.
     expect(resolveGrams({ quantity: 2, unit: "Eis", estimatedGrams: 100 }, eggs)).toEqual({
-      grams: 100,
-      source: "MODEL",
+      grams: 120,
+      source: "PORTION",
     });
   });
 

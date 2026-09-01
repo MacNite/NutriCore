@@ -1321,3 +1321,25 @@ legend {
 .choice a {
   overflow-wrap: anywhere;
 }
+
+/* ----------------------------------------- Proposals waiting for a decision */
+
+.pending-proposal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.pending-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.pending-actions .btn {
+  padding: 6px 11px;
+  font-size: 13px;
+}
