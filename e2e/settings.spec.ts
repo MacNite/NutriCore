@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { completeOnboarding, registerAndOnboard } from "./helpers";
+import { completeOnboarding, mealRowTrigger, registerAndOnboard } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await registerAndOnboard(page);
@@ -26,7 +26,7 @@ test("the interface can be switched between German and English", async ({ page }
   await expect(page.getByRole("heading", { name: /^diary$/i })).toBeVisible();
   // The meal name inside the meal row's trigger button, not the meal <option> in
   // the quick-add form: options in a collapsed <select> are never visible.
-  await expect(page.getByRole("button", { name: /breakfast/i })).toBeVisible();
+  await expect(mealRowTrigger(page, /breakfast/i)).toBeVisible();
 });
 
 test("the theme can be set to light, dark or system and survives navigation", async ({ page }) => {

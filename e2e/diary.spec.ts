@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { completeOnboarding, registerAndOnboard } from "./helpers";
+import { completeOnboarding, mealRowTrigger, registerAndOnboard } from "./helpers";
 
 test("the dashboard quick-meal button opens the diary AI form", async ({ page }) => {
   await page.getByRole("button", { name: /quick meal|schnelle mahlzeit/i }).click();
@@ -11,7 +11,7 @@ test("the dashboard quick-meal button opens the diary AI form", async ({ page })
 });
 
 test("meal rows open the correct editor without leaving Today", async ({ page }) => {
-  await page.getByRole("button", { name: /lunch|mittagessen/i }).click();
+  await mealRowTrigger(page, /lunch|mittagessen/i).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("dialog", { name: /lunch|mittagessen/i })).toBeVisible();
 });
@@ -56,7 +56,7 @@ test("a user can create a custom food, log it and edit the portion", async ({ pa
   await microDialog.getByRole("button", { name: /^close$|^schließen$/i }).click();
 
   // Editing the amount rescales the entry. Entries live inside the meal's dialog now.
-  await page.getByRole("button", { name: /dinner|abendessen/i }).click();
+  await mealRowTrigger(page, /dinner|abendessen/i).click();
   const mealDialog = page.getByRole("dialog", { name: /dinner|abendessen/i });
   await mealDialog.getByRole("button", { name: /edit|bearbeiten/i }).first().click();
   await mealDialog.getByLabel(/^amount$|^menge$/i).first().fill("100");
