@@ -62,6 +62,34 @@ describe("repairing a meal parse", () => {
     expect(result.confidence).toBe("high");
   });
 
+  it("recovers a per-item gram estimate the model embedded in the unit", () => {
+    const result = mealParseSchema.parse(
+      repairMealParse({
+        components: [
+          { name: "Brot", quantity: 2, unit: "Scheiben (approx. 50g)" },
+          { name: "Mett", quantity: 1, unit: "Portion (ca. 40 g)" },
+        ],
+        confidence: "medium",
+      }),
+    );
+
+    expect(result.components).toEqual([
+      { name: "Brot", quantity: 2, unit: "Scheiben", estimatedGrams: 100 },
+      { name: "Mett", quantity: 1, unit: "Portion", estimatedGrams: 40 },
+    ]);
+  });
+
+  it("does not overwrite an explicit structured gram estimate", () => {
+    const result = mealParseSchema.parse(
+      repairMealParse({
+        components: [{ name: "Brot", quantity: 2, unit: "Scheiben (ca. 50 g)", estimatedGrams: 90 }],
+        confidence: "high",
+      }),
+    );
+
+    expect(result.components[0]).toEqual({ name: "Brot", quantity: 2, unit: "Scheiben", estimatedGrams: 90 });
+  });
+
   it("drops a component with no name and an over-long list", () => {
     const result = mealParseSchema.parse(
       repairMealParse({

@@ -531,6 +531,7 @@
     "resolution": "Zuordnung",
     "matched": "Einem bekannten Lebensmittel zugeordnet",
     "unmatched": "Kein passendes Lebensmittel — wird übersprungen",
+    "missingWeight": "Lebensmittel gefunden, aber Portionsgewicht fehlt",
     "estimated": "{grams} g (geschätzt)",
     "provenance": "Herkunft",
     "accept": "Übernehmen und zugeordnete Bestandteile eintragen",
@@ -538,12 +539,19 @@
     "approved": "Freigegeben",
     "rejected": "Abgelehnt",
     "logged": "{count} von {total} Bestandteilen wurden in dein Tagebuch eingetragen.",
-    "skipped": "Nicht eingetragen, weil kein passendes Lebensmittel gefunden wurde:",
-    "nothingLogged": "Kein Bestandteil konnte einem bekannten Lebensmittel zugeordnet werden, es wurde nichts eingetragen.",
+    "skipped": "Nicht eingetragene Bestandteile:",
+    "nothingLogged": "Kein Bestandteil hatte sowohl ein passendes Lebensmittel als auch ein verwertbares Portionsgewicht; es wurde nichts eingetragen.",
     "addManually": "Lebensmittel suchen",
     "modelEstimate": "KI-Schätzung",
     "loggedAsEstimate": "Ohne Treffer in der Datenbank – aus den Zahlen des Modells als Schätzung übernommen: {names}. Diese Werte sind nicht belegt; prüfe sie, wenn sie zählen sollen.",
     "skipComponent": "Nicht übernehmen",
+    "skipReason": {
+      "DECLINED": "nicht zur Übernahme ausgewählt",
+      "NO_FOOD": "kein passendes Lebensmittel mit Nährwerten gefunden",
+      "NO_WEIGHT": "kein verwertbares Portionsgewicht gefunden",
+      "LOG_FAILED": "beim Eintragen ist ein Fehler aufgetreten",
+      "LEGACY": "Lebensmittel oder Portionsgewicht konnte nicht aufgelöst werden"
+    },
     "origin": {
       "LOCAL": "Aus deiner Datenbank",
       "OPEN_FOOD_FACTS": "Open Food Facts",
@@ -559,7 +567,7 @@
     "pendingIntro": "Übernehmen schreibt die Zuordnung unten ins Tagebuch. Öffne die Prüfung nur, wenn du ein anderes Lebensmittel wählen willst.",
     "acceptNow": "Übernehmen",
     "openReview": "Prüfen",
-    "nothingLoggable": "Nichts davon konnte einem Lebensmittel mit Nährwerten zugeordnet werden.",
+    "nothingLoggable": "Kein Bestandteil hat sowohl ein Lebensmittel mit Nährwerten als auch ein verwertbares Portionsgewicht.",
     "skippedShort": "Nicht übernommen:"
   },
   "admin": {

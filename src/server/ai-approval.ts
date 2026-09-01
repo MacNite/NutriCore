@@ -84,7 +84,7 @@ export async function applyProposal(
 
   const user = { id: proposal.job.userId, language: proposal.job.user.profile?.language ?? ("de" as const) };
   const components = (proposal.proposed as { components?: ProposedComponent[] }).components ?? [];
-  const { loggable, skipped } = decideComponents(components, options.selection);
+  const { loggable, skipped, skippedDetails } = decideComponents(components, options.selection);
 
   const date = formatDateKey(mealInput.diaryDate);
   const logged: string[] = [];
@@ -105,10 +105,11 @@ export async function applyProposal(
         reason: error instanceof Error ? error.message : "unknown",
       });
       skipped.push(component.name);
+      skippedDetails.push({ name: component.name, reason: "LOG_FAILED" });
     }
   }
 
-  const outcome: AcceptedOutcome = { logged, estimated, skipped, acceptedAt: new Date().toISOString() };
+  const outcome: AcceptedOutcome = { logged, estimated, skipped, skippedDetails, acceptedAt: new Date().toISOString() };
   await prisma.aiProposal.update({
     where: { id: proposalId },
     data: {

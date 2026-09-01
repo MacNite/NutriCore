@@ -1,8 +1,9 @@
-import { ESTIMATE_CHOICE, SKIP_CHOICE, isEstimatedComponent, type ProposedComponent } from "@/server/ai-types";
+import { ESTIMATE_CHOICE, SKIP_CHOICE, componentGrams, isEstimatedComponent, type ProposedComponent } from "@/server/ai-types";
 
 export interface ChoiceLabels {
   matched: string;
   unmatched: string;
+  missingWeight: string;
   modelEstimate: string;
   skip: string;
   origin: Record<string, string>;
@@ -38,7 +39,10 @@ export function ComponentChoice({
 
   // Nothing to choose between: report the state and leave the form alone.
   if (readOnly || (candidates.length === 0 && !estimateAvailable)) {
-    if (component.canonicalFoodId) return <span>{labels.matched}</span>;
+    if (component.canonicalFoodId) {
+      const hasWeight = componentGrams(component, component.canonicalFoodId) !== null;
+      return <span className={hasWeight ? undefined : "muted"}>{hasWeight ? labels.matched : labels.missingWeight}</span>;
+    }
     if (estimateAvailable) return <span className="badge badge-ai">{labels.modelEstimate}</span>;
     return <span className="muted">{labels.unmatched}</span>;
   }

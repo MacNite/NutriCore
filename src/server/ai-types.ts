@@ -84,7 +84,15 @@ export interface AcceptedOutcome {
   /** Logged from the model's own numbers, as an estimate. Subset of nothing else. */
   estimated?: string[];
   skipped: string[];
+  /** Present on new outcomes; `skipped` remains for backwards compatibility. */
+  skippedDetails?: SkippedComponent[];
   acceptedAt: string;
+}
+
+export type SkipReason = "DECLINED" | "NO_FOOD" | "NO_WEIGHT" | "LOG_FAILED";
+export interface SkippedComponent {
+  name: string;
+  reason: SkipReason;
 }
 
 /** A component whose nutrition the model stated itself, with a usable weight. */
@@ -145,13 +153,19 @@ export function decideComponents(
 ) {
   const loggable: ComponentDecision[] = [];
   const skipped: string[] = [];
+  const skippedDetails: SkippedComponent[] = [];
+
+  const skip = (component: ProposedComponent, reason: SkipReason) => {
+    skipped.push(component.name);
+    skippedDetails.push({ name: component.name, reason });
+  };
 
   components.forEach((component, index) => {
     const picked = selection(index);
 
     // An explicit decline is final: it never falls back to an estimate.
     if (picked === SKIP_CHOICE) {
-      skipped.push(component.name);
+      skip(component, "DECLINED");
       return;
     }
 
@@ -160,7 +174,7 @@ export function decideComponents(
     const grams = componentGrams(component, foodId);
 
     if (grams === null) {
-      skipped.push(component.name);
+      skip(component, "NO_WEIGHT");
       return;
     }
     if (foodId) {
@@ -172,10 +186,10 @@ export function decideComponents(
       loggable.push({ component, foodId: null, grams });
       return;
     }
-    skipped.push(component.name);
+    skip(component, "NO_FOOD");
   });
 
-  return { loggable, skipped };
+  return { loggable, skipped, skippedDetails };
 }
 
 /**

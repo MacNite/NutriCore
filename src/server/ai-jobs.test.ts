@@ -271,7 +271,7 @@ describe("applying a proposal without the review screen", () => {
 
 describe("what an approved proposal may log", () => {
   it("logs only components with both a resolved food and a weight", () => {
-    const { loggable, skipped } = decideComponents([
+    const { loggable, skipped, skippedDetails } = decideComponents([
       { name: "egg", canonicalFoodId: "food-1", estimatedGrams: 120 },
       { name: "grandma's secret sauce", canonicalFoodId: null, estimatedGrams: 30 },
       { name: "rye bread", canonicalFoodId: "food-2" },
@@ -280,6 +280,11 @@ describe("what an approved proposal may log", () => {
 
     expect(loggable.map((entry) => entry.component.name)).toEqual(["egg"]);
     expect(skipped).toEqual(["grandma's secret sauce", "rye bread", "water"]);
+    expect(skippedDetails).toEqual([
+      { name: "grandma's secret sauce", reason: "NO_FOOD" },
+      { name: "rye bread", reason: "NO_WEIGHT" },
+      { name: "water", reason: "NO_WEIGHT" },
+    ]);
   });
 
   it("logs the food the reviewer chose, with that food's own weight", () => {
