@@ -131,7 +131,7 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
         </form>
       </section>
 
-      <details className="card micro-panel" style={{ marginBottom: 20 }} open>
+      <details className="card micro-panel" style={{ marginBottom: 20 }}>
         <summary className="micro-panel-toggle">
           <h2 id="micronutrients-heading">{t("micronutrients")}</h2>
           <span className="micro-panel-chevron" aria-hidden="true" />
