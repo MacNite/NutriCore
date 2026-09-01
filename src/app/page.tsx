@@ -200,7 +200,9 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         closeLabel={common("close")}
         initialOpen={params.quickMeal === "1"}
       >
-        {params.error === "unsafeUrl" ? <div className="notice notice-warn">{diaryT("ai.unsafeUrl")}</div> : null}
+        {params.error && ["unsafeUrl", "inputRequired", "imageInvalid", "imageTooLarge", "imageEmpty"].includes(params.error) ? (
+          <div className="notice notice-warn">{diaryT(`ai.errors.${params.error}`)}</div>
+        ) : null}
         <QuickMealForm date={selectedDate} returnTo="/" />
       </QuickMealDialog>
     </AppShell>

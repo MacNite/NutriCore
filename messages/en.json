@@ -178,9 +178,18 @@
       "describe": "Describe your meal",
       "placeholder": "2 slices rye bread with butter, 2 fried eggs and 1 banana",
       "sourceUrl": "Recipe URL (optional)",
+      "image": "Meal photo (optional)",
+      "imageHint": "JPEG, PNG or WebP, up to 6 MB. On supported mobile devices you can take a photo. The image is held temporarily for processing for no more than 24 hours, then deleted.",
       "meal": "Meal",
       "submit": "Save and queue enrichment",
-      "unsafeUrl": "That address could not be fetched safely, so nothing was saved."
+      "unsafeUrl": "That address could not be fetched safely, so nothing was saved.",
+      "errors": {
+        "inputRequired": "Add text, a URL, or an image.",
+        "imageInvalid": "Use a valid JPEG, PNG, or WebP image.",
+        "imageTooLarge": "The image must be no larger than 6 MB.",
+        "imageEmpty": "The selected image is empty.",
+        "unsafeUrl": "That address could not be fetched safely, so nothing was saved."
+      }
     }
   },
   "micronutrients": {

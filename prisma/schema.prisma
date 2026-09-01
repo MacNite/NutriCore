@@ -144,6 +144,10 @@ model MealInput {
   userId    String
   text      String
   sourceUrl String?
+  /** Transient worker handoff; cleared after extraction or terminal cleanup. */
+  imageMime String?
+  imageData Bytes?
+  imageExpiresAt DateTime?
   meal      MealType
   diaryDate DateTime @db.Date
   createdAt DateTime @default(now())
@@ -151,6 +155,7 @@ model MealInput {
   aiJobs    AiJob[]
 
   @@index([userId, createdAt])
+  @@index([imageExpiresAt])
 }
 
 /**
