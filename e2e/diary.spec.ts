@@ -78,12 +78,17 @@ test("the diary can navigate between days", async ({ page }) => {
   await expect(heading).toHaveText(today ?? "");
 });
 
-test("the micronutrient panel can be collapsed", async ({ page }) => {
+test("the micronutrient panel starts collapsed and can be expanded", async ({ page }) => {
   await page.goto("/diary");
 
   const panel = page.locator("details.micro-panel");
-  await expect(panel).toHaveAttribute("open", "");
+  await expect(panel).not.toHaveAttribute("open", "");
   await expect(panel.getByRole("heading", { name: /micronutrients|mikronährstoffe/i })).toBeVisible();
+  await expect(panel.locator(".micro-grid")).not.toBeVisible();
+
+  await panel.locator("summary").click();
+  await expect(panel).toHaveAttribute("open", "");
+  await expect(panel.locator(".micro-grid")).toBeVisible();
 
   await panel.locator("summary").click();
   await expect(panel).not.toHaveAttribute("open", "");
