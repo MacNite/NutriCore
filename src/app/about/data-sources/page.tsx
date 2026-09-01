@@ -54,6 +54,12 @@ export default async function DataSourcesPage() {
           ))}
 
           <section className="card">
+            <div className="card-head"><h2>{t("compendiumTitle")}</h2><span className="badge">{t("configured")}</span></div>
+            <p style={{ marginTop: 0 }}>{t("compendiumBody")}</p>
+            <p style={{ marginBottom: 0 }}><a href="https://pacompendium.com/" rel="noreferrer noopener external" target="_blank">https://pacompendium.com/</a></p>
+          </section>
+
+          <section className="card">
             <div className="notice">
               <span className="notice-icon" aria-hidden="true">
                 ⓘ

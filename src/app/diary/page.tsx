@@ -13,6 +13,8 @@ import { formatKcal, formatWeekday } from "@/lib/format";
 import { shiftDateKey, validDateKey } from "@/lib/date";
 import { QuickMealForm } from "@/components/quick-meal-form";
 import { DailyEnergySummary } from "@/components/daily-energy-summary";
+import { ActivityPanel } from "@/components/activity-panel";
+import { getActivityEntries } from "@/server/activities";
 
 export async function generateMetadata() {
   const t = await getTranslations("diary");
@@ -31,7 +33,7 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
   const common = await getTranslations("common");
   const locale = user.language;
 
-  const [day, target] = await Promise.all([getDiaryDay(user.id, date), getCurrentTarget(user.id)]);
+  const [day, target, activities] = await Promise.all([getDiaryDay(user.id, date), getCurrentTarget(user.id), getActivityEntries(user.id, date)]);
   const consumed = day.totals.energyKcal ?? 0;
 
   return (
@@ -139,6 +141,7 @@ export default async function DiaryPage({ searchParams }: { searchParams: Promis
             </section>
           );
         })}
+        <ActivityPanel date={date} entries={activities.entries} totalActiveKcal={activities.totalActiveKcal} locale={locale} />
       </div>
     </AppShell>
   );

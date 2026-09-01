@@ -117,3 +117,36 @@ test("the micronutrient panel starts collapsed and can be expanded", async ({ pa
   await expect(panel).not.toHaveAttribute("open", "");
   await expect(panel.locator(".micro-grid")).not.toBeVisible();
 });
+
+test("activity entries are date-specific and shared by dashboard and diary", async ({ page }) => {
+  await page.goto("/");
+  const cards = page.locator(".grid-main > .stack > .card");
+  await expect(cards.nth(2).getByRole("heading", { name: /sport & activity|sport & aktivität/i })).toBeVisible();
+  await expect(cards.nth(3).getByRole("heading", { name: /micronutrients|mikronährstoffe/i })).toBeVisible();
+
+  const panel = page.locator(".activity-panel");
+  await panel.getByRole("button", { name: /^add$|^hinzufügen$/i }).click();
+  await panel.getByLabel(/^activity$|^aktivität$/i).selectOption("walking");
+  await panel.getByLabel(/^intensity$|^intensität$/i).selectOption("brisk");
+  await panel.getByLabel(/duration|dauer/i).fill("35");
+  await panel.getByRole("button", { name: /^save$|^speichern$/i }).click();
+  await expect(panel.getByText(/walking|gehen/i)).toBeVisible();
+  await expect(panel.getByText(/35 min/i)).toBeVisible();
+  await expect(panel.getByText(/kcal/i).last()).toBeVisible();
+
+  await page.goto("/diary");
+  const diaryPanel = page.locator(".activity-panel");
+  await expect(diaryPanel.getByText(/walking|gehen/i)).toBeVisible();
+  await diaryPanel.getByRole("button", { name: /edit walking|gehen bearbeiten/i }).click();
+  await diaryPanel.getByLabel(/duration|dauer/i).fill("70");
+  await diaryPanel.getByRole("button", { name: /^save$|^speichern$/i }).click();
+  await expect(diaryPanel.getByText(/70 min/i)).toBeVisible();
+
+  await diaryPanel.getByRole("button", { name: /delete walking|gehen löschen/i }).click();
+  await expect(diaryPanel.getByText(/no activity|noch keine aktivität/i)).toBeVisible();
+
+  await diaryPanel.getByRole("button", { name: /^add$|^hinzufügen$/i }).click();
+  await diaryPanel.getByLabel(/^activity$|^aktivität$/i).selectOption("hiking");
+  await expect(diaryPanel.getByLabel(/^intensity$|^intensität$/i)).toHaveCount(0);
+  await diaryPanel.getByRole("button", { name: /^cancel$|^abbrechen$/i }).click();
+});
