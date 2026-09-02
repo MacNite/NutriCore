@@ -215,7 +215,7 @@
   },
   "foods": {
     "title": "Foods",
-    "searchPlaceholder": "Search food or enter a barcode",
+    "searchPlaceholder": "Search food / recipe or enter a barcode",
     "searchHint": "Typing searches only NutriCore’s local database; recently used foods appear here instantly. Open Food Facts is queried only when explicitly requested.",
     "recentlyUsed": "Recently used",
     "noResults": "No matching food found.",

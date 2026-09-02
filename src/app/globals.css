@@ -937,6 +937,13 @@ legend {
 .activity-total { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border); padding-top: 16px; margin-top: 10px; }
 @media (max-width: 700px) { .activity-form { grid-template-columns: 1fr; } .activity-form-actions { padding-bottom: 0; } }
 .add-food-button { min-width: 44px; min-height: 44px; padding: 9px; font-size: 20px; }
+.recent-food-list {
+  /* Keep four complete result rows visible while leaving older foods nearby. */
+  max-height: 304px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
 
 .avatar {
   width: 34px;
