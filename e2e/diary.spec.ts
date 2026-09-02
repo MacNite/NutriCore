@@ -46,7 +46,12 @@ test("a meal panel search logs a result and reopens the same panel", async ({ pa
   await search.fill("Panel Banane");
   await expect(dialog.getByRole("option", { name: /Panel Banane/i })).toBeVisible();
   await dialog.getByRole("option", { name: /Panel Banane/i }).click();
-  await page.getByRole("button", { name: /lunch|mittagessen/i }).click();
+
+  // Today carries an "add to <meal>" button per row, which shares its name with
+  // the food page's log button: the locator only becomes unambiguous once the
+  // result has actually opened.
+  await page.waitForURL(/\/foods\/[^/]+\?/);
+  await page.getByRole("button", { name: /add to|hinzufügen/i }).click();
   await expect(page).toHaveURL(/editMeal=LUNCH/);
   await expect(page.getByRole("dialog", { name: /lunch|mittagessen/i })).toBeVisible();
 });

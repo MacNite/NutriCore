@@ -72,6 +72,33 @@ describe("draft recipe search", () => {
   });
 });
 
+describe("food search visibility", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.favorite.findMany.mockResolvedValue([]);
+    prismaMock.foodUsageStats.findMany.mockResolvedValue([]);
+    prismaMock.food.findMany.mockResolvedValue([]);
+    // A barcode query is answered from the local store, never from the network.
+    prismaMock.food.findFirst.mockResolvedValue(foodRow);
+  });
+
+  it("keeps a text search inside the public and own foods", async () => {
+    await searchFoods({ userId: "owner-1", query: "Banane", locale: "de" });
+
+    const { where } = prismaMock.food.findMany.mock.calls[0][0];
+    expect(where.AND[0]).toEqual({ OR: [{ ownerId: null }, { ownerId: "owner-1" }] });
+    expect(where.AND[1].OR).toEqual(expect.arrayContaining([{ name: { contains: "banane", mode: "insensitive" } }]));
+  });
+
+  it("keeps a barcode search inside the public and own foods", async () => {
+    await searchFoods({ userId: "owner-1", query: "4000000000001", locale: "de" });
+
+    const { where } = prismaMock.food.findMany.mock.calls[0][0];
+    expect(where.AND[0]).toEqual({ OR: [{ ownerId: null }, { ownerId: "owner-1" }] });
+    expect(where.AND[1]).toEqual({ barcode: "4000000000001" });
+  });
+});
+
 describe("remote food search cache", () => {
   beforeEach(() => {
     vi.clearAllMocks();

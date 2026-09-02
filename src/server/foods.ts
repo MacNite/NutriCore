@@ -269,18 +269,23 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
 }
 
 async function findLocalCandidates(userId: string, normalized: string, barcode: string | null, limit: number) {
+  // Both conditions are held in an AND: the text match is itself an OR, and
+  // spreading it beside the visibility OR would silently replace it and expose
+  // every other user's private foods.
   const where: Prisma.FoodWhereInput = {
-    ...visibleFoodWhere(userId),
-    ...(barcode
-      ? { barcode }
-      : {
-          OR: [
-            { normalizedName: { contains: normalized } },
-            { name: { contains: normalized, mode: "insensitive" } },
-            { brand: { contains: normalized, mode: "insensitive" } },
-            { aliases: { some: { name: { contains: normalized, mode: "insensitive" } } } },
-          ],
-        }),
+    AND: [
+      visibleFoodWhere(userId),
+      barcode
+        ? { barcode }
+        : {
+            OR: [
+              { normalizedName: { contains: normalized } },
+              { name: { contains: normalized, mode: "insensitive" } },
+              { brand: { contains: normalized, mode: "insensitive" } },
+              { aliases: { some: { name: { contains: normalized, mode: "insensitive" } } } },
+            ],
+          },
+    ],
   };
 
   return prisma.food.findMany({ where, include: INCLUDE, take: Math.max(limit * 4, 60) });
