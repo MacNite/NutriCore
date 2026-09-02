@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSessionUser } from "@/server/session";
@@ -11,6 +10,10 @@ import { prisma } from "@/lib/db";
 import { formatDateKey } from "@/server/diary";
 import type { EntrySnapshot } from "@/server/diary";
 import { aggregateNutritionDay, type ProgressTarget } from "@/lib/nutrition-progress";
+import { BodyCheckinForm } from "@/components/body-progress/body-checkin-form";
+import { BodyProgressEmpty } from "@/components/body-progress/body-progress-empty";
+import { BodyProgressSection } from "@/components/body-progress/body-progress-section";
+import { loadBodyProgress } from "@/server/body";
 
 export async function generateMetadata() {
   const t = await getTranslations("progress");
@@ -25,11 +28,12 @@ export default async function ProgressPage() {
   const bodyT = await getTranslations("bodyProgress");
   const locale = user.language;
 
-  const [entries, profile, diaryDays, nutritionTargets] = await Promise.all([
+  const [entries, profile, diaryDays, nutritionTargets, body] = await Promise.all([
     prisma.weightEntry.findMany({ where: { userId: user.id }, orderBy: { date: "asc" }, take: 400 }),
     prisma.userProfile.findUnique({ where: { userId: user.id }, select: { targetWeightKg: true } }),
     prisma.diaryDay.findMany({ where: { userId: user.id }, include: { entries: true }, orderBy: { date: "desc" }, take: 90 }),
     prisma.nutritionTarget.findMany({ where: { userId: user.id }, orderBy: { validFrom: "asc" } }),
+    loadBodyProgress(user.id),
   ]);
 
   const points = entries.map((entry) => ({
@@ -70,12 +74,30 @@ export default async function ProgressPage() {
           </p>
         </div>
 
-        {/* Entry point for the body-progress design preview. Remove together
-            with the preview route. */}
-        <Link className="btn" href="/progress/body-preview">
-          {bodyT("navHint")}
-        </Link>
       </div>
+
+      {/* Body progress leads the page: it answers "what shape am I in" before
+          the day-to-day numbers below it. */}
+      <section aria-labelledby="body-section-heading" style={{ marginBottom: 20 }}>
+        <h2 id="body-section-heading" className="sr-only">
+          {bodyT("title")}
+        </h2>
+        {body.measurements.length === 0 ? (
+          <BodyProgressEmpty
+            appearance={body.appearance}
+            locale={locale}
+            checkin={<BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />}
+          />
+        ) : (
+          <BodyProgressSection
+            measurements={body.measurements}
+            profile={body.profile}
+            appearance={body.appearance}
+            locale={locale}
+            checkin={<BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />}
+          />
+        )}
+      </section>
 
       <div className="grid-main">
         <div className="stack">

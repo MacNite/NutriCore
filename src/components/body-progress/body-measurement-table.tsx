@@ -23,11 +23,13 @@ export function BodyMeasurementTable({
   current,
   reference,
   referenceLabel,
+  hasReference,
   locale,
 }: {
   current: BodyMeasurement;
   reference: BodyMeasurement;
   referenceLabel: string;
+  hasReference: boolean;
   locale: Locale;
 }) {
   const t = useTranslations("bodyProgress");
@@ -36,7 +38,9 @@ export function BodyMeasurementTable({
   return (
     <section className="card" aria-labelledby="body-table-heading">
       <h2 id="body-table-heading">{t("table.title")}</h2>
-      <p className="muted nutrition-subtitle">{t("table.subtitle", { date: referenceLabel })}</p>
+      <p className="muted nutrition-subtitle">
+        {hasReference ? t("table.subtitle", { date: referenceLabel }) : t("summary.firstSession")}
+      </p>
 
       <BodyFold
         label={t("table.foldLabel", { count: BODY_METRICS.length })}

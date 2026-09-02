@@ -7,11 +7,13 @@ import { formatDelta, formatMeasure, type BodyMeasurement } from "@/lib/body-met
 import {
   BODY_VIEW,
   bodyRegionGeometry,
+  buildBodyFigure,
   buildBodyOutline,
   changeIntensity,
   clipShapes,
   outlineInput,
   outlineShapes,
+  type BodyAppearance,
   type BodyClipGroup,
   type BodyRegionKey,
 } from "@/lib/body-visualization";
@@ -30,6 +32,8 @@ import { BodyOverlayLegend } from "./body-value";
 export function BodyShapeProgress({
   current,
   reference,
+  appearance,
+  hasReference,
   locale,
   referenceLabel,
   active,
@@ -37,6 +41,8 @@ export function BodyShapeProgress({
 }: {
   current: BodyMeasurement;
   reference: BodyMeasurement;
+  appearance: BodyAppearance;
+  hasReference: boolean;
   locale: Locale;
   referenceLabel: string;
   active: BodyRegionKey | null;
@@ -46,10 +52,13 @@ export function BodyShapeProgress({
   const id = useId();
   const hatchId = `${id}-hatch`;
 
-  const currentInput = outlineInput(current);
-  const outline = buildBodyOutline(currentInput);
-  const referenceOutline = buildBodyOutline(outlineInput(reference));
-  const regions = bodyRegionGeometry(currentInput);
+  const currentInput = outlineInput(current, appearance);
+  const figure = buildBodyFigure(currentInput, appearance);
+  const outline = figure.outline;
+  const referenceOutline = hasReference
+    ? buildBodyOutline(outlineInput(reference, appearance), appearance)
+    : null;
+  const regions = bodyRegionGeometry(currentInput, appearance);
   const changes = regionChanges(current, reference);
 
   const clipGroups: BodyClipGroup[] = ["body", "arms"];
@@ -116,10 +125,24 @@ export function BodyShapeProgress({
         </defs>
 
         {/* Current body: filled base, then the change bands, then its own outline. */}
+        {/* Long hair sits behind the body, so the head covers its inner edge. */}
+        {figure.hairBack ? <path d={figure.hairBack} fill="var(--text-muted)" opacity="0.85" /> : null}
+
         <g fill="var(--surface-2)">
           {outlineShapes(outline).map((d, index) => (
             <path key={index} d={d} />
           ))}
+        </g>
+
+        {/* Garments and interior lines are clipped to the body, so they can be
+            drawn as generous shapes and still end at the silhouette. */}
+        <g clipPath={`url(#${clipIdFor("body")})`}>
+          <path d={figure.briefs} fill="var(--text-muted)" opacity="0.32" />
+          {figure.bra ? <path d={figure.bra} fill="var(--text-muted)" opacity="0.32" /> : null}
+          {figure.contours.map((d, index) => (
+            <path key={index} d={d} fill="none" stroke="var(--line-strong)" strokeWidth="1.1" />
+          ))}
+          <circle cx={figure.navel.cx} cy={figure.navel.cy} r={figure.navel.r} fill="var(--line-strong)" />
         </g>
 
         {tinted.map((region) => {
@@ -147,11 +170,13 @@ export function BodyShapeProgress({
         </g>
 
         {/* Reference body: thin and dashed, drawn last so it stays readable. */}
-        <g fill="none" stroke="var(--text-muted)" strokeWidth="1.4" strokeDasharray="5 4" opacity="0.8">
-          {outlineShapes(referenceOutline).map((d, index) => (
-            <path key={index} d={d} />
-          ))}
-        </g>
+        {referenceOutline ? (
+          <g fill="none" stroke="var(--text-muted)" strokeWidth="1.4" strokeDasharray="5 4" opacity="0.8">
+            {outlineShapes(referenceOutline).map((d, index) => (
+              <path key={index} d={d} />
+            ))}
+          </g>
+        ) : null}
 
         {tinted.map((region) => {
           const delta = changes[region.key].delta!;
@@ -182,6 +207,8 @@ export function BodyShapeProgress({
           );
         })}
 
+        <path d={figure.hairFront} fill="var(--text-muted)" opacity="0.85" />
+
         {/* Pointer targets only; the list beside the figure is the keyboard path. */}
         <g aria-hidden="true">
           {regions.map((region) =>
@@ -203,7 +230,7 @@ export function BodyShapeProgress({
         </g>
       </svg>
 
-      <BodyOverlayLegend referenceLabel={referenceLabel} />
+      {hasReference ? <BodyOverlayLegend referenceLabel={referenceLabel} /> : null}
       <figcaption className="body-caption">{t("shape.caption")}</figcaption>
     </figure>
   );

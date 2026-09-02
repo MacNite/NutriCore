@@ -14,6 +14,7 @@ import type { Locale } from "@/i18n/locales";
 const BADGE_CLASS: Record<MeasurementSource, string> = {
   MANUAL: "",
   BIA: "badge-usda",
+  OTHER_DEVICE: "badge-usda",
   ESTIMATE: "badge-ai",
   DERIVED: "badge-off",
 };

@@ -2,8 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/locales";
-import type { BodyMeasurement } from "@/lib/body-metrics";
-import type { BodyRegionKey } from "@/lib/body-visualization";
+import { emptyMeasurement, type BodyMeasurement } from "@/lib/body-metrics";
+import type { BodyAppearance, BodyRegionKey } from "@/lib/body-visualization";
 import { BodyChangeHeatmap } from "./body-change-heatmap";
 import { BodyCompositionDiamond } from "./body-composition-diamond";
 import { BodyReferenceBar } from "./body-reference-bar";
@@ -22,6 +22,9 @@ export function BodyProgressCard({
   activeRegion,
   onActiveRegion,
   referenceLabel,
+  appearance,
+  hasReference,
+  figurePicker,
   locale,
 }: {
   measurements: BodyMeasurement[];
@@ -31,26 +34,39 @@ export function BodyProgressCard({
   activeRegion: BodyRegionKey | null;
   onActiveRegion: (region: BodyRegionKey | null) => void;
   referenceLabel: string;
+  appearance: BodyAppearance;
+  hasReference: boolean;
+  figurePicker: React.ReactNode;
   locale: Locale;
 }) {
   const t = useTranslations("bodyProgress");
   const current = measurements[currentIndex];
-  const reference = measurements[referenceIndex];
+  const reference = hasReference ? measurements[referenceIndex] : emptyMeasurement(current.date);
   const shapeSummary = useBodyShapeSummary(current, reference, referenceLabel, locale);
 
   return (
     <section className="card" aria-labelledby="body-hero-heading">
-      <div className="card-head">
+      <div className="card-head body-card-head">
         <h2 id="body-hero-heading">{t("title")}</h2>
+        {figurePicker}
       </div>
 
-      <BodyReferenceBar
-        measurements={measurements}
-        referenceIndex={referenceIndex}
-        currentIndex={currentIndex}
-        onReferenceIndex={onReferenceIndex}
-        locale={locale}
-      />
+      {hasReference ? (
+        <BodyReferenceBar
+          measurements={measurements}
+          referenceIndex={referenceIndex}
+          currentIndex={currentIndex}
+          onReferenceIndex={onReferenceIndex}
+          locale={locale}
+        />
+      ) : (
+        <p className="notice" role="note" style={{ marginBottom: 18 }}>
+          <span className="notice-icon" aria-hidden="true">
+            i
+          </span>
+          <span>{t("empty.needsSecond")}</span>
+        </p>
+      )}
 
       <div className="body-hero">
         <div className="body-hero-panel">
@@ -58,6 +74,7 @@ export function BodyProgressCard({
             current={current}
             reference={reference}
             referenceLabel={referenceLabel}
+            hasReference={hasReference}
             locale={locale}
           />
         </div>
@@ -70,6 +87,8 @@ export function BodyProgressCard({
           <BodyShapeProgress
             current={current}
             reference={reference}
+            appearance={appearance}
+            hasReference={hasReference}
             locale={locale}
             referenceLabel={referenceLabel}
             active={activeRegion}

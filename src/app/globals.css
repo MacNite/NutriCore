@@ -1558,8 +1558,89 @@ legend {
 /* The metric chips scroll rather than wrap, so their row has a wide minimum.
    Without an explicit zero-minimum track that minimum would size the whole
    column and push the page sideways on a phone. */
-.body-preview-stack {
+.body-progress-stack {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* The title and the two actions wrap rather than squeezing each other on a
+   narrow screen. */
+.body-card-head {
+  flex-wrap: wrap;
+}
+
+/* The picker and the check-in sit together in the card head. */
+.body-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Three builds side by side, each showing the figure it produces. */
+.body-figure-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.body-figure-option {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 10px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.body-figure-option svg {
+  display: block;
+  width: 100%;
+  max-width: 120px;
+  height: auto;
+}
+
+.body-figure-option:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+.body-figure-option[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+  font-weight: 600;
+}
+
+/* Before the first check-in: the figure beside what a session records. */
+.body-empty {
+  display: grid;
+  grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+}
+
+.body-empty-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@media (max-width: 620px) {
+  .body-empty {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .body-empty-figure {
+    max-width: 140px;
+  }
 }
 
 .body-preview-head {
@@ -1670,7 +1751,6 @@ legend {
 }
 
 .body-diamond-wrap {
-  max-width: 420px;
   margin: 0 auto;
 }
 

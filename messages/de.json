@@ -347,9 +347,6 @@
   },
   "bodyProgress": {
     "title": "Körperfortschritt",
-    "navHint": "Körperfortschritt (Vorschau)",
-    "previewBadge": "Design-Vorschau",
-    "previewNote": "Design-Vorschau mit Beispieldaten. Nichts wird gespeichert, Körpermaße werden bisher nicht erfasst.",
     "intro": "Wie sich deine Körperzusammensetzung und deine gemessenen Umfänge gegenüber einer Referenzmessung verändert haben.",
     "reference": "Referenz",
     "current": "Aktuell",
@@ -449,7 +446,8 @@
     },
     "summary": {
       "microHead": "Kennzahlen",
-      "sinceReference": "seit {date}"
+      "sinceReference": "seit {date}",
+      "firstSession": "Erste Messung"
     },
     "kpi": {
       "whtr": "WHtR",
@@ -508,12 +506,33 @@
       "sourceBia": "BIA / smarte Waage",
       "sourceOther": "Anderes Gerät",
       "save": "Messung speichern",
-      "previewOnly": "Design-Vorschau: Dieses Formular speichert noch nichts."
+      "saved": "Messung gespeichert.",
+      "nothingEntered": "Trag mindestens einen Messwert ein.",
+      "weightHint": "Wird in deinem Gewichtsprotokoll gespeichert."
     },
-    "existing": {
-      "title": "Bestehende Fortschrittsbereiche",
-      "body": "Gewicht und Ernährung bleiben, wo sie sind. Diese Vorschau dient der Entscheidung, ob der Körperfortschritt künftig oben auf der Fortschrittsseite stehen soll.",
-      "link": "Fortschritt öffnen"
+    "figure": {
+      "title": "Körperfigur",
+      "change": "Figur",
+      "intro": "Wähle, wie die Figur gezeichnet wird. Das ist eine Darstellung, kein Befund.",
+      "presentation": "Darstellung",
+      "build": "Statur",
+      "presentationName": {
+        "NEUTRAL": "Neutral",
+        "MASCULINE": "Maskulin",
+        "FEMININE": "Feminin"
+      },
+      "typeName": {
+        "ECTOMORPH": "Ektomorph",
+        "MESOMORPH": "Mesomorph",
+        "ENDOMORPH": "Endomorph"
+      },
+      "disclaimer": "Die gewählte Statur legt nur die Ausgangsproportionen der Zeichnung fest, die deine eigenen Maße danach anpassen. Sie wird nie aus deinen Maßen abgeleitet und fließt in keine Berechnung auf dieser Seite ein.",
+      "saved": "Figur gespeichert."
+    },
+    "empty": {
+      "intro": "Noch keine Körpermaße. Eine Messung erfasst, was du mit dem Maßband gemessen hast, und falls vorhanden, was eine smarte Waage gemeldet hat.",
+      "records": "Das Gewicht wandert in dein Gewichtsprotokoll, damit das Diagramm darunter die einzige Aufzeichnung davon bleibt.",
+      "needsSecond": "Das ist deine erste Messung, es gibt also noch nichts zu vergleichen. Trag eine zweite Messung ein, um Veränderungen zu sehen."
     }
   },
   "settings": {
