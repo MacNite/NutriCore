@@ -8,7 +8,7 @@ import { OllamaProvider } from "@/providers/ollama";
 import { fetchMealPage } from "./meal-url";
 import { foodPortionContext, visibleFoodWhere } from "./foods";
 import { saveRecipe } from "./recipes";
-import { repairExtractedRecipe } from "./ai-repair";
+import { ingredientFromText, repairExtractedRecipe } from "./ai-repair";
 import type { RecipeImportDraft } from "./recipe-import-actions";
 
 export const extractedRecipeSchema = z.object({
@@ -66,6 +66,7 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
 
   let prompt = record.text || "Extract the recipe from the supplied source.";
   prompt += `\n\nThe user states that the complete recipe yields ${Number(record.servings)} servings. Use this as the authoritative servings value.`;
+  let structured: Awaited<ReturnType<typeof fetchMealPage>>["structuredRecipe"];
   if (record.sourceUrl) {
     // The same extraction Quick meal uses, which is why the identical link works
     // there. A recipe page states its ingredients in Recipe JSON-LD, and the
@@ -79,11 +80,20 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
     // one keeps it out of the model's retry budget and off the user's list of
     // things to check about their AI service.
     if (!source.excerpt.trim()) throw new Error("source-no-ingredients");
-    prompt += `\n\n${asUntrustedExcerpt(source.url, source.excerpt)}`;
+    structured = source.structuredRecipe;
+    if (!structured) prompt += `\n\n${asUntrustedExcerpt(source.url, source.excerpt)}`;
   }
 
   const images = record.imageData ? [Buffer.from(record.imageData).toString("base64")] : undefined;
-  const parsed = await (deps.ai ?? new OllamaProvider()).complete({
+  const deterministicIngredients = structured?.ingredientLines.map((line) => ({ line, ingredient: ingredientFromText(line) })) ?? [];
+  const unparsedIngredients = deterministicIngredients.filter((item) => !item.ingredient).map((item) => item.line);
+  const parsed: z.infer<typeof extractedRecipeSchema> = structured && !images ? {
+    name: structured.name || record.text || "Unbenanntes Rezept",
+    description: structured.description ?? "",
+    servings: Number(record.servings),
+    instructions: structured.instructions ?? "",
+    ingredients: deterministicIngredients.flatMap((item) => item.ingredient ? [item.ingredient] : []),
+  } : await (deps.ai ?? new OllamaProvider()).complete({
     system: SYSTEM,
     prompt,
     images,
@@ -137,7 +147,7 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
   } catch (error) {
     logger.warn("recipe-import draft not stored", { importId, error: error instanceof Error ? error.message : String(error) });
   }
-  const draft: RecipeImportDraft = { ...parsed, servings, ingredients, unmatched, unconverted, recipeId };
+  const draft: RecipeImportDraft = { ...parsed, servings, ingredients, unmatched, unconverted, unparsedIngredients, recipeId };
   await prisma.recipeImport.update({
     where: { id: importId },
     data: {

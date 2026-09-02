@@ -674,6 +674,7 @@
       "savedAsDraft": "Saved as a draft under your recipes. Saving confirms that draft.",
       "openDraft": "Open draft",
       "unmatched": "These ingredients were not found in your foods and must be added manually: {names}",
+      "unparsed": "These source ingredients could not be parsed automatically because no explicit quantity was found: {names}",
       "errors": {
         "inputRequired": "Add text, a link, or a picture.",
         "imageInvalid": "Use a JPEG, PNG, or WebP image.",

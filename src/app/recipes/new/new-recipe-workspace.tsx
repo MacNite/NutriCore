@@ -77,6 +77,10 @@ export function NewRecipeWorkspace({
           <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("unconverted", { names: draft.unconverted.join(", ") })}</div>
         ) : null}
 
+        {draft?.unparsedIngredients?.length ? (
+          <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("unparsed", { names: draft.unparsedIngredients.join(", ") })}</div>
+        ) : null}
+
         {/* The extraction is already stored, so leaving this page does not lose
             it - and saving below confirms that same draft rather than adding a
             second copy of it. */}

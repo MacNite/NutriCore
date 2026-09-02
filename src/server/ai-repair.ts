@@ -143,11 +143,18 @@ export function repairNutrientExtraction(allowedKeys: readonly string[]) {
     const nutrients: Record<string, number> = {};
     for (const [key, raw] of Object.entries(source)) {
       if (!allowed.has(key)) continue;
-      // Per 100 g, nothing in the catalogue can exceed 100 g except energy.
-      const repaired = nonNegativeOrAbsent(raw, key === "energyKcal" ? 900 : 100);
+      // These are raw source values, not normalized values. Keep finite values
+      // for the deterministic plausibility gate to assess after normalization.
+      const repaired = nonNegativeOrAbsent(raw, 1_000_000);
       if (repaired !== undefined) nutrients[key] = repaired;
     }
-    return compact({ nutrients, servingSizeG: positiveOrAbsent(value.servingSizeG, 10000) });
+    const basisUnit = value.basisUnit === "g" || value.basisUnit === "serving" || value.basisUnit === "ml" ? value.basisUnit : undefined;
+    return compact({
+      nutrients,
+      basisAmount: positiveOrAbsent(value.basisAmount, 100_000),
+      basisUnit,
+      servingSizeG: positiveOrAbsent(value.servingSizeG, 100_000),
+    });
   };
 }
 

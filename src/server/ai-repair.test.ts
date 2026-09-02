@@ -140,11 +140,11 @@ describe("repairing a nutrient extraction", () => {
     expect(Object.keys(result.nutrients).sort()).toEqual(["energyKcal", "protein"]);
   });
 
-  it("drops values that cannot be per 100 g", () => {
+  it("drops negative values while preserving raw source magnitudes for later validation", () => {
     const result = repair({ nutrients: { protein: -4, fiber: 1200, energyKcal: 310 } }) as {
       nutrients: Record<string, number>;
     };
-    expect(result.nutrients).toEqual({ energyKcal: 310 });
+    expect(result.nutrients).toEqual({ fiber: 1200, energyKcal: 310 });
   });
 
   it("drops a serving size of zero instead of storing it", () => {
