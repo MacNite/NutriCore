@@ -164,3 +164,13 @@ optional `yieldWeightG` is the only representation of cooking loss. Logging a
 recipe writes nutrition and provenance directly into an immutable diary
 snapshot. Deleting the recipe nulls the diary reference while preserving that
 snapshot.
+
+An AI import stores its extraction as a `DRAFT` recipe: listed with the user's
+recipes and marked as one the model wrote, but deliberately without the
+synchronised `Food`, so nothing unreviewed can be logged. Confirming it runs the
+ordinary save - the same resolution, nutrition and `Food` sync a manual edit
+does - and only then does it become loggable. Because every ingredient must
+resolve through the unit boundary, the import keeps only the units a food can
+actually be measured in and reports the rest ("2 EL Olivenöl") for the user to
+add; the recipe form offers those same units as a dropdown rather than free
+text.

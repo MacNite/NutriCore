@@ -24,8 +24,18 @@ export interface RecipeImportDraft {
   description: string;
   servings: number;
   instructions: string;
-  ingredients: Array<{ foodId: string; name: string; amount: number; unit: string }>;
+  /** `units` is what this food can be measured in, for the form's dropdown. */
+  ingredients: Array<{ foodId: string; name: string; amount: number; unit: string; units?: string[] }>;
   unmatched: string[];
+  /**
+   * Ingredients whose food was found but whose source unit cannot be converted
+   * for it - "2 EL Olivenöl" where the food defines no spoon. Reported rather
+   * than converted, because a spoon has no weight this code is entitled to
+   * invent. Optional: drafts written before this existed do not carry it.
+   */
+  unconverted?: string[];
+  /** The draft recipe stored under the user's recipes, once the worker made one. */
+  recipeId?: string;
 }
 
 /**

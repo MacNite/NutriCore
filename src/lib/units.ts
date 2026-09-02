@@ -74,6 +74,51 @@ export function resolvePortion(amount: number, unit: string, context: PortionCon
 }
 
 /**
+ * Spellings of the metric units, mapped to the one `resolvePortion` knows.
+ *
+ * A model asked for a recipe answers in the source's words - "Gramm", "grams",
+ * "Milliliter" - and every one of those used to reach `resolvePortion` as an
+ * unknown unit, which failed the save with nothing the reader could act on.
+ * Only spellings of the same unit are listed: nothing here converts between
+ * units, and a measure word like "EL" has no metric meaning to map to.
+ */
+const UNIT_ALIASES: Record<string, string> = {
+  g: "g", gr: "g", gram: "g", grams: "g", gramm: "g", gramme: "g", gramms: "g",
+  kg: "kg", kilo: "kg", kilos: "kg", kilogram: "kg", kilogramm: "kg", kilograms: "kg",
+  mg: "mg", milligram: "mg", milligramm: "mg",
+  ml: "ml", milliliter: "ml", millilitre: "ml", milliliters: "ml", millilitres: "ml",
+  l: "l", liter: "l", litre: "l", liters: "l", litres: "l",
+  cl: "cl", centiliter: "cl", centilitre: "cl",
+  dl: "dl", deciliter: "dl", decilitre: "dl",
+};
+
+/** The metric unit this spelling means, or nothing when it is not metric. */
+export const canonicalUnit = (unit: string): string | null => UNIT_ALIASES[normalizeUnit(unit)] ?? null;
+
+const MASS_UNITS = ["g", "kg", "mg"];
+const VOLUME_UNITS = ["ml", "l", "dl", "cl"];
+
+/**
+ * Every unit this food can actually be measured in, most natural first.
+ *
+ * Derived by asking `resolvePortion` itself, so the list can never offer a unit
+ * the save would then reject: a food with no density drops the other family,
+ * and a named portion appears only when the food defines its weight. This is
+ * what the recipe form's unit dropdown is built from.
+ */
+export function allowedUnits(context: PortionContext): string[] {
+  const metric = context.basisUnit === "ML" ? [...VOLUME_UNITS, ...MASS_UNITS] : [...MASS_UNITS, ...VOLUME_UNITS];
+  const named = (context.servings ?? []).flatMap((serving) => [serving.label, serving.unit]);
+  const seen = new Set<string>();
+  return [...metric, ...named].filter((unit) => {
+    const key = normalizeUnit(unit ?? "");
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return resolvePortion(1, unit, context).ok;
+  });
+}
+
+/**
  * Parses an Open Food Facts `serving_size` string such as "30 g", "1 Scheibe (25g)"
  * or "250ml" into an explicit amount and unit. Returns null when unparseable
  * rather than inventing a portion.

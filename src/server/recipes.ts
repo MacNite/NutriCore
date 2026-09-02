@@ -1,10 +1,10 @@
-import { Prisma, type MealType } from "@prisma/client";
+import { Prisma, type MealType, type RecipeStatus, type SourceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { NUTRIENT_KEYS } from "@/lib/nutrients";
 import { recipeNutrition, scaleNutrients, type Nutrients } from "@/lib/nutrition";
 import { normalizeName, resolvePortion } from "@/lib/units";
 import { diaryDate, NotFoundError, PortionError } from "./diary";
-import { visibleFoodWhere } from "./foods";
+import { foodPortionContext, visibleFoodWhere } from "./foods";
 
 export interface RecipeInput {
   name: string;
@@ -14,6 +14,23 @@ export interface RecipeInput {
   instructions?: string;
   tags: string[];
   ingredients: { foodId: string; amount: number; unit: string }[];
+}
+
+/**
+ * How the recipe is stored, for the two callers that do not simply save what a
+ * user typed: the AI import writes a DRAFT it did not ask anyone to approve
+ * yet, and confirming one turns it into an ordinary recipe.
+ *
+ * A draft deliberately gets no Food entry. Its numbers have not been reviewed,
+ * and a Food is exactly what makes something loggable everywhere else in the
+ * app - so until the user confirms, the recipe can be read and edited but never
+ * eaten into a diary.
+ */
+export interface SaveRecipeOptions {
+  status?: RecipeStatus;
+  sourceType?: SourceType;
+  /** The AI import this recipe was extracted from, kept for the draft review. */
+  importId?: string;
 }
 
 const foodInclude = {
@@ -32,16 +49,7 @@ async function resolveIngredients(userId: string, ingredients: RecipeInput["ingr
 
   return ingredients.map((item, position) => {
     const food = byId.get(item.foodId)!;
-    const portion = resolvePortion(item.amount, item.unit, {
-      basisUnit: food.basisUnit,
-      densityGPerMl: food.densityGPerMl ? Number(food.densityGPerMl) : null,
-      servings: food.servings.map((serving) => ({
-        ...serving,
-        amount: Number(serving.amount),
-        gramEquivalent: serving.gramEquivalent ? Number(serving.gramEquivalent) : null,
-        mlEquivalent: serving.mlEquivalent ? Number(serving.mlEquivalent) : null,
-      })),
-    });
+    const portion = resolvePortion(item.amount, item.unit, foodPortionContext(food));
     if (!portion.ok) throw new PortionError(portion.reason);
 
     let weightG: number;
@@ -85,7 +93,8 @@ async function syncRecipeFood(tx: Prisma.TransactionClient, userId: string, reci
   return food;
 }
 
-export async function saveRecipe(userId: string, input: RecipeInput, recipeId?: string) {
+export async function saveRecipe(userId: string, input: RecipeInput, recipeId?: string, options: SaveRecipeOptions = {}) {
+  const status = options.status ?? "ACTIVE";
   return prisma.$transaction(async (tx) => {
     if (recipeId) {
       const owned = await tx.recipe.findFirst({ where: { id: recipeId, ownerId: userId }, select: { id: true } });
@@ -96,6 +105,9 @@ export async function saveRecipe(userId: string, input: RecipeInput, recipeId?: 
     const data = {
       name: input.name, description: input.description || null, servings: input.servings,
       yieldWeightG: input.yieldWeightG ?? null, instructions: input.instructions || null, tags: input.tags,
+      status,
+      ...(options.sourceType ? { sourceType: options.sourceType } : {}),
+      ...(options.importId ? { importId: options.importId } : {}),
     };
     const recipe = recipeId
       ? await tx.recipe.update({ where: { id: recipeId }, data })
@@ -105,9 +117,37 @@ export async function saveRecipe(userId: string, input: RecipeInput, recipeId?: 
       recipeId: recipe.id, foodId: item.foodId, amount: item.amount, unit: item.unit,
       normalizedGrams: weightG, normalizedMl: portion.unit === "ML" ? portion.amount : null, position,
     })) });
-    const food = await syncRecipeFood(tx, userId, recipe.id, input, nutrition);
+    // A draft is not loggable, so it gets no Food entry - and needs none of the
+    // completeness a Food demands, which is what lets a half-matched extraction
+    // be stored at all.
+    const food = status === "DRAFT" ? null : await syncRecipeFood(tx, userId, recipe.id, input, nutrition);
     return { recipe, food, nutrition };
   });
+}
+
+/**
+ * Turns a draft into an ordinary recipe: the same save every manual edit runs,
+ * so the nutrition and the Food entry are calculated now, from the ingredients
+ * the user is looking at. It throws exactly where a manual save would - an
+ * unresolvable unit is reported, never quietly dropped.
+ */
+export async function confirmRecipe(userId: string, id: string) {
+  const recipe = await prisma.recipe.findFirst({
+    where: { id, ownerId: userId },
+    include: { ingredients: { orderBy: { position: "asc" }, select: { foodId: true, amount: true, unit: true } } },
+  });
+  if (!recipe) throw new NotFoundError("recipe");
+  if (!recipe.ingredients.length) throw new PortionError("invalid-amount");
+
+  return saveRecipe(userId, {
+    name: recipe.name,
+    description: recipe.description ?? "",
+    servings: Number(recipe.servings),
+    yieldWeightG: recipe.yieldWeightG ? Number(recipe.yieldWeightG) : null,
+    instructions: recipe.instructions ?? "",
+    tags: recipe.tags,
+    ingredients: recipe.ingredients.map((item) => ({ foodId: item.foodId, amount: Number(item.amount), unit: item.unit })),
+  }, recipe.id, { status: "ACTIVE" });
 }
 
 export async function getRecipe(userId: string, id: string) {

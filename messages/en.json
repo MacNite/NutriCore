@@ -490,6 +490,9 @@
       "servings": "Number of servings",
       "servingsHint": "How many servings do the source's total quantities make? This determines nutrition and weight per serving.",
       "submit": "Extract recipe",
+      "unconverted": "These ingredients use a unit that cannot be converted for the food that was found. Add them below with a metric amount: {names}",
+      "savedAsDraft": "Saved as a draft under your recipes. Saving confirms that draft.",
+      "openDraft": "Open draft",
       "unmatched": "These ingredients were not found in your foods and must be added manually: {names}",
       "errors": {
         "inputRequired": "Add text, a link, or a picture.",
@@ -529,6 +532,13 @@
     "meal": "Meal",
     "date": "Date",
     "log": "Log recipe",
+    "draft": "Draft",
+    "draftHint": "Written by the AI and not confirmed yet. A recipe can only be logged once it is confirmed.",
+    "draftReview": "Review AI draft",
+    "draftNotice": "The AI wrote this draft from your source. Check the ingredients, amounts, and units, then confirm it so it can be logged.",
+    "draftUnmatched": "Not found in your foods: {names}",
+    "draftUnconverted": "Unit cannot be converted for this food: {names}",
+    "confirmDraft": "Confirm draft",
     "deleteConfirm": "Delete this recipe? Existing diary snapshots will remain unchanged.",
     "provenance": "Provenance",
     "source": {

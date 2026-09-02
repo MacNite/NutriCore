@@ -490,6 +490,9 @@
       "servings": "Anzahl Portionen",
       "servingsHint": "Wie viele Portionen ergeben die gesamten Mengen der Quelle? Diese Angabe bestimmt die Nährwerte und das Gewicht pro Portion.",
       "submit": "Rezept auslesen",
+      "unconverted": "Diese Zutaten haben eine Einheit, die für das gefundene Lebensmittel nicht umrechenbar ist. Ergänze sie unten mit einer metrischen Menge: {names}",
+      "savedAsDraft": "Als Entwurf unter deinen Rezepten gespeichert. Speichern bestätigt diesen Entwurf.",
+      "openDraft": "Entwurf ansehen",
       "unmatched": "Diese Zutaten wurden nicht in deinen Lebensmitteln gefunden und müssen manuell ergänzt werden: {names}",
       "errors": {
         "inputRequired": "Füge Text, einen Link oder ein Bild hinzu.",
@@ -529,6 +532,13 @@
     "meal": "Mahlzeit",
     "date": "Datum",
     "log": "Rezept eintragen",
+    "draft": "Entwurf",
+    "draftHint": "Von der KI erstellt und noch nicht bestätigt. Erst nach dem Bestätigen lässt sich das Rezept eintragen.",
+    "draftReview": "KI-Entwurf prüfen",
+    "draftNotice": "Diesen Entwurf hat die KI aus deiner Quelle erstellt. Prüfe Zutaten, Mengen und Einheiten und bestätige ihn, damit er eingetragen werden kann.",
+    "draftUnmatched": "Nicht in deinen Lebensmitteln gefunden: {names}",
+    "draftUnconverted": "Einheit für dieses Lebensmittel nicht umrechenbar: {names}",
+    "confirmDraft": "Entwurf bestätigen",
     "deleteConfirm": "Dieses Rezept löschen? Bestehende Tagebuch-Schnappschüsse bleiben unverändert.",
     "provenance": "Herkunft",
     "source": {

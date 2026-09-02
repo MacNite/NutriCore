@@ -1,6 +1,6 @@
 import { Prisma, type BasisUnit, type Food, type SourceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { normalizeName } from "@/lib/units";
+import { normalizeName, type PortionContext } from "@/lib/units";
 import { SOURCE_TRUST, completeness, rankFood, textSimilarity } from "@/lib/ranking";
 import { OpenFoodFactsProvider } from "@/providers/open-food-facts";
 import {
@@ -21,6 +21,29 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FAILED_SEARCH_COOLDOWN_MS = 30_000;
 const failedSearches = new Map<string, { until: number; error: ProviderUnavailableError }>();
+
+/**
+ * The measuring rules for one stored food, as `resolvePortion` and
+ * `allowedUnits` need them. Kept in one place because the recipe save, the AI
+ * import and the recipe form all have to agree on which units a food accepts.
+ */
+export function foodPortionContext(food: {
+  basisUnit: BasisUnit;
+  densityGPerMl: Prisma.Decimal | null;
+  servings: { label: string; unit: string; amount: Prisma.Decimal; gramEquivalent: Prisma.Decimal | null; mlEquivalent: Prisma.Decimal | null }[];
+}): PortionContext {
+  return {
+    basisUnit: food.basisUnit,
+    densityGPerMl: toNumber(food.densityGPerMl),
+    servings: food.servings.map((serving) => ({
+      label: serving.label,
+      unit: serving.unit,
+      amount: Number(serving.amount),
+      gramEquivalent: toNumber(serving.gramEquivalent),
+      mlEquivalent: toNumber(serving.mlEquivalent),
+    })),
+  };
+}
 
 export interface FoodResult {
   id: string;

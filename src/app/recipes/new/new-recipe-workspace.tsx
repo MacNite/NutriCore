@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { queueRecipeImportAction, type RecipeImportDraft, type RecipeImportError } from "@/server/recipe-import-actions";
@@ -71,12 +72,26 @@ export function NewRecipeWorkspace({
         {draft?.unmatched.length ? (
           <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("unmatched", { names: draft.unmatched.join(", ") })}</div>
         ) : null}
+
+        {draft?.unconverted?.length ? (
+          <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("unconverted", { names: draft.unconverted.join(", ") })}</div>
+        ) : null}
+
+        {/* The extraction is already stored, so leaving this page does not lose
+            it - and saving below confirms that same draft rather than adding a
+            second copy of it. */}
+        {draft?.recipeId ? (
+          <div className="notice" style={{ marginTop: 14 }}>
+            <span className="notice-icon" aria-hidden="true">i</span>
+            <span>{t("savedAsDraft")} <Link href={`/recipes/${draft.recipeId}`}>{t("openDraft")}</Link></span>
+          </div>
+        ) : null}
       </section>
 
       <RecipeForm
         key={draft ? JSON.stringify(draft) : "empty"}
-        recipe={draft ? { ...draft, id: "", yieldWeightG: null, tags: [] } : undefined}
-        createMode
+        recipe={draft ? { ...draft, id: draft.recipeId ?? "", yieldWeightG: null, tags: [] } : undefined}
+        createMode={!draft?.recipeId}
       />
     </div>
   );
