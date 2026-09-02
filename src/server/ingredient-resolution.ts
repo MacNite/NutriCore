@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { canonicalUnit, normalizeName } from "@/lib/units";
+import { asUntrustedExcerpt } from "@/lib/url-guard";
 import type { OllamaProvider } from "@/providers/ollama";
 import { ingredientFromText } from "./ai-repair";
 
@@ -32,45 +33,99 @@ export interface IngredientResolution extends ClassifiedIngredient {
 
 const PREPARATION = new Set([
   "gehackt", "fein", "gewurfelt", "gerieben", "geschalt", "gekocht", "frisch", "optional", "garnieren", "braten",
-  "chopped", "finely", "diced", "grated", "peeled", "cooked", "minced", "taste", "garnish",
+  "geschmack", "belieben", "garnierung", "dekoration", "abschmecken",
+  "chopped", "finely", "diced", "grated", "peeled", "cooked", "minced", "taste", "garnish", "serving",
 ]);
 const MODIFIERS = new Set(["kleine", "kleiner", "kleines", "klein", "small", "gehaufte", "gehauft", "heaped"]);
 const PACKAGE_UNITS = new Set(["dose", "dosen", "can", "cans", "packung", "packungen", "pack", "becher"]);
+/**
+ * Words that join an ingredient to a purpose rather than naming it. Only ever
+ * stripped from the ends: inside a name they may belong to it.
+ *
+ * Stripping the purpose itself is what leaves them stranded - "Öl zum Braten"
+ * loses "braten" as preparation and was left as "ol zum", which then failed to
+ * find the stored "Öl" by two hundredths of a point.
+ */
+const CONNECTIVES = new Set(["zum", "zur", "zu", "nach", "fur", "for", "to", "of", "im", "in", "am", "an", "auf", "aus", "und", "and"]);
 
 /** Conservative identity normalization: punctuation/parentheses and preparation words do not name the food. */
 export function normalizeIngredientName(value: string) {
   const withoutParentheses = value.replace(/\([^)]*\)/g, " ").split(",", 1)[0];
-  return normalizeName(withoutParentheses)
+  const tokens = normalizeName(withoutParentheses)
     .split(" ")
-    .filter((token) => token && !PREPARATION.has(token) && !MODIFIERS.has(token))
-    .join(" ")
-    .replace(/^(?:zum|for) (?:braten|garnieren|garnish)\b/, "")
-    .replace(/(?: nach geschmack| to taste| for garnish)$/, "")
-    .trim();
+    .filter((token) => token && !PREPARATION.has(token) && !MODIFIERS.has(token));
+  while (tokens.length && CONNECTIVES.has(tokens[0])) tokens.shift();
+  while (tokens.length && CONNECTIVES.has(tokens[tokens.length - 1])) tokens.pop();
+  return tokens.join(" ");
 }
 
+/** Singulars that merely end like a plural; stripping one names a different food. */
+const INVARIANT = new Set(["butter", "zucker", "wasser", "pfeffer", "ingwer", "hafer", "quark", "kase", "sahne"]);
+
+/**
+ * German plural forms of one word, for identity comparison only.
+ *
+ * Umlaut plurals need nothing of their own: `normalizeName` has already folded
+ * "Äpfel" and "Apfel" onto the same letters, which is also what makes "-er"
+ * enough for "Gläser" -> "Glas" and "Bücher" -> "Buch". "Eier" -> "Ei" is the
+ * one this was written for: the most common ingredient in German cooking, and
+ * previously unmatchable against a stored "Ei".
+ */
 function singularForms(value: string) {
   const forms = new Set([value]);
-  if (value.endsWith("en") && value.length > 5) forms.add(value.slice(0, -1));
-  if (value.endsWith("n") && value.length > 4) forms.add(value.slice(0, -1));
-  if (value.endsWith("s") && value.length > 4) forms.add(value.slice(0, -1));
+  // "Butter" would otherwise become "Butt", which is a fish.
+  if (INVARIANT.has(value)) return forms;
+  const strip = (suffix: string, minStem: number) => {
+    const stem = value.slice(0, -suffix.length);
+    if (value.endsWith(suffix) && stem.length >= minStem) forms.add(stem);
+  };
+  strip("en", 3);
+  strip("er", 2);
+  strip("n", 4);
+  strip("e", 3);
+  strip("s", 4);
   return forms;
 }
 
-export function matchFoodCandidates(name: string, foods: FoodCandidateSource[], limit = 5): CandidateMatch[] {
+/** A food's names precomputed once, so a 12-line recipe does not renormalize the catalogue 12 times. */
+interface PreparedFood extends FoodCandidateSource {
+  normalized: string;
+  forms: Set<string>;
+  tokens: Set<string>;
+}
+
+export function prepareFoodCandidates(foods: FoodCandidateSource[]): PreparedFood[] {
+  return foods.map((food) => {
+    const normalized = normalizeIngredientName(food.name);
+    return { ...food, normalized, forms: singularForms(normalized), tokens: new Set(normalized.split(" ")) };
+  });
+}
+
+function matchPrepared(name: string, foods: PreparedFood[], limit: number): CandidateMatch[] {
   const wanted = normalizeIngredientName(name);
+  if (!wanted) return [];
   const wantedForms = singularForms(wanted);
   const wantedTokens = new Set(wanted.split(" "));
   return foods.flatMap((food) => {
-    const found = normalizeIngredientName(food.name);
-    const exact = found === wanted || [...wantedForms].some((form) => singularForms(found).has(form));
-    const foundTokens = new Set(found.split(" "));
-    const overlap = [...wantedTokens].filter((token) => foundTokens.has(token)).length;
-    const union = new Set([...wantedTokens, ...foundTokens]).size || 1;
-    const containment = found.includes(wanted) || wanted.includes(found);
-    const score = exact ? 1 : Math.min(0.94, overlap / union + (containment ? 0.2 : 0));
-    return score >= 0.25 ? [{ ...food, score, exact }] : [];
+    const found = food.normalized;
+    // An identical name outranks one reached through a plural rule, so a stored
+    // "Butter" is still preferred over a stored "Butt" that the rule can reach.
+    const identical = found === wanted;
+    const exact = identical || [...wantedForms].some((form) => food.forms.has(form));
+    const overlap = [...wantedTokens].filter((token) => food.tokens.has(token)).length;
+    const union = new Set([...wantedTokens, ...food.tokens]).size || 1;
+    // Long enough to mean something: "ei" is inside "eiweiss" and "einkorn" too.
+    const shorter = Math.min(found.length, wanted.length);
+    const containment = shorter >= 4 && (found.includes(wanted) || wanted.includes(found));
+    // Containment alone used to score 0.2, under the 0.25 a candidate needs to
+    // be offered at all - so "Mehl" could never reach "Weizenmehl Type 405".
+    const score = identical ? 1 : exact ? 0.97 : Math.min(0.94, overlap / union + (containment ? 0.3 : 0));
+    return score >= 0.25 ? [{ id: food.id, name: food.name, score, exact }] : [];
   }).sort((a, b) => b.score - a.score || a.name.localeCompare(b.name)).slice(0, limit);
+}
+
+export function matchFoodCandidates(name: string, foods: FoodCandidateSource[], limit = 5): CandidateMatch[] {
+  return matchPrepared(name, prepareFoodCandidates(foods), limit);
 }
 
 export function classifyIngredientLine(sourceLine: string): ClassifiedIngredient {
@@ -116,13 +171,14 @@ export interface IngredientResolutionDiagnostics {
 
 /** Resolve source lines locally first, then send only genuine candidate ambiguity in bounded batches. */
 export async function resolveIngredientLines(
-  lines: string[], foods: FoodCandidateSource[], ai?: OllamaProvider,
+  lines: string[], foods: FoodCandidateSource[], ai?: OllamaProvider, sourceUrl?: string,
 ): Promise<{ ingredients: IngredientResolution[]; diagnostics: IngredientResolutionDiagnostics }> {
   const ingredients: IngredientResolution[] = [];
   const pending: Array<{ index: number; candidates: CandidateMatch[] }> = [];
+  const prepared = prepareFoodCandidates(foods);
   for (const line of lines) {
     const classified = classifyIngredientLine(line);
-    const candidates = classified.normalizedName ? matchFoodCandidates(classified.normalizedName, foods) : [];
+    const candidates = classified.normalizedName ? matchPrepared(classified.normalizedName, prepared, 5) : [];
     const best = candidates[0];
     // 0.72 sat just above the score one unrecognised adjective produces: a
     // wanted name of two tokens sharing one with the food, plus the containment
@@ -152,11 +208,14 @@ export async function resolveIngredientLines(
     try {
       answer = await ai!.complete({
         system: SYSTEM,
-        prompt: JSON.stringify({ ingredients: batch.map(({ index, candidates }) => ({
+        // The source lines inside came off a public web page, so they carry the
+        // same envelope every other untrusted excerpt in this codebase does
+        // rather than being handed to the model as bare JSON.
+        prompt: asUntrustedExcerpt(sourceUrl ?? "recipe source", JSON.stringify({ ingredients: batch.map(({ index, candidates }) => ({
           id: index, sourceLine: ingredients[index].sourceLine,
           parsed: ingredients[index].parsed,
           candidateFoods: candidates.map((candidate, candidateIndex) => ({ candidateIndex, name: candidate.name })),
-        })) }),
+        })) })),
         schema: aiResolutionSchema,
         jsonSchema: z.toJSONSchema(aiResolutionSchema),
       });

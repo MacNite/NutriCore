@@ -711,6 +711,8 @@
       "openDraft": "Open draft",
       "unmatched": "These ingredients were not found in your foods and must be added manually: {names}",
       "unparsed": "These source ingredients could not be parsed automatically because no explicit quantity was found: {names}",
+      "aiAssisted": "The AI matched these ingredients to a food – the amount comes from the source, the match does not: {names}",
+      "resolutionSummary": "{deterministic} of {total} ingredients matched outright, {ai} with the AI's help, {unresolved} not at all.",
       "errors": {
         "inputRequired": "Add text, a link, or a picture.",
         "imageInvalid": "Use a JPEG, PNG, or WebP image.",

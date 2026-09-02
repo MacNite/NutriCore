@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { OllamaProvider } from "@/providers/ollama";
 import lineFixtures from "./__fixtures__/ingredient-lines.json";
 import recipeFixtures from "./__fixtures__/recipe-sources.json";
-import { classifyIngredientLine, matchFoodCandidates, resolveIngredientLines } from "./ingredient-resolution";
+import { classifyIngredientLine, matchFoodCandidates, normalizeIngredientName, resolveIngredientLines } from "./ingredient-resolution";
 
 describe("ingredient regression corpus", () => {
   it.each(lineFixtures)("parses $input conservatively", ({ input, expected }) => {
@@ -44,6 +44,40 @@ describe("deterministic food matching", () => {
     expect(result.ingredients[0]).toMatchObject({ foodId: "parsley", resolution: "deterministic", status: "resolved" });
   });
 
+  it("reaches a stored singular through the plural the recipe used", () => {
+    // "-er" plus the diacritic folding normalizeName already does: "Eier" was
+    // the most common ingredient in German cooking and scored zero against "Ei".
+    const catalogue = [{ id: "ei", name: "Ei" }, { id: "glas", name: "Glas" }, { id: "buch", name: "Buch" }];
+    expect(matchFoodCandidates("Eier", catalogue)[0]).toMatchObject({ id: "ei", exact: true });
+    expect(matchFoodCandidates("Gläser", catalogue)[0]).toMatchObject({ id: "glas", exact: true });
+    expect(matchFoodCandidates("Bücher", catalogue)[0]).toMatchObject({ id: "buch", exact: true });
+  });
+
+  it("does not turn a singular that ends like a plural into another food", () => {
+    // "Butter" -> "Butt" is a fish. An identical name also outranks any form a
+    // plural rule can reach, so the real one wins even where both are stored.
+    const catalogue = [{ id: "butt", name: "Butt" }, { id: "butter", name: "Butter" }];
+    expect(matchFoodCandidates("Butter", catalogue)[0]).toMatchObject({ id: "butter", score: 1 });
+    expect(matchFoodCandidates("Butter", [{ id: "butt", name: "Butt" }]).some((c) => c.exact)).toBe(false);
+  });
+
+  it("offers a food the ingredient name is contained in", () => {
+    // The containment bonus was 0.2, under the 0.25 a candidate needs to be
+    // offered at all, so it could never produce one on its own.
+    const [best] = matchFoodCandidates("Mehl", [{ id: "w", name: "Weizenmehl Type 405" }]);
+    expect(best).toMatchObject({ id: "w" });
+    expect(best.score).toBeGreaterThanOrEqual(0.25);
+  });
+
+  it("drops a connective the stripped purpose left stranded", () => {
+    // "Öl zum Braten" lost "braten" as preparation and stayed "ol zum", which
+    // then missed a stored "Öl".
+    expect(normalizeIngredientName("Öl zum Braten")).toBe("ol");
+    expect(normalizeIngredientName("Petersilie zum Garnieren")).toBe("petersilie");
+    expect(normalizeIngredientName("Parsley for garnish")).toBe("parsley");
+    expect(normalizeIngredientName("Salz nach Geschmack")).toBe("salz");
+  });
+
   it("safely normalizes a common German plural", () => {
     expect(matchFoodCandidates("Frühlingszwiebeln", foods)[0]).toMatchObject({ id: "spring", exact: true });
   });
@@ -76,7 +110,11 @@ describe("selective batched AI resolution", () => {
     const lines = [...deterministicFoods.map((food, index) => `${index + 1} ${food.name}`), "1 Packung Käse", "1 Dose Tomaten"];
     const result = await resolveIngredientLines(lines, [...deterministicFoods, ...ambiguousFoods], ai);
     expect(ai.complete).toHaveBeenCalledTimes(1);
-    const request = JSON.parse(vi.mocked(ai.complete).mock.calls[0][0].prompt);
+    const prompt = vi.mocked(ai.complete).mock.calls[0][0].prompt;
+    // Source lines came off a public page, so they travel in the same envelope
+    // every other untrusted excerpt does rather than as bare JSON.
+    expect(prompt).toContain("<untrusted_source_content>");
+    const request = JSON.parse(prompt.split("---\n")[1].split("\n</untrusted_source_content>")[0]);
     expect(request.ingredients.map((item: { sourceLine: string }) => item.sourceLine)).toEqual(["1 Packung Käse", "1 Dose Tomaten"]);
     expect(request.ingredients.flatMap((item: { sourceLine: string }) => item.sourceLine)).not.toContain("Food0");
     expect(result.diagnostics).toMatchObject({ ingredientCount: 10, deterministicallyResolvedCount: 8, aiAssistedCount: 2, ollamaCallsUsed: 1 });

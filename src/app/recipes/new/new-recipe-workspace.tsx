@@ -81,6 +81,23 @@ export function NewRecipeWorkspace({
           <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("unparsed", { names: draft.unparsedIngredients.join(", ") })}</div>
         ) : null}
 
+        {/* Which rows to check first. The quantity on these is the source's own,
+            but the food behind it is a judgement the model made. */}
+        {draft?.aiAssistedIngredients?.length ? (
+          <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("aiAssisted", { names: draft.aiAssistedIngredients.join(", ") })}</div>
+        ) : null}
+
+        {draft?.resolutionDiagnostics ? (
+          <p className="muted" style={{ marginTop: 14 }}>
+            {t("resolutionSummary", {
+              total: draft.resolutionDiagnostics.ingredientCount,
+              deterministic: draft.resolutionDiagnostics.deterministicallyResolvedCount,
+              ai: draft.resolutionDiagnostics.aiAssistedCount,
+              unresolved: draft.resolutionDiagnostics.unresolvedCount,
+            })}
+          </p>
+        ) : null}
+
         {/* The extraction is already stored, so leaving this page does not lose
             it - and saving below confirms that same draft rather than adding a
             second copy of it. */}

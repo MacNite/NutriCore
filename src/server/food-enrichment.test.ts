@@ -60,10 +60,41 @@ describe("nutrition normalization", () => {
     expect(normalizeNutritionPer100g({ basisAmount: 100, basisUnit: "g", nutrients: { protein: 12 } })).toEqual({ protein: 12 });
     expect(normalizeNutritionPer100g({ basisAmount: 50, basisUnit: "g", nutrients: { protein: 6 } })).toEqual({ protein: 12 });
   });
-  it("requires an explicit serving gram weight and rejects millilitres", () => {
+  it("requires an explicit serving gram weight, and refuses millilitres for a food stored by mass", () => {
     expect(normalizeNutritionPer100g({ basisAmount: 1, basisUnit: "serving", servingSizeG: 30, nutrients: { energyKcal: 120 } })).toEqual({ energyKcal: 400 });
     expect(normalizeNutritionPer100g({ basisAmount: 1, basisUnit: "serving", nutrients: { energyKcal: 120 } })).toBeNull();
+    // No density, so there is nothing to convert the volume through.
     expect(normalizeNutritionPer100g({ basisAmount: 100, basisUnit: "ml", nutrients: { energyKcal: 20 } })).toBeNull();
+  });
+
+  it("takes a per-100-ml label for a drink, which is how every drink states it", () => {
+    // A food keeps its nutrients per 100 of its own basis unit, so for a food
+    // stored in millilitres this is already the right basis. Rejecting it left
+    // beverages permanently unenrichable.
+    expect(normalizeNutritionPer100g(
+      { basisAmount: 100, basisUnit: "ml", nutrients: { energyKcal: 42 } },
+      { basisUnit: "ML" },
+    )).toEqual({ energyKcal: 42 });
+    expect(normalizeNutritionPer100g(
+      { basisAmount: 250, basisUnit: "ml", nutrients: { energyKcal: 105 } },
+      { basisUnit: "ML" },
+    )).toEqual({ energyKcal: 42 });
+  });
+
+  it("crosses between mass and volume only through a stated density", () => {
+    expect(normalizeNutritionPer100g({ basisAmount: 100, basisUnit: "g", nutrients: { fat: 90 } }, { basisUnit: "ML" })).toBeNull();
+    expect(normalizeNutritionPer100g(
+      { basisAmount: 100, basisUnit: "g", nutrients: { fat: 92 } },
+      { basisUnit: "ML", densityGPerMl: 0.92 },
+    )).toEqual({ fat: 84.64 });
+  });
+
+  it("gives a volume basis the headroom its density needs", () => {
+    // 100 ml of honey is about 142 g, so its sugars per 100 ml legitimately
+    // exceed the 100 a mass basis caps at.
+    expect(isPlausibleNutrition({ sugar: 117 }, { basisUnit: "ML" })).toBe(true);
+    expect(isPlausibleNutrition({ sugar: 117 })).toBe(false);
+    expect(isPlausibleNutrition({ sugar: 400 }, { basisUnit: "ML" })).toBe(false);
   });
 });
 
@@ -98,6 +129,18 @@ describe("source retries", () => {
     const result = await extractNutritionForName("Tofu", ["protein"], { search, ai, fetchSource: fetchSource as never });
     expect(result).toMatchObject({ url: "https://good.test", per100g: { protein: 12 }, consideredUrls: ["https://broken.test", "https://bad.test", "https://good.test"] });
     expect(complete).toHaveBeenCalledTimes(2);
+  });
+
+  it("retrieves only the pages it can read, not every result the search offered", async () => {
+    // Fetching five to read two spent three requests on other people's servers
+    // for nothing. The title and snippet decide which are worth retrieving.
+    const search = { search: async () => [1, 2, 3, 4, 5].map((n) => ({ title: `Tofu nutrition ${n}`, url: `https://${n}.test` })) } as unknown as SearxngClient;
+    const fetchSource = vi.fn(async (url: string) => ({ url, excerpt: "Tofu nutrition per 100 g protein 12 g" }));
+    const ai = { capabilities: async () => ({ model: "local" }), complete: vi.fn().mockResolvedValue({ basisAmount: 100, basisUnit: "g", nutrients: { protein: 12 } }) } as unknown as OllamaProvider;
+
+    await extractNutritionForName("Tofu", ["protein"], { search, ai, fetchSource: fetchSource as never });
+
+    expect(fetchSource).toHaveBeenCalledTimes(3);
   });
 
   it("caps model attempts at two", async () => {

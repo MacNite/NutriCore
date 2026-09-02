@@ -711,6 +711,8 @@
       "openDraft": "Entwurf ansehen",
       "unmatched": "Diese Zutaten wurden nicht in deinen Lebensmitteln gefunden und müssen manuell ergänzt werden: {names}",
       "unparsed": "Diese Zutaten aus der Quelle konnten wegen einer fehlenden eindeutigen Menge nicht automatisch verarbeitet werden: {names}",
+      "aiAssisted": "Diese Zutaten hat die KI einem Lebensmittel zugeordnet – die Menge stammt aus der Quelle, die Zuordnung nicht: {names}",
+      "resolutionSummary": "{deterministic} von {total} Zutaten wurden eindeutig zugeordnet, {ai} mit Hilfe der KI, {unresolved} gar nicht.",
       "errors": {
         "inputRequired": "Füge Text, einen Link oder ein Bild hinzu.",
         "imageInvalid": "Verwende ein JPEG-, PNG- oder WebP-Bild.",

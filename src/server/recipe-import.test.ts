@@ -164,6 +164,76 @@ describe("recipe import from a URL", () => {
   });
 });
 
+describe("what the catalogue lookup can reach", () => {
+  /** A stored food with the servings it defines, matched the way the resolver sees it. */
+  const catalogue = [
+    { id: "food-ei", name: "Ei", basisUnit: "G", densityGPerMl: null, servings: [{ label: "Stück", unit: "Stück", amount: 1, gramEquivalent: 58, mlEquivalent: null }] },
+    { id: "food-pet", name: "Petersilie", basisUnit: "G", densityGPerMl: null, servings: [{ label: "Bund", unit: "Bund", amount: 1, gramEquivalent: 25, mlEquivalent: null }] },
+    { id: "food-mehl", name: "Mehl", basisUnit: "G", densityGPerMl: null, servings: [] },
+  ];
+
+  it("matches a German plural, an adjective and a counted portion in one recipe", async () => {
+    food.findMany.mockResolvedValue(catalogue);
+    vi.mocked(fetchMealPage).mockResolvedValue({
+      url: "https://example.org/auflauf", title: "Auflauf", excerpt: "x", recipeFound: true,
+      structuredRecipe: { name: "Auflauf", ingredientLines: ["200 g Mehl", "2 Eier", "1 Bund glatte Petersilie"] },
+    });
+
+    const draft = await runRecipeImport("import-1", { ai: asProvider(modelAnswering({})) });
+
+    expect(draft.unmatched).toEqual([]);
+    expect(draft.ingredients).toMatchObject([
+      { foodId: "food-mehl", amount: 200, unit: "g" },
+      // "2 Eier" parses as a piece; the food calls that "Stück", which is also
+      // the word its own unit dropdown offers.
+      { foodId: "food-ei", amount: 2, unit: "Stück" },
+      { foodId: "food-pet", amount: 1, unit: "Bund" },
+    ]);
+  });
+
+  it("looks a leftover food up by its identity name, not the whole messy line", async () => {
+    food.findMany.mockResolvedValue([]);
+    food.findFirst.mockResolvedValue(weighed("Zwiebel"));
+    vi.mocked(fetchMealPage).mockResolvedValue({
+      url: "https://example.org/auflauf", title: "Auflauf", excerpt: "x", recipeFound: true,
+      structuredRecipe: { name: "Auflauf", ingredientLines: ["200 g Zwiebel, fein gehackt"] },
+    });
+
+    await runRecipeImport("import-1", { ai: asProvider(modelAnswering({})) });
+
+    // "zwiebel fein gehackt" matches no stored food; "zwiebel" is one.
+    expect(food.findFirst.mock.calls[0][0].where.AND[1].normalizedName).toBe("zwiebel");
+  });
+
+  it("keeps the weight a package line states beside its contents", async () => {
+    food.findMany.mockResolvedValue([{ id: "food-tom", name: "Tomaten", basisUnit: "G", densityGPerMl: null, servings: [] }]);
+    vi.mocked(fetchMealPage).mockResolvedValue({
+      url: "https://example.org/auflauf", title: "Sugo", excerpt: "x", recipeFound: true,
+      structuredRecipe: { name: "Sugo", ingredientLines: ["2 Dosen gehackte Tomaten (400 g)"] },
+    });
+
+    const draft = await runRecipeImport("import-1", { ai: asProvider(modelAnswering({})) });
+
+    // The can has no weight this code may invent; the bracket had one all along.
+    expect(draft.ingredients[0]).toMatchObject({ foodId: "food-tom", amount: 800, unit: "g" });
+    expect(draft.unconverted).toEqual([]);
+  });
+
+  it("names the ingredients the model was asked to settle", async () => {
+    food.findMany.mockResolvedValue([{ id: "food-tom", name: "Tomaten Konserve", basisUnit: "G", densityGPerMl: null, servings: [] }]);
+    vi.mocked(fetchMealPage).mockResolvedValue({
+      url: "https://example.org/auflauf", title: "Sugo", excerpt: "x", recipeFound: true,
+      structuredRecipe: { name: "Sugo", ingredientLines: ["200 g passierte Tomaten"] },
+    });
+    const ai = { complete: vi.fn(async () => ({ ingredients: [{ id: 0, candidateIndex: 0, confidence: "high" }] })) };
+
+    const draft = await runRecipeImport("import-1", { ai: asProvider(ai) });
+
+    expect(draft.aiAssistedIngredients).toEqual(["Tomaten Konserve"]);
+    expect(draft.resolutionDiagnostics).toMatchObject({ ingredientCount: 1, aiAssistedCount: 1 });
+  });
+});
+
 describe("units the draft may carry", () => {
   it("accepts the source's own spelling of a metric unit", async () => {
     food.findFirst.mockResolvedValue(weighed("Mehl"));

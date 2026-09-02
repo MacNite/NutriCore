@@ -274,6 +274,40 @@ const UNIT_WORDS = new Set([
 const cleanWord = (word: string) => word.replace(/[.,;:]+$/, "");
 
 /**
+ * Units that count containers rather than measure anything, plus the bare count
+ * a line with no measure word gets. A weight stated beside one of these is the
+ * only weight the line carries.
+ */
+const PACKAGE_WORDS = new Set([
+  "piece", "dose", "dosen", "can", "cans", "packung", "packungen", "päckchen", "paeckchen", "pack",
+  "becher", "glas", "gläser", "tüte", "tuete", "beutel", "bund", "tafel", "tafeln",
+]);
+
+/**
+ * Pulls the weight a package line states beside its contents.
+ *
+ * "1 Dose gehackte Tomaten (400 g)" carries the only usable quantity in that
+ * bracket: the can itself has no weight this code may invent, so the line used
+ * to be reported as unconvertible while the source had said 400 g all along.
+ * The count multiplies it, because two cans of 400 g are 800 g - the same
+ * reading `repairMealUnit` already makes of "2 Scheiben (ca. 50 g)".
+ */
+function weightBesideName(
+  name: string,
+  unit: string,
+  count: number,
+): { name: string; amount: number; unit: string } | undefined {
+  if (!PACKAGE_WORDS.has(cleanWord(unit).toLowerCase())) return undefined;
+  const match = name.match(/\s*[([]\s*(?:(?:ca|approx|approximately|je|each)\.?\s*)?(\d+(?:[.,]\d+)?)\s*(g|gramm?|kg|ml|l)\b\s*[)\]]\s*$/i);
+  if (!match) return undefined;
+  const each = positiveOrAbsent(match[1], 100_000);
+  const stripped = textOrAbsent(name.slice(0, match.index).trim(), 120);
+  const amount = each === undefined ? undefined : positiveOrAbsent(each * count, 100_000);
+  if (amount === undefined || !stripped) return undefined;
+  return { name: stripped, amount, unit: match[2].toLowerCase() };
+}
+
+/**
  * Recovers an ingredient from one line of text - "200 g Mehl", "2 Eier",
  * "½ TL Salz".
  *
@@ -298,7 +332,8 @@ export function ingredientFromText(value: unknown): { name: string; amount: numb
   if (!name) return undefined;
   // A counted ingredient keeps a counting unit rather than the gram default: "2
   // Eier" is two eggs, and calling it two grams would be an invented weight.
-  return { name, amount, unit: measured ? cleanWord(first).slice(0, 40) : "piece" };
+  const unit = measured ? cleanWord(first).slice(0, 40) : "piece";
+  return weightBesideName(name, unit, amount) ?? { name, amount, unit };
 }
 
 const NAME_KEYS = ["name", "ingredient", "item", "zutat", "food", "title"] as const;
