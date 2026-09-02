@@ -124,13 +124,23 @@ export async function resolveIngredientLines(
     const classified = classifyIngredientLine(line);
     const candidates = classified.normalizedName ? matchFoodCandidates(classified.normalizedName, foods) : [];
     const best = candidates[0];
-    const clearLead = Boolean(best && best.score >= 0.72 && (!candidates[1] || best.score - candidates[1].score >= 0.25));
+    // 0.72 sat just above the score one unrecognised adjective produces: a
+    // wanted name of two tokens sharing one with the food, plus the containment
+    // bonus, is exactly 0.7 - so "1 Bund glatte Petersilie" missed a stored
+    // "Petersilie" by two hundredths. The runner-up margin still carries the
+    // "only one plausible reading" part of the decision.
+    const clearLead = Boolean(best && best.score >= 0.65 && (!candidates[1] || best.score - candidates[1].score >= 0.25));
     if (classified.status !== "unquantified" && classified.status !== "failed" && best && (best.exact || clearLead)) {
       ingredients.push({ ...classified, foodId: best.id, foodName: best.name, status: "resolved", resolution: "deterministic", confidence: "high" });
     } else {
       const index = ingredients.push({ ...classified, resolution: "unresolved" }) - 1;
-      // AI is useful only where it can select among plausible local foods. Unquantified lines stay visible and amountless.
-      if (ai && classified.parsed && candidates.length > 1) pending.push({ index, candidates });
+      // AI is useful only where it can select among plausible local foods, and
+      // one candidate the deterministic rules could not commit to is exactly
+      // such a choice - confirm it or reject it. Requiring two candidates
+      // excluded the most fixable case there is: a single near-match that a
+      // stray adjective kept below the threshold. Unquantified lines stay
+      // visible and amountless.
+      if (ai && classified.parsed && candidates.length >= 1) pending.push({ index, candidates });
     }
   }
 

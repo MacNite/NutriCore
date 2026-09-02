@@ -82,20 +82,44 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
     // things to check about their AI service.
     if (!source.excerpt.trim()) throw new Error("source-no-ingredients");
     structured = source.structuredRecipe;
-    if (!structured) prompt += `\n\n${asUntrustedExcerpt(source.url, source.excerpt)}`;
+    // Always carried, even when the page also yielded structured data: the
+    // model runs whenever an image is attached, or whenever the deterministic
+    // reading below turns out to be too thin to use, and in both cases it needs
+    // the page in front of it. Withholding it left an import that had both a
+    // link and a photo with nothing but the user's own sentence.
+    prompt += `\n\n${asUntrustedExcerpt(source.url, source.excerpt)}`;
   }
 
   const images = record.imageData ? [Buffer.from(record.imageData).toString("base64")] : undefined;
-  const deterministicIngredients = structured?.ingredientLines.map((line) => ({ line, ingredient: ingredientFromText(line) })) ?? [];
-  const unparsedIngredients = deterministicIngredients.filter((item) => !item.ingredient).map((item) => item.line);
+  const structuredLines = structured?.ingredientLines ?? [];
+  const deterministicIngredients = structuredLines.map((line) => ({ line, ingredient: ingredientFromText(line) }));
+  const deterministicCount = deterministicIngredients.filter((item) => item.ingredient).length;
+  /**
+   * Reading the source's own lines beats asking a model to repeat them, but
+   * only where it actually read the recipe. A page whose lines carry no
+   * explicit quantities - "Salz und Pfeffer", "Öl zum Braten" - produced an
+   * empty ingredient list, and because nothing fell back, the model that could
+   * still have read the excerpt was never asked. That stored a draft recipe
+   * with no ingredients at all, which neither `confirmRecipe` nor the recipe
+   * form will accept: the user was left with a draft they could only delete.
+   */
+  const deterministicSource = structured && !images && deterministicCount > 0 && deterministicCount * 2 >= structuredLines.length ? structured : undefined;
   const ai = deps.ai ?? new OllamaProvider();
-  const parsed: z.infer<typeof extractedRecipeSchema> = structured && !images ? {
-    name: structured.name || record.text || "Unbenanntes Rezept",
-    description: structured.description ?? "",
+  // The typed text names the recipe only when it reads like a name. A pasted
+  // recipe truncated to the schema's 200 characters is a worse title than none.
+  const typedFirstLine = record.text?.trim().split("\n", 1)[0]?.trim() ?? "";
+  const typedName = typedFirstLine.length <= 200 ? typedFirstLine : "";
+  const parsed: z.infer<typeof extractedRecipeSchema> = deterministicSource ? extractedRecipeSchema.parse(repairExtractedRecipe({
+    // Repaired and validated exactly like a model answer. This branch used to
+    // assert the schema's type without ever running it, so the source's own
+    // name and steps reached the database at lengths the recipe form itself
+    // rejects - a draft that could be stored but never saved.
+    name: deterministicSource.name || typedName || "Unbenanntes Rezept",
+    description: deterministicSource.description ?? "",
     servings: Number(record.servings),
-    instructions: structured.instructions ?? "",
+    instructions: deterministicSource.instructions ?? "",
     ingredients: deterministicIngredients.flatMap((item) => item.ingredient ? [item.ingredient] : []),
-  } : await ai.complete({
+  })) : await ai.complete({
     system: SYSTEM,
     prompt,
     images,
@@ -117,13 +141,13 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
   let resolvedStructured: Awaited<ReturnType<typeof resolveIngredientLines>>["ingredients"] | undefined;
   type VisibleFood = { id: string; name: string; basisUnit: "G" | "ML"; densityGPerMl: Prisma.Decimal | null; servings: Array<{ label: string; unit: string; amount: Prisma.Decimal; gramEquivalent: Prisma.Decimal | null; mlEquivalent: Prisma.Decimal | null }> };
   let visibleFoods: VisibleFood[] = [];
-  if (structured && !images) {
+  if (deterministicSource) {
     visibleFoods = await prisma.food.findMany({
       where: visibleFoodWhere(record.userId),
       select: { id: true, name: true, basisUnit: true, densityGPerMl: true, servings: { select: { label: true, unit: true, amount: true, gramEquivalent: true, mlEquivalent: true } } },
       take: 1000,
     });
-    const result = await resolveIngredientLines(structured.ingredientLines, visibleFoods, ai);
+    const result = await resolveIngredientLines(structuredLines, visibleFoods, ai);
     resolvedStructured = result.ingredients;
     diagnostics = result.diagnostics;
   }
@@ -169,8 +193,11 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
   } catch (error) {
     logger.warn("recipe-import draft not stored", { importId, error: error instanceof Error ? error.message : String(error) });
   }
-  const unresolvedLines = resolvedStructured?.filter((item) => item.resolution === "unresolved").map((item) => item.sourceLine) ?? unparsedIngredients;
-  const stillUnparsed = resolvedStructured?.filter((item) => !item.parsed).map((item) => item.sourceLine) ?? unparsedIngredients;
+  // Only the deterministic reading can report on the source's own lines. Where
+  // the model read the recipe instead, those lines say nothing about what it
+  // did or did not manage to extract.
+  const unresolvedLines = resolvedStructured?.filter((item) => item.resolution === "unresolved").map((item) => item.sourceLine) ?? [];
+  const stillUnparsed = resolvedStructured?.filter((item) => !item.parsed).map((item) => item.sourceLine) ?? [];
   const draft: RecipeImportDraft = { ...parsed, servings, ingredients, unmatched, unconverted, unparsedIngredients: stillUnparsed, unresolvedIngredientLines: unresolvedLines, resolutionDiagnostics: diagnostics, recipeId };
   if (diagnostics) logger.info("recipe ingredient resolution completed", { importId, ...diagnostics });
   await prisma.recipeImport.update({
