@@ -1001,6 +1001,27 @@ legend {
   border-color: transparent;
 }
 
+/* An entry standing in for an AI run that has not finished. Dashed, so it reads
+   as not-yet-real at a glance without relying on its colour alone. */
+.ai-placeholder {
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+}
+
+.ai-placeholder + .ai-placeholder {
+  border-top: 0;
+}
+
+.ai-placeholder .row-body strong {
+  color: var(--text-muted);
+}
+
+.ai-placeholder-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 /* ------------------------------------------------------------------ Messages */
 
 .notice {

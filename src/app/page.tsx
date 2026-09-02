@@ -10,6 +10,9 @@ import { SourceBadge } from "@/components/source-badge";
 import { QuickAddLink } from "@/components/quick-add";
 import { PendingProposals } from "@/components/pending-proposals";
 import { pendingProposals } from "@/server/pending-proposals";
+import { AiPlaceholderRow } from "@/components/ai-placeholder-row";
+import { mealPlaceholders } from "@/server/ai-placeholders";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { QuickMealDialog } from "@/components/quick-meal-dialog";
 import { AppDialog } from "@/components/app-dialog";
 import { DiaryEntryRow } from "@/components/diary-entry-row";
@@ -34,6 +37,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const diaryT = await getTranslations("diary");
   const common = await getTranslations("common");
   const aiT = await getTranslations("aiReview");
+  const placeholderT = await getTranslations("aiPlaceholder");
   const activityT = await getTranslations("activity");
   const locale = user.language;
   const today = formatDateKey(new Date());
@@ -41,7 +45,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const selectedDate = validDateKey(params.date, today);
   const research = researchAvailability(user);
 
-  const [day, target, recent, pending, activities] = await Promise.all([
+  const [day, target, recent, pending, activities, placeholders] = await Promise.all([
     getDiaryDay(user.id, selectedDate),
     getCurrentTarget(user.id),
     prisma.foodUsageStats.findMany({
@@ -54,7 +58,20 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
     // followed submitting a meal, so one left undecided was invisible.
     pendingProposals(user.id),
     getActivityEntries(user.id, selectedDate),
+    // Meals the worker is still extracting. Until it finishes there is nothing
+    // to log yet, so each run stands in its own meal as a placeholder that only
+    // leads back to its review.
+    mealPlaceholders(user.id, selectedDate),
   ]);
+
+  const placeholderLabels = {
+    name: placeholderT("name"),
+    hint: placeholderT("hint"),
+    queued: placeholderT("queued"),
+    running: placeholderT("running"),
+    tagAi: placeholderT("tagAi"),
+    tagDraft: placeholderT("tagDraft"),
+  };
 
   const consumed = day.totals.energyKcal ?? 0;
   const targetKcal = target?.kcal ?? null;
@@ -78,6 +95,10 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
           </Link>
         </nav>
       </div>
+
+      {/* A finished run has to reach the page that is showing its placeholder,
+          or the stand-in would sit there until someone reloaded by hand. */}
+      {placeholders.length ? <AutoRefresh /> : null}
 
       <PendingProposals
         proposals={pending}
@@ -113,6 +134,13 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
               const mealData = day.meals.find((m) => m.meal === meal);
               const entries = mealData?.entries ?? [];
               const kcal = mealData?.totals.energyKcal ?? null;
+              const mealPending = placeholders.filter((placeholder) => placeholder.meal === meal);
+              // The placeholder is named in the collapsed row too: a queued meal
+              // that only showed up after opening the dialog would look, from
+              // the day's list, exactly like a meal that was never submitted.
+              // Named once however many runs are in flight, since repeating one
+              // fixed name would say nothing that the first one did not.
+              const preview = [...(mealPending.length ? [placeholderLabels.name] : []), ...entries.map((e) => e.label)];
 
               return (
                 <div className="row clickable-row" key={meal}>
@@ -122,13 +150,15 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                     closeLabel={common("close")}
                     initialOpen={params.editMeal === meal}
                     triggerClassName="row-main-button"
-                    trigger={<><div className="row-body"><strong>{diaryT(`meals.${meal}`)}</strong><span>{entries.length === 0 ? diaryT("empty") : entries.map((e) => e.label).slice(0, 3).join(" · ")}</span></div><span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span></>}
+                    trigger={<><div className="row-body"><strong>{diaryT(`meals.${meal}`)}</strong><span>{preview.length === 0 ? diaryT("empty") : preview.slice(0, 3).join(" · ")}</span></div><span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span></>}
                     secondaryTrigger={<span aria-hidden="true">＋</span>}
                     secondaryTriggerLabel={diaryT("addTo", { meal: diaryT(`meals.${meal}`) })}
                     secondaryAutoFocusTarget=".meal-search-input"
                   >
                     <div className="dialog-toolbar"><strong>{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</strong><FoodSearchField variant="dropdown" meal={meal} date={selectedDate} editMeal={meal} locale={locale} researchAvailable={research.available} researchUnavailableReason={research.reason} /></div>
-                    {entries.length === 0 ? <p className="empty">{diaryT("empty")}</p> : entries.map((entry) => <DiaryEntryRow key={entry.id} entry={{ id: entry.id, label: entry.label, brand: entry.brand, quantity: entry.quantity, unit: entry.unit, kcal: entry.nutrients.energyKcal ?? null, sourceType: entry.sourceType }} date={selectedDate} locale={locale} badge={<SourceBadge source={entry.sourceType} />} />)}
+                    {mealPending.map((placeholder) => <AiPlaceholderRow key={placeholder.id} placeholder={placeholder} labels={placeholderLabels} />)}
+                    {mealPending.length ? <p className="muted" style={{ margin: "8px 0 0" }}>{placeholderT("mealHint")}</p> : null}
+                    {entries.length === 0 && mealPending.length === 0 ? <p className="empty">{diaryT("empty")}</p> : entries.map((entry) => <DiaryEntryRow key={entry.id} entry={{ id: entry.id, label: entry.label, brand: entry.brand, quantity: entry.quantity, unit: entry.unit, kcal: entry.nutrients.energyKcal ?? null, sourceType: entry.sourceType }} date={selectedDate} locale={locale} badge={<SourceBadge source={entry.sourceType} />} />)}
                   </AppDialog>
                 </div>
               );

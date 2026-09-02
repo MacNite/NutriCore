@@ -121,6 +121,14 @@ keeps work a user is waiting for ahead of background enrichment, and the worker
 reclaims jobs left `RUNNING` by a worker that died, since a claim is conditional
 on `QUEUED` and nothing else would ever pick them up.
 
+A run that is still going is visible where its result will land. `ai-placeholders.ts`
+derives a stand-in entry from every `QUEUED` or `RUNNING` job - listed in the meal
+it will be written into and among the recipes it will become - tagged AI and draft,
+and doing nothing but linking back to that run's review page. It is derived, never
+stored: the query stops returning it the moment the job leaves those states, so the
+real diary entry or draft recipe replaces it with nothing to clean up, and a worker
+that dies cannot leave a dummy row behind in the user's own data.
+
 Research is a persisted state machine. Every path to `ACCEPTED` runs through
 `AWAITING_CONFIRMATION`, so nothing is stored without the user confirming it. A
 working state and `FAILED` may go back to `REQUESTED` — that is what lets the
