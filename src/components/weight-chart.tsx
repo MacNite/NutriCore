@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { movingAverage, weightStats, type WeightPoint } from "@/lib/weight";
-import { formatDate, formatNumber } from "@/lib/format";
+import { weightSummary } from "./weight-summary";
+import { formatNumber } from "@/lib/format";
 import type { Locale } from "@/i18n/locales";
 
 const WIDTH = 640;
@@ -9,7 +10,7 @@ const PAD = { top: 12, right: 12, bottom: 26, left: 40 };
 
 /**
  * Inline SVG so no charting library is needed. The chart is labelled with an
- * accessible summary and the same data is available as a table below it.
+ * accessible summary; the same data is available as a table in the weight log.
  */
 export async function WeightChart({
   points,
@@ -42,66 +43,53 @@ export async function WeightChart({
     .map((value, index) => (value === null ? null : `${x(index)},${y(value)}`))
     .filter((value): value is string => value !== null);
 
-  const summary = t("chartSummary", {
-    from: formatDate(stats.first.date, locale),
-    to: formatDate(stats.last.date, locale),
-    count: points.length,
-    min: formatNumber(stats.min, locale),
-    max: formatNumber(stats.max, locale),
-  });
+  const summary = await weightSummary(points, locale);
 
   return (
-    <figure style={{ margin: 0 }}>
-      <div className="table-scroll">
-        <svg
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          width="100%"
-          height={HEIGHT}
-          role="img"
-          aria-label={summary}
-          style={{ minWidth: 320, display: "block" }}
-        >
-          {[min, (min + max) / 2, max].map((value) => (
-            <g key={value}>
-              <line x1={PAD.left} x2={WIDTH - PAD.right} y1={y(value)} y2={y(value)} stroke="var(--line)" strokeWidth="1" />
-              <text x={4} y={y(value) + 4} fontSize="11" fill="var(--text-muted)">
-                {formatNumber(value, locale, 0)}
-              </text>
-            </g>
-          ))}
+    <div className="table-scroll">
+      <svg
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        width="100%"
+        height={HEIGHT}
+        role="img"
+        aria-label={summary ?? undefined}
+        style={{ minWidth: 320, display: "block" }}
+      >
+        {[min, (min + max) / 2, max].map((value) => (
+          <g key={value}>
+            <line x1={PAD.left} x2={WIDTH - PAD.right} y1={y(value)} y2={y(value)} stroke="var(--line)" strokeWidth="1" />
+            <text x={4} y={y(value) + 4} fontSize="11" fill="var(--text-muted)">
+              {formatNumber(value, locale, 0)}
+            </text>
+          </g>
+        ))}
 
-          {goalKg !== null && goalKg >= min && goalKg <= max ? (
-            <>
-              <line
-                x1={PAD.left}
-                x2={WIDTH - PAD.right}
-                y1={y(goalKg)}
-                y2={y(goalKg)}
-                stroke="var(--accent)"
-                strokeWidth="1.5"
-                strokeDasharray="6 4"
-              />
-              <text x={WIDTH - PAD.right} y={y(goalKg) - 5} fontSize="11" fill="var(--accent)" textAnchor="end">
-                {t("goalLine")}
-              </text>
-            </>
-          ) : null}
+        {goalKg !== null && goalKg >= min && goalKg <= max ? (
+          <>
+            <line
+              x1={PAD.left}
+              x2={WIDTH - PAD.right}
+              y1={y(goalKg)}
+              y2={y(goalKg)}
+              stroke="var(--accent)"
+              strokeWidth="1.5"
+              strokeDasharray="6 4"
+            />
+            <text x={WIDTH - PAD.right} y={y(goalKg) - 5} fontSize="11" fill="var(--accent)" textAnchor="end">
+              {t("goalLine")}
+            </text>
+          </>
+        ) : null}
 
-          <path d={line} fill="none" stroke="var(--line-strong)" strokeWidth="1.5" />
-          {trendPoints.length > 1 ? (
-            <polyline points={trendPoints.join(" ")} fill="none" stroke="var(--accent)" strokeWidth="2.5" />
-          ) : null}
+        <path d={line} fill="none" stroke="var(--line-strong)" strokeWidth="1.5" />
+        {trendPoints.length > 1 ? (
+          <polyline points={trendPoints.join(" ")} fill="none" stroke="var(--accent)" strokeWidth="2.5" />
+        ) : null}
 
-          {points.map((point, index) => (
-            <circle key={point.date} cx={x(index)} cy={y(point.weightKg)} r="2.5" fill="var(--text-muted)" />
-          ))}
-        </svg>
-      </div>
-
-      <figcaption className="muted" style={{ fontSize: 13, marginTop: 8 }}>
-        {summary}
-        {trendPoints.length > 1 ? ` · ${t("trend")}` : ` · ${t("needMoreData")}`}
-      </figcaption>
-    </figure>
+        {points.map((point, index) => (
+          <circle key={point.date} cx={x(index)} cy={y(point.weightKg)} r="2.5" fill="var(--text-muted)" />
+        ))}
+      </svg>
+    </div>
   );
 }

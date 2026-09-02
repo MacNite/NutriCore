@@ -34,3 +34,11 @@ export function weightStats(points: WeightPoint[]): WeightStats | null {
     changeKg: points[points.length - 1].weightKg - points[0].weightKg,
   };
 }
+
+/**
+ * Whether enough points carry a moving average to draw a trend line. A single
+ * averaged point would render as nothing, so two are required.
+ */
+export function hasTrendLine(points: WeightPoint[], window = 7): boolean {
+  return movingAverage(points, window).filter((value) => value !== null).length > 1;
+}

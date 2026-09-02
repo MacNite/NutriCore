@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { movingAverage, weightStats } from "./weight";
+import { hasTrendLine, movingAverage, weightStats } from "./weight";
 
 const series = [80, 81, 79, 80.5, 80, 79.5, 80, 79].map((weightKg, index) => ({
   date: `2026-08-${String(index + 1).padStart(2, "0")}`,
@@ -41,5 +41,12 @@ describe("weight stats", () => {
 
   it("returns null with no entries", () => {
     expect(weightStats([])).toBeNull();
+  });
+});
+
+describe("trend line", () => {
+  it("needs two averaged points before a line can be drawn", () => {
+    expect(hasTrendLine(series.slice(0, 7))).toBe(false);
+    expect(hasTrendLine(series)).toBe(true);
   });
 });

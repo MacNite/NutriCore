@@ -3,10 +3,10 @@ import { getTranslations } from "next-intl/server";
 import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { WeightChart } from "@/components/weight-chart";
+import { WeightLog } from "@/components/weight-log";
 import { NutritionProgressChart } from "@/components/nutrition-progress-chart";
 import { WeightForm } from "./weight-form";
 import { prisma } from "@/lib/db";
-import { formatDate, formatNumber } from "@/lib/format";
 import { formatDateKey } from "@/server/diary";
 import type { EntrySnapshot } from "@/server/diary";
 import { aggregateNutritionDay, type ProgressTarget } from "@/lib/nutrition-progress";
@@ -33,6 +33,12 @@ export default async function ProgressPage() {
   const points = entries.map((entry) => ({
     date: entry.date.toISOString().slice(0, 10),
     weightKg: Number(entry.weightKg),
+  }));
+  const weightRows = [...entries].reverse().map((entry) => ({
+    id: entry.id,
+    date: entry.date.toISOString().slice(0, 10),
+    weightKg: Number(entry.weightKg),
+    note: entry.note,
   }));
   const targets: ProgressTarget[] = nutritionTargets.map((target) => ({
     validFrom: target.validFrom.toISOString(),
@@ -77,29 +83,7 @@ export default async function ProgressPage() {
                   locale={locale}
                 />
 
-                <div className="table-scroll" style={{ marginTop: 16 }}>
-                  <table className="table">
-                    <caption className="sr-only">{t("weight")}</caption>
-                    <thead>
-                      <tr>
-                        <th scope="col">{t("date")}</th>
-                        <th scope="col" className="num">
-                          {t("weightValue")}
-                        </th>
-                        <th scope="col">{t("note")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...entries].reverse().slice(0, 14).map((entry) => (
-                        <tr key={entry.id}>
-                          <td>{formatDate(entry.date.toISOString().slice(0, 10), locale)}</td>
-                          <td className="num">{formatNumber(Number(entry.weightKg), locale)} kg</td>
-                          <td>{entry.note ?? ""}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <WeightLog rows={weightRows} locale={locale} />
               </>
             )}
           </section>
