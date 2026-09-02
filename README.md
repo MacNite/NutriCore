@@ -37,7 +37,7 @@ Implemented and covered by tests:
   line, plus an accessible text summary and table.
 - **Settings** — profile, target override, language, AI and research toggles.
   Secrets are never displayed.
-- **Administration** — for the `ADMIN` role only: invite users with single-use
+- **Administration** — for the `ADMIN` role only: invite or batch-invite users with single-use
   links, activate and deactivate accounts, watch the AI job queue with its
   retries and errors, and check service reachability (diagnostics). Reachable
   from Settings → Administration.
@@ -95,13 +95,16 @@ docker compose up -d
 
 Open <http://localhost:3000> and create the first account. Health is at
 `/api/health`. The first registered account becomes the administrator; later
-accounts should normally be invited. No demo account is ever created
+accounts should normally be invited. Invitations can be delivered through the
+configurable SMTP mailer. No demo account is ever created
 automatically.
 
 **Administration** lives at `/admin`, reachable from Settings → Administration
 for accounts with the `ADMIN` role. It invites users, activates and deactivates
 accounts, and shows the AI job queue. NutriCore sends no email: creating an
 invitation shows the single-use link once, on that page, for the administrator
+as a fallback. With SMTP enabled, administrators can send individual or batch
+invitations, and every signed-in user can invite another user from Settings.
 to pass on themselves. If the link is lost, "Resend" issues a new one and
 revokes the old.
 
@@ -185,6 +188,9 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `AI_FALLBACK_MODEL` / `AI_CONFIDENCE_THRESHOLD` | no | Future low-confidence fallback policy; fallback is not called for every job |
 | `SEARXNG_URL` / `SEARXNG_TIMEOUT_MS` | no | JSON source discovery used only after local foods miss |
 | `INVITATION_EXPIRY_HOURS` | no | Single-use invitation lifetime; default 48 hours |
+| `SMTP_ENABLED` / `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | no | SMTP delivery; setting `SMTP_HOST` makes environment configuration take precedence over the Administrator Panel |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | no | Optional SMTP authentication credentials |
+| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | with environment SMTP | Sender address and display name for invitation email |
 | `OLLAMA_TIMEOUT_SECONDS` | no | Model generation timeout; default `600` seconds |
 | `USDA_ENABLED` / `USDA_API_KEY` | no | Phase 2 |
 | `RESEARCH_ENABLED` | no | Default `false`; only enables web sources for AI research |

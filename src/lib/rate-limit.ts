@@ -60,4 +60,5 @@ export const RATE_LIMITS = {
   search: scaled(120, 60 * 1000),
   research: scaled(10, 60 * 60 * 1000),
   export: scaled(5, 60 * 60 * 1000),
+  invite: scaled(10, 60 * 60 * 1000),
 };

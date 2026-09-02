@@ -574,7 +574,18 @@
     "administration": "Administration",
     "administrationHint": "Personen einladen, Konten deaktivieren und KI-Aufgaben im Hintergrund verfolgen.",
     "autoApproveAi": "KI-Mahlzeiten automatisch übernehmen",
-    "autoApproveAiHint": "Eine erkannte Mahlzeit wird direkt ins Tagebuch geschrieben, ohne die Prüfseite. Jede Zuordnung bleibt nachvollziehbar und Schätzungen bleiben als solche markiert. Ausgeschaltet wartet jede Mahlzeit auf deine Freigabe."
+    "autoApproveAiHint": "Eine erkannte Mahlzeit wird direkt ins Tagebuch geschrieben, ohne die Prüfseite. Jede Zuordnung bleibt nachvollziehbar und Schätzungen bleiben als solche markiert. Ausgeschaltet wartet jede Mahlzeit auf deine Freigabe.",
+    "invite": {
+      "title": "Jemanden einladen",
+      "hint": "Sende einen einmal verwendbaren NutriCore-Registrierungslink per E-Mail. Eingeladene Konten erhalten immer die Benutzerrolle.",
+      "email": "E-Mail",
+      "name": "Name (optional)",
+      "send": "Einladung senden",
+      "sent": "Einladung gesendet.",
+      "failed": "Die E-Mail konnte nicht zugestellt werden. Bitte versuche es später erneut.",
+      "mailDisabled": "Ein Administrator muss SMTP aktivieren, um Einladungen zu versenden.",
+      "rateLimited": "Zu viele Einladungen wurden angefordert. Bitte versuche es später erneut."
+    }
   },
   "diagnostics": {
     "title": "Diagnose",
@@ -840,7 +851,7 @@
     "roleAdmin": "Administrator",
     "sendInvitation": "Einladung erstellen",
     "invitationLink": "Einladungslink",
-    "invitationLinkHint": "Wird nur hier und nur einmal angezeigt. Sende ihn selbst an die eingeladene Person — NutriCore versendet keine E-Mails.",
+    "invitationLinkHint": "Wird als Ausweichmöglichkeit einmal angezeigt. Wenn SMTP aktiviert ist, sendet NutriCore den Link auch per E-Mail.",
     "copy": "Kopieren",
     "copied": "Kopiert",
     "recentInvitations": "Letzte Einladungen",
@@ -951,7 +962,40 @@
     "resultCandidate": "Vorschlag",
     "jobsPageStatus": "Seite {page} von {pages} · {total, plural, one {# Auftrag} other {# Aufträge}}",
     "previousPage": "Zurück",
-    "nextPage": "Weiter"
+    "nextPage": "Weiter",
+    "batchInvite": "Benutzer gesammelt einladen",
+    "batchInviteHint": "Ein Empfänger pro Zeile als E-Mail oder E-Mail,Name (maximal 100). SMTP muss aktiviert sein.",
+    "recipients": "Empfänger",
+    "batchPlaceholder": "alex@example.com,Alex\nsam@example.com",
+    "sendBatch": "Einladungen senden",
+    "batchResult": "{sent} Einladungen gesendet; {failed} konnten nicht gesendet werden.",
+    "mailStatus": {
+      "sent": "Die Einladungs-E-Mail wurde gesendet.",
+      "disabled": "SMTP ist deaktiviert; teile den Link manuell.",
+      "failed": "Der E-Mail-Versand ist fehlgeschlagen; teile den Link manuell."
+    },
+    "smtp": {
+      "title": "SMTP-Mailer",
+      "hint": "Konfiguriere den Einladungsversand hier oder über SMTP_HOST und die zugehörigen Umgebungsvariablen. Die Umgebung hat Vorrang.",
+      "enabled": "E-Mail-Versand aktivieren",
+      "host": "SMTP-Host",
+      "port": "Port",
+      "secure": "Implizites TLS verwenden (meist Port 465)",
+      "username": "Benutzername (optional)",
+      "password": "Passwort (leer lassen zum Beibehalten)",
+      "passwordStored": "Passwort ist gespeichert",
+      "fromEmail": "Absender-E-Mail",
+      "fromName": "Absendername",
+      "source": "Aktive Quelle: {source}",
+      "sourceValue": {
+        "environment": "Umgebung",
+        "administrator": "Administrationsbereich",
+        "none": "nicht konfiguriert"
+      },
+      "save": "Mail-Einstellungen speichern",
+      "saved": "Mail-Einstellungen gespeichert.",
+      "environment": "Die Umgebungskonfiguration ist aktiv und kann hier nicht geändert werden."
+    }
   },
   "account": {
     "changePasswordTitle": "Neues Passwort wählen",
