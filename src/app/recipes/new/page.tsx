@@ -9,6 +9,20 @@ import { imageUploadMaxMb } from "@/lib/image-upload-limit";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * A URL failure the reader can act on. The worker's own message names the step
+ * that failed - "source-no-ingredients" - which is the right thing to store and
+ * the wrong thing to show, so it is translated here as the AI review page does.
+ */
+function sourceFailure(job: { errorMessage: string | null; failureKind: string | null } | null) {
+  if (job?.errorMessage === "source-no-ingredients") return "noIngredients";
+  if (job?.errorMessage === "source-unsupported-content") return "unsupportedContent";
+  if (job?.errorMessage === "source-too-large" || job?.failureKind === "SOURCE_TOO_LARGE") return "oversizedPage";
+  if (job?.failureKind === "SOURCE_BLOCKED") return "unsafeUrl";
+  if (job?.failureKind === "SOURCE_UNAVAILABLE") return "unreachablePage";
+  return null;
+}
+
 const IMPORT_ERRORS = new Set<RecipeImportError>([
   "inputRequired",
   "imageInvalid",
@@ -61,6 +75,7 @@ export default async function NewRecipePage({
         // usable; that is a failure to report, not a state to keep waiting in.
         pending={Boolean(importId) && !draft && (job?.status === "QUEUED" || job?.status === "RUNNING")}
         failed={job?.status === "FAILED" ? (job.errorMessage ?? job.failureKind ?? "") : null}
+        sourceFailure={job?.status === "FAILED" ? sourceFailure(job) : null}
       />
     </AppShell>
   );

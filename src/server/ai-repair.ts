@@ -221,6 +221,119 @@ function repairModelNutrition(value: Record<string, unknown>) {
   });
 }
 
+/** The first of `keys` that holds usable text. */
+function firstText(value: Record<string, unknown>, keys: readonly string[], max: number) {
+  for (const key of keys) {
+    const text = textOrAbsent(value[key], max);
+    if (text) return text;
+  }
+  return undefined;
+}
+
+const FRACTION_GLYPHS: Record<string, number> = { "½": 0.5, "¼": 0.25, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3, "⅛": 0.125 };
+
+/**
+ * Reads a quantity written at the start of a line: "500", "1,5", "1 1/2", "3/4",
+ * "½" and the lower bound of a range such as "2-3". Returns what is left of
+ * the line with it, so the caller can go on to read the unit and the name.
+ */
+function leadingQuantity(text: string): { amount: number; rest: string } | undefined {
+  const trimmed = text.trimStart();
+  const mixed = trimmed.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)\s*/);
+  if (mixed) return { amount: Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]), rest: trimmed.slice(mixed[0].length) };
+  const fraction = trimmed.match(/^(\d+)\s*\/\s*(\d+)\s*/);
+  if (fraction) return { amount: Number(fraction[1]) / Number(fraction[2]), rest: trimmed.slice(fraction[0].length) };
+  const glyph = trimmed.match(/^([½¼¾⅓⅔⅛])\s*/);
+  if (glyph) return { amount: FRACTION_GLYPHS[glyph[1]], rest: trimmed.slice(glyph[0].length) };
+  // A range is read at its lower bound: that is a quantity the source stated,
+  // where the midpoint would be a number nobody wrote down.
+  const decimal = trimmed.match(/^(\d+(?:[.,]\d+)?)(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*/);
+  if (decimal) return { amount: Number(decimal[1].replace(",", ".")), rest: trimmed.slice(decimal[0].length) };
+  return undefined;
+}
+
+/** Measure words a recipe line may put between its quantity and its ingredient. */
+const UNIT_WORDS = new Set([
+  "g", "gr", "gram", "grams", "gramm", "kg", "mg", "ml", "milliliter", "millilitre", "l", "liter", "litre", "cl", "dl",
+  "el", "tl", "esslöffel", "teelöffel", "msp", "prise", "prisen", "tbsp", "tsp", "cup", "cups", "tasse", "tassen",
+  "stück", "stueck", "stk", "scheibe", "scheiben", "slice", "slices", "bund", "zehe", "zehen", "clove", "cloves",
+  "dose", "dosen", "can", "cans", "packung", "packungen", "päckchen", "paeckchen", "pack", "becher", "glas", "gläser",
+  "kugel", "blatt", "blätter", "tropfen", "handvoll", "portion", "portionen", "piece", "pieces", "oz", "lb", "pound", "ounce",
+]);
+
+const cleanWord = (word: string) => word.replace(/[.,;:]+$/, "");
+
+/**
+ * Recovers an ingredient from one line of text - "200 g Mehl", "2 Eier",
+ * "½ TL Salz".
+ *
+ * A model answering in plain JSON mode routinely returns the ingredient list as
+ * strings, or puts the whole line in `name` and no amount anywhere, and every
+ * one of those entries used to be dropped - leaving an empty array that failed
+ * validation and lost the entire recipe. This reads the quantity the source
+ * already stated; it does not estimate one, so a line without a number is still
+ * dropped.
+ */
+export function ingredientFromText(value: unknown): { name: string; amount: number; unit: string } | undefined {
+  const text = textOrAbsent(value, 300);
+  if (!text) return undefined;
+  const quantity = leadingQuantity(text);
+  if (!quantity) return undefined;
+  const amount = positiveOrAbsent(quantity.amount, 100_000);
+  if (amount === undefined) return undefined;
+
+  const [first = "", ...rest] = quantity.rest.split(/\s+/);
+  const measured = UNIT_WORDS.has(cleanWord(first).toLowerCase());
+  const name = textOrAbsent((measured ? rest.join(" ") : quantity.rest).replace(/^[\s,;:.-]+/, ""), 120);
+  if (!name) return undefined;
+  // A counted ingredient keeps a counting unit rather than the gram default: "2
+  // Eier" is two eggs, and calling it two grams would be an invented weight.
+  return { name, amount, unit: measured ? cleanWord(first).slice(0, 40) : "piece" };
+}
+
+const NAME_KEYS = ["name", "ingredient", "item", "zutat", "food", "title"] as const;
+const AMOUNT_KEYS = ["amount", "quantity", "menge", "qty", "value"] as const;
+const UNIT_KEYS = ["unit", "units", "einheit", "measure", "unitOfMeasure", "unit_of_measure"] as const;
+
+/**
+ * One ingredient in whatever shape the model chose, as the schema needs it.
+ * Only the model's own words are read: nothing here supplies a quantity the
+ * source did not state.
+ */
+function repairRecipeIngredient(entry: unknown) {
+  if (typeof entry === "string") return ingredientFromText(entry);
+  if (!isRecord(entry)) return undefined;
+
+  const named = firstText(entry, NAME_KEYS, 300);
+  const rawAmount = AMOUNT_KEYS.map((key) => entry[key]).find((candidate) => candidate !== undefined && candidate !== null);
+  const unit = firstText(entry, UNIT_KEYS, 40);
+  // "200 g" written into the amount field carries the unit with it.
+  const written = typeof rawAmount === "string" ? leadingQuantity(rawAmount) : undefined;
+  const amount = positiveOrAbsent(rawAmount, 100_000) ?? (written ? positiveOrAbsent(written.amount, 100_000) : undefined);
+
+  if (named && amount !== undefined) {
+    const fromAmountField = textOrAbsent(written?.rest, 40);
+    return { name: named.slice(0, 120), amount, unit: unit ?? fromAmountField ?? "g" };
+  }
+  // No usable amount field: the model wrote the whole line into the name.
+  if (named) {
+    const parsed = ingredientFromText(named);
+    if (parsed) return unit ? { ...parsed, unit } : parsed;
+  }
+  return undefined;
+}
+
+/** Ingredients as a list, however the model spelt the key or shaped the value. */
+function ingredientEntries(value: Record<string, unknown>): unknown[] {
+  for (const key of ["ingredients", "zutaten", "ingredientList", "ingredient_list", "recipeIngredient"]) {
+    const candidate = value[key];
+    if (Array.isArray(candidate) && candidate.length) return candidate;
+    // `{"Mehl": "200 g"}` instead of a list; the key is the name.
+    if (isRecord(candidate)) return Object.entries(candidate).map(([name, amount]) => ({ name, amount }));
+  }
+  return asArray(value.ingredients);
+}
+
 /** Repairs an imported recipe as `extractedRecipeSchema` expects it. */
 export function repairExtractedRecipe(value: unknown): unknown {
   if (!isRecord(value)) return value;
@@ -229,14 +342,8 @@ export function repairExtractedRecipe(value: unknown): unknown {
     description: textOrEmpty(value.description, 2000),
     servings: positiveOrAbsent(value.servings, 10_000) ?? 1,
     instructions: textOrEmpty(value.instructions, 20_000),
-    ingredients: asArray(value.ingredients)
-      .map((entry) => {
-        if (!isRecord(entry)) return undefined;
-        const name = textOrAbsent(entry.name, 120);
-        const amount = positiveOrAbsent(entry.amount, 100_000);
-        if (!name || amount === undefined) return undefined;
-        return { name, amount, unit: textOrAbsent(entry.unit, 40) ?? "g" };
-      })
+    ingredients: ingredientEntries(value)
+      .map(repairRecipeIngredient)
       .filter((entry) => entry !== undefined)
       .slice(0, 100),
   };

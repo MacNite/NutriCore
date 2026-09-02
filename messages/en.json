@@ -496,6 +496,10 @@
         "imageInvalid": "Use a JPEG, PNG, or WebP image.",
         "imageTooLarge": "The image exceeds the configured maximum size.",
         "aiDisabled": "AI features are disabled in your settings or on this server.",
+        "noIngredients": "No meaningful recipe ingredients were found on this page.",
+        "unsupportedContent": "The link did not return a supported HTML or plain-text page.",
+        "oversizedPage": "The recipe page exceeds the 512 KB retrieval limit.",
+        "unreachablePage": "The recipe page could not be reached or redirected too many times.",
         "extractionFailed": "The recipe could not be extracted. Check the AI service, link, and image, then try again.",
         "unsafeUrl": "That address is not allowed. Use a public http(s) link without credentials."
       },
