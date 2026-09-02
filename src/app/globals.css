@@ -1624,6 +1624,11 @@ legend {
   align-items: center;
 }
 
+/* Without the figure there is no first column to reserve room for. */
+.body-empty-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .body-empty-figure svg {
   display: block;
   width: 100%;
@@ -1729,6 +1734,20 @@ legend {
   display: grid;
   grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
   gap: 24px;
+}
+
+/* One panel switched off in settings. The survivor is centred rather than left
+   in its 45 % or 55 % column, but stays capped near the width it had beside its
+   neighbour: both drawings scale to their container, and a full-width card
+   turns the diamond and the figure into posters. */
+.body-hero-single {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+}
+
+.body-hero-single .body-hero-panel {
+  width: 100%;
+  max-width: 560px;
 }
 
 .body-hero-panel {

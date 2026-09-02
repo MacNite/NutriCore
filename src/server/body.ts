@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { BodyMeasurement, BodyProfile, RecordedSource } from "@/lib/body-metrics";
-import { DEFAULT_APPEARANCE, type BodyAppearance } from "@/lib/body-visualization";
+import { DEFAULT_APPEARANCE, DEFAULT_PANELS, type BodyAppearance, type BodyPanels } from "@/lib/body-visualization";
 
 /**
  * Reading side of body progress. Weight is joined from the weight log rather
@@ -28,6 +28,8 @@ export interface BodyProgressData {
   appearance: BodyAppearance;
   /** Whether the reader has ever chosen a figure, as opposed to getting the default. */
   appearanceChosen: boolean;
+  /** Which visualisations this reader wants to see. */
+  panels: BodyPanels;
 }
 
 /**
@@ -41,7 +43,15 @@ export async function loadBodyProgress(userId: string): Promise<BodyProgressData
     prisma.weightEntry.findMany({ where: { userId }, orderBy: { date: "asc" }, take: 400 }),
     prisma.userProfile.findUnique({
       where: { userId },
-      select: { heightCm: true, birthDate: true, biologicalSex: true, bodyType: true, bodyFigure: true },
+      select: {
+        heightCm: true,
+        birthDate: true,
+        biologicalSex: true,
+        bodyType: true,
+        bodyFigure: true,
+        showBodyComposition: true,
+        showBodyShape: true,
+      },
     }),
   ]);
 
@@ -110,5 +120,9 @@ export async function loadBodyProgress(userId: string): Promise<BodyProgressData
       figure: profile?.bodyFigure ?? DEFAULT_APPEARANCE.figure,
     },
     appearanceChosen: profile?.bodyType != null && profile?.bodyFigure != null,
+    panels: {
+      composition: profile?.showBodyComposition ?? DEFAULT_PANELS.composition,
+      shape: profile?.showBodyShape ?? DEFAULT_PANELS.shape,
+    },
   };
 }

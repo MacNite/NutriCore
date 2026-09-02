@@ -155,6 +155,19 @@ export const BODY_FIGURES: BodyFigure[] = ["NEUTRAL", "MASCULINE", "FEMININE"];
 /** Used until someone picks, and for anyone who never does. */
 export const DEFAULT_APPEARANCE: BodyAppearance = { type: "MESOMORPH", figure: "NEUTRAL" };
 
+/**
+ * Which of the two visualisations a reader wants to see. They are a display
+ * preference, not a data one: hiding a panel never stops a value being
+ * recorded, exported or shown in the table below the card.
+ */
+export interface BodyPanels {
+  composition: boolean;
+  shape: boolean;
+}
+
+/** Both on, for everyone who never opens the setting. */
+export const DEFAULT_PANELS: BodyPanels = { composition: true, shape: true };
+
 /** Circumferences of an average adult build, in centimetres, per presentation. */
 const FIGURE_BASE: Record<BodyFigure, BodyOutlineInput> = {
   MASCULINE: { neckCm: 38, chestCm: 100, waistCm: 85, hipCm: 98, upperArmCm: 32, thighCm: 56, calfCm: 38 },

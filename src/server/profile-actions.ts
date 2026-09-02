@@ -169,6 +169,35 @@ export async function saveAiSettingsAction(_state: FormState, formData: FormData
   return { ok: true };
 }
 
+const bodyPanelsSchema = z.object({
+  showBodyComposition: z.boolean(),
+  showBodyShape: z.boolean(),
+});
+
+/**
+ * Which body-progress visualisations to draw. Purely a display preference: the
+ * measurements behind a hidden panel stay recorded, stay in the table and the
+ * export, and come back untouched when the panel is switched on again.
+ *
+ * Its own action for the same reason the language selector has one - an
+ * unchecked box submits nothing, so a shared action would read "off" for every
+ * switch that happened to live on another form.
+ */
+export async function saveBodyPanelsAction(_state: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const parsed = bodyPanelsSchema.safeParse({
+    showBodyComposition: asBool(formData.get("showBodyComposition")),
+    showBodyShape: asBool(formData.get("showBodyShape")),
+  });
+  if (!parsed.success) return { error: "validation" };
+
+  await prisma.userProfile.update({ where: { userId: user.id }, data: parsed.data });
+
+  revalidatePath("/progress");
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
 export async function deleteAccountAction(_state: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   // Typing the username is the confirmation; a stray click cannot delete data.

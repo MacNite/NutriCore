@@ -41,6 +41,54 @@ test("the theme can be set to light, dark or system and survives navigation", as
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
 
+test("each body-progress visualisation can be switched off on its own", async ({ page }) => {
+  // Onboarding recorded a weight, which is a session, so the card is drawn.
+  const composition = page.locator(".body-micro-head", { hasText: /körperzusammensetzung/i });
+  const shape = page.locator(".body-micro-head", { hasText: /^körperform$/i });
+
+  await page.goto("/progress");
+  await expect(composition).toBeVisible();
+  await expect(shape).toBeVisible();
+
+  // Its own form, so saving it cannot disturb the language or profile fields.
+  const panelForm = page.locator("form").filter({ has: page.locator("#showBodyShape") });
+  const save = async () => {
+    await panelForm.getByRole("button", { name: /speichern|save/i }).click();
+    await expect(page.getByRole("status")).toBeVisible();
+  };
+
+  await page.goto("/settings");
+  await expect(page.locator("#showBodyComposition")).toBeChecked();
+  await expect(page.locator("#showBodyShape")).toBeChecked();
+
+  await page.locator("#showBodyShape").uncheck();
+  await save();
+
+  await page.goto("/progress");
+  await expect(composition).toBeVisible();
+  await expect(shape).toBeHidden();
+
+  await page.goto("/settings");
+  await page.locator("#showBodyComposition").uncheck();
+  await save();
+
+  // With both off the card keeps its head and check-in button, and says why it
+  // is empty rather than showing a blank frame.
+  await page.goto("/progress");
+  await expect(composition).toBeHidden();
+  await expect(page.getByText(/beide visualisierungen sind ausgeblendet/i)).toBeVisible();
+
+  // Nothing was deleted: switching them back on restores both.
+  await page.goto("/settings");
+  await page.locator("#showBodyComposition").check();
+  await page.locator("#showBodyShape").check();
+  await save();
+
+  await page.goto("/progress");
+  await expect(composition).toBeVisible();
+  await expect(shape).toBeVisible();
+});
+
 test("personal data can be exported as JSON and CSV", async ({ page }) => {
   await page.goto("/settings");
 
