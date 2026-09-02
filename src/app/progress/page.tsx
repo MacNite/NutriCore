@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSessionUser } from "@/server/session";
@@ -21,6 +22,7 @@ export default async function ProgressPage() {
   if (!user) redirect("/login");
 
   const t = await getTranslations("progress");
+  const bodyT = await getTranslations("bodyProgress");
   const locale = user.language;
 
   const [entries, profile, diaryDays, nutritionTargets] = await Promise.all([
@@ -67,6 +69,12 @@ export default async function ProgressPage() {
             {t("dayToDayNote")}
           </p>
         </div>
+
+        {/* Entry point for the body-progress design preview. Remove together
+            with the preview route. */}
+        <Link className="btn" href="/progress/body-preview">
+          {bodyT("navHint")}
+        </Link>
       </div>
 
       <div className="grid-main">

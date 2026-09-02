@@ -345,6 +345,177 @@
       "noMicroTargets": "Für Mikronährstoffe sind noch keine persönlichen Tagesziele konfiguriert. Erfasste Werte werden deshalb nicht als irreführende 0 % dargestellt."
     }
   },
+  "bodyProgress": {
+    "title": "Körperfortschritt",
+    "navHint": "Körperfortschritt (Vorschau)",
+    "previewBadge": "Design-Vorschau",
+    "previewNote": "Design-Vorschau mit Beispieldaten. Nichts wird gespeichert, Körpermaße werden bisher nicht erfasst.",
+    "intro": "Wie sich deine Körperzusammensetzung und deine gemessenen Umfänge gegenüber einer Referenzmessung verändert haben.",
+    "reference": "Referenz",
+    "current": "Aktuell",
+    "selectReference": "Referenzmessung",
+    "selectCurrent": "Aktuelle Messung",
+    "quick": {
+      "label": "Schnellauswahl der Referenz",
+      "first": "Erste Messung",
+      "weeks4": "4 Wochen",
+      "months3": "3 Monate",
+      "months6": "6 Monate",
+      "year1": "1 Jahr"
+    },
+    "legend": {
+      "reference": "Referenz",
+      "current": "Aktuell"
+    },
+    "composition": {
+      "title": "Körperzusammensetzung",
+      "microHead": "Körperzusammensetzung",
+      "note": "Jede Achse ist auf ihren eigenen Referenzwert skaliert. Die Form zeigt Veränderung, keine Bewertung. Weiter außen ist nicht besser.",
+      "rings": "Der mittlere Ring ist die Referenzmessung; innerer und äußerer Ring markieren 10 Prozent darunter und darüber.",
+      "infoLabel": "Über dieses Diagramm",
+      "info": "Muskeln, Wasser, Fett und Knochen werden getrennt gemessen und überschneiden sich: Körperwasser steckt großteils im fettfreien Gewebe. Die Werte ergeben deshalb keine 100 Prozent und werden nicht als Anteile eines Ganzen dargestellt.",
+      "chartLabel": "Vier-Achsen-Form aus Muskeln, Wasser, Fett und Knochen. Jede Achse ist so skaliert, dass die Referenzmessung auf dem mittleren Ring liegt.",
+      "hint": "Achse auswählen, um Wert, Veränderung und Quelle anzuzeigen.",
+      "axisValue": "{value} {unit}",
+      "ringUnchanged": "Referenz",
+      "axis": {
+        "muscle": "Muskeln",
+        "water": "Wasser",
+        "fat": "Fett",
+        "bone": "Knochen"
+      },
+      "foldLabel": "Werte und Quellen"
+    },
+    "shape": {
+      "title": "Körperform",
+      "microHead": "Körperform",
+      "caption": "Schematische Darstellung auf Basis erfasster Umfänge — kein Körperscan.",
+      "chartLabel": "Schematische Körperkontur, aktuell im Vergleich zur Referenzmessung.",
+      "hint": "Körperregion auswählen, um Umfang und Veränderung anzuzeigen.",
+      "summaryIntro": "Verglichen mit dem {date}:",
+      "summaryItem": "{region} {direction} um {amount} {unit}",
+      "summaryUnchanged": "{region} unverändert",
+      "increased": "gewachsen",
+      "decreased": "geschrumpft",
+      "noChanges": "Keine Region hat sich messbar verändert."
+    },
+    "change": {
+      "microHead": "Veränderung nach Region",
+      "increase": "Zunahme",
+      "decrease": "Abnahme",
+      "unchanged": "Unverändert",
+      "legendHint": "Zunahme ist gefüllt, Abnahme schraffiert dargestellt. Jeder Wert steht zusätzlich als Text."
+    },
+    "region": {
+      "neck": "Hals",
+      "chest": "Brust",
+      "waist": "Taille",
+      "hip": "Hüfte",
+      "upperArm": "Oberarm",
+      "thigh": "Oberschenkel",
+      "calf": "Wade"
+    },
+    "metric": {
+      "weightKg": "Gewicht",
+      "neckCm": "Hals",
+      "chestCm": "Brust",
+      "waistCm": "Taille",
+      "hipCm": "Hüfte",
+      "upperArmCm": "Oberarm",
+      "thighCm": "Oberschenkel",
+      "calfCm": "Wade",
+      "bodyFatPct": "Körperfett",
+      "muscleKg": "Muskelmasse",
+      "bodyWaterPct": "Körperwasser",
+      "boneKg": "Knochenmasse"
+    },
+    "unit": {
+      "kg": "kg",
+      "cm": "cm",
+      "percent": "%",
+      "pp": "PP"
+    },
+    "source": {
+      "MANUAL": "Manuell",
+      "BIA": "BIA",
+      "ESTIMATE": "Schätzung",
+      "DERIVED": "Abgeleitet"
+    },
+    "sourceFull": {
+      "MANUAL": "Von Hand mit dem Maßband gemessen",
+      "BIA": "Bioelektrische Impedanz, von einer smarten Waage oder Körperanalyse",
+      "ESTIMATE": "Aus einer Formel geschätzt, nicht gemessen",
+      "DERIVED": "Aus anderen gemessenen Werten berechnet"
+    },
+    "summary": {
+      "microHead": "Kennzahlen",
+      "sinceReference": "seit {date}"
+    },
+    "kpi": {
+      "whtr": "WHtR",
+      "whtrLong": "Taille-zu-Größe-Verhältnis",
+      "whtrInfo": "Taillenumfang geteilt durch Körpergröße. Eine einzelne Zahl, die den Bauchumfang unabhängig von der Körpergröße verfolgt.",
+      "whr": "WHR",
+      "whrLong": "Taille-zu-Hüfte-Verhältnis",
+      "whrInfo": "Taillenumfang geteilt durch Hüftumfang. Beschreibt die Form, nicht die Größe.",
+      "rfm": "RFM",
+      "rfmLong": "Relative Fettmasse",
+      "rfmInfo": "Geschätzt aus Körpergröße, Taillenumfang und Geschlecht. Gedacht für Erwachsene. Das ist eine Formel, kein gemessener Körperfettanteil.",
+      "rfmUnavailable": "Nicht genug Daten für eine Schätzung."
+    },
+    "series": {
+      "title": "Messwerte im Verlauf",
+      "subtitle": "Die Referenzmessung ist auf der Zeitachse markiert. Ein ausgewählter Punkt wird zur aktuellen Messung.",
+      "selectMetric": "Angezeigter Messwert",
+      "selectRange": "Zeitraum",
+      "range": {
+        "m1": "1M",
+        "m3": "3M",
+        "m6": "6M",
+        "y1": "1J",
+        "all": "ALLE"
+      },
+      "chartLabel": "{metric} im Verlauf, von {from} bis {to}, zwischen {min} und {max} {unit}.",
+      "referenceMarker": "Referenz",
+      "hint": "Punkt berühren oder fokussieren, um Wert und Veränderung zur Referenz anzuzeigen.",
+      "pointLabel": "{date}, {metric} {value} {unit}, {delta} {deltaUnit} gegenüber der Referenz",
+      "fromReference": "{delta} {unit} gegenüber der Referenz",
+      "empty": "Nicht genügend Messungen in diesem Zeitraum."
+    },
+    "table": {
+      "title": "Messwerte im Detail",
+      "subtitle": "Aktuelle Messung im Vergleich zur Referenzmessung vom {date}.",
+      "measurement": "Messwert",
+      "current": "Aktuell",
+      "deltaReference": "Δ Referenz",
+      "source": "Quelle",
+      "foldLabel": "Alle Messwerte ({count})"
+    },
+    "checkin": {
+      "open": "Körpermessung",
+      "title": "Körpermessung eintragen",
+      "intro": "Trag ein, was du gemessen hast. Erweiterte Maße bleiben eingeklappt, damit eine wöchentliche Messung unter einer Minute dauert.",
+      "basics": "Basis",
+      "circumferences": "Umfänge",
+      "limbs": "Arme und Beine",
+      "advanced": "Erweiterte Maße",
+      "composition": "Körperzusammensetzung (optional)",
+      "left": "links",
+      "right": "rechts",
+      "date": "Datum",
+      "compositionSource": "Quelle der Zusammensetzungswerte",
+      "sourceManual": "Manuell",
+      "sourceBia": "BIA / smarte Waage",
+      "sourceOther": "Anderes Gerät",
+      "save": "Messung speichern",
+      "previewOnly": "Design-Vorschau: Dieses Formular speichert noch nichts."
+    },
+    "existing": {
+      "title": "Bestehende Fortschrittsbereiche",
+      "body": "Gewicht und Ernährung bleiben, wo sie sind. Diese Vorschau dient der Entscheidung, ob der Körperfortschritt künftig oben auf der Fortschrittsseite stehen soll.",
+      "link": "Fortschritt öffnen"
+    }
+  },
   "settings": {
     "title": "Einstellungen",
     "profile": "Profil",

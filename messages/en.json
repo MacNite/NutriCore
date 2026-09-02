@@ -345,6 +345,177 @@
       "noMicroTargets": "No personal daily micronutrient targets are configured yet. Logged values are therefore not shown as misleading 0% values."
     }
   },
+  "bodyProgress": {
+    "title": "Body progress",
+    "navHint": "Body progress (preview)",
+    "previewBadge": "Design preview",
+    "previewNote": "Design preview with example data. Nothing you enter here is saved, and no body measurements are stored yet.",
+    "intro": "How your composition and your measured circumferences changed against a reference session.",
+    "reference": "Reference",
+    "current": "Current",
+    "selectReference": "Reference measurement",
+    "selectCurrent": "Current measurement",
+    "quick": {
+      "label": "Quick reference choices",
+      "first": "First measurement",
+      "weeks4": "4 weeks",
+      "months3": "3 months",
+      "months6": "6 months",
+      "year1": "1 year"
+    },
+    "legend": {
+      "reference": "Reference",
+      "current": "Current"
+    },
+    "composition": {
+      "title": "Body composition",
+      "microHead": "Body composition",
+      "note": "Each axis is scaled against its own reference value, so the outline shows change, not a score. Further out is not better.",
+      "rings": "The middle ring is the reference measurement; the inner and outer rings mark 10 percent below and above it.",
+      "infoLabel": "About this chart",
+      "info": "Muscle, water, fat and bone are measured separately and overlap: body water is largely held in lean tissue. They therefore do not add up to 100 percent and are not shown as shares of a whole.",
+      "chartLabel": "Four-axis outline of muscle, water, fat and bone. Each axis is scaled so the reference measurement sits on the middle ring.",
+      "hint": "Select an axis to see its value, change and source.",
+      "axisValue": "{value} {unit}",
+      "ringUnchanged": "Reference",
+      "axis": {
+        "muscle": "Muscle",
+        "water": "Water",
+        "fat": "Fat",
+        "bone": "Bone"
+      },
+      "foldLabel": "Values and sources"
+    },
+    "shape": {
+      "title": "Body shape",
+      "microHead": "Body shape",
+      "caption": "Schematic visualization based on recorded circumferences — not a body scan.",
+      "chartLabel": "Schematic body outline, current compared with the reference measurement.",
+      "hint": "Select a body region to see its circumference and change.",
+      "summaryIntro": "Compared with {date}:",
+      "summaryItem": "{region} {direction} {amount} {unit}",
+      "summaryUnchanged": "{region} unchanged",
+      "increased": "increased",
+      "decreased": "decreased",
+      "noChanges": "No region changed measurably."
+    },
+    "change": {
+      "microHead": "Regional change",
+      "increase": "Increase",
+      "decrease": "Decrease",
+      "unchanged": "Unchanged",
+      "legendHint": "Increase is shown filled, decrease hatched. Every value is also written out."
+    },
+    "region": {
+      "neck": "Neck",
+      "chest": "Chest",
+      "waist": "Waist",
+      "hip": "Hips",
+      "upperArm": "Upper arm",
+      "thigh": "Thigh",
+      "calf": "Calf"
+    },
+    "metric": {
+      "weightKg": "Weight",
+      "neckCm": "Neck",
+      "chestCm": "Chest",
+      "waistCm": "Waist",
+      "hipCm": "Hips",
+      "upperArmCm": "Upper arm",
+      "thighCm": "Thigh",
+      "calfCm": "Calf",
+      "bodyFatPct": "Body fat",
+      "muscleKg": "Muscle mass",
+      "bodyWaterPct": "Body water",
+      "boneKg": "Bone mass"
+    },
+    "unit": {
+      "kg": "kg",
+      "cm": "cm",
+      "percent": "%",
+      "pp": "pp"
+    },
+    "source": {
+      "MANUAL": "Manual",
+      "BIA": "BIA",
+      "ESTIMATE": "Estimate",
+      "DERIVED": "Derived"
+    },
+    "sourceFull": {
+      "MANUAL": "Measured by hand with a tape measure",
+      "BIA": "Bioelectrical impedance, from a smart scale or body analyser",
+      "ESTIMATE": "Estimated from a formula, not measured",
+      "DERIVED": "Calculated from other measured values"
+    },
+    "summary": {
+      "microHead": "Key figures",
+      "sinceReference": "since {date}"
+    },
+    "kpi": {
+      "whtr": "WHtR",
+      "whtrLong": "Waist-to-height ratio",
+      "whtrInfo": "Waist circumference divided by height. A single number that tracks central circumference independently of overall size.",
+      "whr": "WHR",
+      "whrLong": "Waist-to-hip ratio",
+      "whrInfo": "Waist circumference divided by hip circumference. It describes shape rather than size.",
+      "rfm": "RFM",
+      "rfmLong": "Relative fat mass",
+      "rfmInfo": "Estimated from height, waist circumference and sex. Intended for adults. This is a formula, not a measured body fat percentage.",
+      "rfmUnavailable": "Not enough data to estimate."
+    },
+    "series": {
+      "title": "Measurements over time",
+      "subtitle": "The reference session is marked on the timeline. Selecting a point makes it the current measurement.",
+      "selectMetric": "Displayed measurement",
+      "selectRange": "Time range",
+      "range": {
+        "m1": "1M",
+        "m3": "3M",
+        "m6": "6M",
+        "y1": "1Y",
+        "all": "ALL"
+      },
+      "chartLabel": "{metric} over time, from {from} to {to}, between {min} and {max} {unit}.",
+      "referenceMarker": "Reference",
+      "hint": "Touch or focus a point to show its value and its change from the reference.",
+      "pointLabel": "{date}, {metric} {value} {unit}, {delta} {deltaUnit} from the reference",
+      "fromReference": "{delta} {unit} from the reference",
+      "empty": "Not enough measurements in this range."
+    },
+    "table": {
+      "title": "Measurement detail",
+      "subtitle": "Current session compared with the reference session of {date}.",
+      "measurement": "Measurement",
+      "current": "Current",
+      "deltaReference": "Δ reference",
+      "source": "Source",
+      "foldLabel": "All measurements ({count})"
+    },
+    "checkin": {
+      "open": "Body check-in",
+      "title": "Body check-in",
+      "intro": "Enter what you measured. Advanced measurements stay collapsed so a weekly session takes under a minute.",
+      "basics": "Basics",
+      "circumferences": "Circumferences",
+      "limbs": "Arms and legs",
+      "advanced": "Advanced measurements",
+      "composition": "Body composition (optional)",
+      "left": "left",
+      "right": "right",
+      "date": "Date",
+      "compositionSource": "Source of the composition values",
+      "sourceManual": "Manual",
+      "sourceBia": "BIA / smart scale",
+      "sourceOther": "Other device",
+      "save": "Save check-in",
+      "previewOnly": "Design preview: this form does not save anything yet."
+    },
+    "existing": {
+      "title": "Existing progress areas",
+      "body": "Weight and nutrition stay where they are. This preview exists to decide whether body progress should become the top section of the progress page.",
+      "link": "Open progress"
+    }
+  },
   "settings": {
     "title": "Settings",
     "profile": "Profile",
