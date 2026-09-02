@@ -8,9 +8,12 @@ vi.mock("@/lib/db", () => ({ prisma: {} }));
 import { researchResultSchema } from "@/lib/research";
 import { mealParseSchema } from "./ai-jobs";
 import { decideComponents, type ProposedComponent } from "./ai-types";
+import { extractedRecipeSchema } from "./recipe-import";
 import {
   confidenceBand,
+  ingredientFromText,
   positiveOrAbsent,
+  repairExtractedRecipe,
   repairMealParse,
   repairNutrientExtraction,
   repairResearchResult,
@@ -183,5 +186,63 @@ describe("repairing a research result", () => {
       sources: [{ title: "Quelle", url: "not-a-url" }, { title: "Ok", url: "https://example.org/reis" }],
     }) as { sources: { url: string }[] };
     expect(repaired.sources.map((s) => s.url)).toEqual(["https://example.org/reis"]);
+  });
+});
+
+describe("repairing an imported recipe", () => {
+  const repaired = (answer: unknown) => extractedRecipeSchema.safeParse(repairExtractedRecipe(answer));
+
+  it("reads an ingredient list the model returned as strings", () => {
+    // Plain JSON mode leaves the shape to the model, and this answer used to be
+    // dropped entry by entry until the empty array failed validation.
+    const result = repaired({
+      name: "Auflauf",
+      ingredients: ["200 g Mehl", "1,5 EL Öl", "½ TL Salz", "2 Eier", "Pfeffer nach Geschmack"],
+    });
+
+    expect(result.success && result.data.ingredients).toEqual([
+      { name: "Mehl", amount: 200, unit: "g" },
+      { name: "Öl", amount: 1.5, unit: "EL" },
+      { name: "Salz", amount: 0.5, unit: "TL" },
+      // Counted, not weighed: two eggs are not two grams.
+      { name: "Eier", amount: 2, unit: "piece" },
+    ]);
+  });
+
+  it("accepts the field names a model picks for itself", () => {
+    const result = repaired({
+      name: "Suppe",
+      zutaten: [
+        { ingredient: "Karotten", quantity: "2", unit: "Stück" },
+        { item: "Brühe", menge: "500 ml" },
+        { name: "300 g Kartoffeln" },
+      ],
+    });
+
+    expect(result.success && result.data.ingredients).toEqual([
+      { name: "Karotten", amount: 2, unit: "Stück" },
+      { name: "Brühe", amount: 500, unit: "ml" },
+      { name: "Kartoffeln", amount: 300, unit: "g" },
+    ]);
+  });
+
+  it("still drops an ingredient whose quantity nobody stated", () => {
+    expect(ingredientFromText("Salz nach Geschmack")).toBeUndefined();
+    expect(repaired({ name: "Salat", ingredients: [{ name: "Salz" }] }).success).toBe(false);
+  });
+
+  it("leaves a well-formed answer exactly as the model wrote it", () => {
+    const result = repaired({
+      name: "Auflauf",
+      servings: 4,
+      instructions: "Mischen und backen.",
+      ingredients: [{ name: "Mehl", amount: 200, unit: "g" }],
+    });
+
+    expect(result.success && result.data).toMatchObject({
+      servings: 4,
+      instructions: "Mischen und backen.",
+      ingredients: [{ name: "Mehl", amount: 200, unit: "g" }],
+    });
   });
 });

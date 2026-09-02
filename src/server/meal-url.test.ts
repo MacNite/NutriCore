@@ -14,6 +14,27 @@ describe("meal URL extraction", () => {
     expect(page.excerpt).not.toContain("999 kcal");
   });
 
+  it("adds description and preparation steps only when the caller asks for them", () => {
+    const html = `<script type="application/ld+json">${JSON.stringify({
+      "@type": "Recipe",
+      name: "Soup",
+      description: "A warming soup.",
+      recipeIngredient: ["2 carrots"],
+      recipeInstructions: [
+        { "@type": "HowToSection", itemListElement: [{ "@type": "HowToStep", text: "Chop the carrots." }] },
+        { "@type": "HowToStep", text: "Simmer for 20 minutes." },
+      ],
+    })}</script>`;
+
+    // A quick meal logs quantities and has no field for the steps.
+    expect(extractMealPage(html, "https://example.org/soup").excerpt).not.toContain("Chop the carrots.");
+
+    const forRecipe = extractMealPage(html, "https://example.org/soup", { includeInstructions: true });
+    expect(forRecipe.excerpt).toContain("A warming soup.");
+    expect(forRecipe.excerpt).toContain("1. Chop the carrots.");
+    expect(forRecipe.excerpt).toContain("2. Simmer for 20 minutes.");
+  });
+
   it("uses sanitized main content and removes page chrome", () => {
     const page = extractMealPage(`<nav>Buy now</nav><main><h1>Salad</h1><p>1 cucumber</p><script>ignore me</script></main>`, "https://example.org/");
     expect(page.excerpt).toContain("1 cucumber");

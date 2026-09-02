@@ -496,6 +496,10 @@
         "imageInvalid": "Verwende ein JPEG-, PNG- oder WebP-Bild.",
         "imageTooLarge": "Das Bild überschreitet die konfigurierte maximale Größe.",
         "aiDisabled": "KI-Funktionen sind in deinen Einstellungen oder auf diesem Server deaktiviert.",
+        "noIngredients": "Auf dieser Seite wurden keine sinnvollen Rezeptzutaten gefunden.",
+        "unsupportedContent": "Der Link lieferte keine unterstützte HTML- oder Textseite.",
+        "oversizedPage": "Die Rezeptseite überschreitet die Abrufgrenze von 512 KB.",
+        "unreachablePage": "Die Rezeptseite war nicht erreichbar oder leitete zu oft weiter.",
         "extractionFailed": "Das Rezept konnte nicht ausgelesen werden. Prüfe KI-Dienst, Link und Bild und versuche es erneut.",
         "unsafeUrl": "Diese Adresse ist nicht erlaubt. Verwende einen öffentlichen http(s)-Link ohne Zugangsdaten."
       },

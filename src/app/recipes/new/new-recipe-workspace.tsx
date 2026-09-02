@@ -16,12 +16,15 @@ export function NewRecipeWorkspace({
   error,
   pending,
   failed,
+  sourceFailure,
   imageMaxMb,
 }: {
   draft: RecipeImportDraft | null;
   error?: RecipeImportError;
   pending: boolean;
   failed: string | null;
+  /** A recognised URL failure, which reads better than the worker's own message. */
+  sourceFailure: "noIngredients" | "unsupportedContent" | "oversizedPage" | "unreachablePage" | "unsafeUrl" | null;
   imageMaxMb: number;
 }) {
   const t = useTranslations("recipes.import");
@@ -59,8 +62,8 @@ export function NewRecipeWorkspace({
           <div className="notice notice-error" role="alert" style={{ marginTop: 14 }}>
             <span className="notice-icon" aria-hidden="true">!</span>
             <span>
-              {t("errors.extractionFailed")}
-              {failed ? <span className="job-detail-break"> — {failed}</span> : null}
+              {sourceFailure ? t(`errors.${sourceFailure}`) : t("errors.extractionFailed")}
+              {failed && !sourceFailure ? <span className="job-detail-break"> — {failed}</span> : null}
             </span>
           </div>
         ) : null}
