@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyMeasurement, type BodyMeasurement } from "./body-metrics";
+import { BODY_METRICS, emptyMeasurement, type BodyMeasurement } from "./body-metrics";
 import {
   BODY_FIGURES,
   BODY_REGIONS,
@@ -18,6 +18,8 @@ import {
   outlineShapes,
   polarPoint,
   radiusForRatio,
+  anyPanel,
+  panelMetrics,
   type BodyAppearance,
 } from "./body-visualization";
 
@@ -239,5 +241,38 @@ describe("change intensity", () => {
 
   it("returns nothing to draw when the change is unknown", () => {
     expect(changeIntensity(null)).toBe(0);
+  });
+});
+
+describe("metrics behind the panel switches", () => {
+  it("lists everything while both panels are on", () => {
+    expect(panelMetrics({ composition: true, shape: true })).toEqual(BODY_METRICS.map((def) => def.key));
+  });
+
+  it("drops the composition axes with the composition panel", () => {
+    const metrics = panelMetrics({ composition: false, shape: true });
+    expect(metrics).not.toContain("bodyFatPct");
+    expect(metrics).not.toContain("muscleKg");
+    expect(metrics).not.toContain("bodyWaterPct");
+    expect(metrics).not.toContain("boneKg");
+    expect(metrics).toContain("waistCm");
+  });
+
+  it("drops every circumference with the shape panel", () => {
+    const metrics = panelMetrics({ composition: true, shape: false });
+    expect(metrics.filter((key) => key.endsWith("Cm"))).toEqual([]);
+    expect(metrics).toContain("bodyFatPct");
+  });
+
+  /* Weight has its own card on the same page, so it rides along with whatever
+     is left rather than owning a switch of its own. */
+  it("keeps weight for as long as either panel is on", () => {
+    expect(panelMetrics({ composition: true, shape: false })).toContain("weightKg");
+    expect(panelMetrics({ composition: false, shape: true })).toContain("weightKg");
+  });
+
+  it("leaves nothing at all once both are off, which is what removes the section", () => {
+    expect(panelMetrics({ composition: false, shape: false })).toEqual([]);
+    expect(anyPanel({ composition: false, shape: false })).toBe(false);
   });
 });

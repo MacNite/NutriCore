@@ -14,6 +14,7 @@ import { BodyCheckinForm } from "@/components/body-progress/body-checkin-form";
 import { BodyProgressEmpty } from "@/components/body-progress/body-progress-empty";
 import { BodyProgressSection } from "@/components/body-progress/body-progress-section";
 import { loadBodyProgress } from "@/server/body";
+import { anyPanel } from "@/lib/body-visualization";
 
 export async function generateMetadata() {
   const t = await getTranslations("progress");
@@ -77,29 +78,34 @@ export default async function ProgressPage() {
       </div>
 
       {/* Body progress leads the page: it answers "what shape am I in" before
-          the day-to-day numbers below it. */}
-      <section aria-labelledby="body-section-heading" style={{ marginBottom: 20 }}>
-        <h2 id="body-section-heading" className="sr-only">
-          {bodyT("title")}
-        </h2>
-        {body.measurements.length === 0 ? (
-          <BodyProgressEmpty
-            appearance={body.appearance}
-            panels={body.panels}
-            locale={locale}
-            checkin={<BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />}
-          />
-        ) : (
-          <BodyProgressSection
-            measurements={body.measurements}
-            profile={body.profile}
-            appearance={body.appearance}
-            panels={body.panels}
-            locale={locale}
-            checkin={<BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />}
-          />
-        )}
-      </section>
+          the day-to-day numbers below it. With both visualisations switched off
+          the section is not rendered at all - its key figures, history and
+          table are those same measurements in another form - and the page is
+          weight and nutrition, which stand on their own. */}
+      {anyPanel(body.panels) ? (
+        <section aria-labelledby="body-section-heading" style={{ marginBottom: 20 }}>
+          <h2 id="body-section-heading" className="sr-only">
+            {bodyT("title")}
+          </h2>
+          {body.measurements.length === 0 ? (
+            <BodyProgressEmpty
+              appearance={body.appearance}
+              panels={body.panels}
+              locale={locale}
+              checkin={<BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />}
+            />
+          ) : (
+            <BodyProgressSection
+              measurements={body.measurements}
+              profile={body.profile}
+              appearance={body.appearance}
+              panels={body.panels}
+              locale={locale}
+              checkin={<BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />}
+            />
+          )}
+        </section>
+      ) : null}
 
       <div className="grid-main">
         <div className="stack">
