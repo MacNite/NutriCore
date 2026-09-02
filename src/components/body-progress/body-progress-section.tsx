@@ -5,12 +5,13 @@ import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/locales";
 import { formatDate } from "@/lib/format";
 import {
+  SERIES_METRICS,
   indexNearestDaysBefore,
   latestIndex,
   type BodyMeasurement,
   type BodyProfile,
 } from "@/lib/body-metrics";
-import type { BodyAppearance, BodyPanels, BodyRegionKey } from "@/lib/body-visualization";
+import { panelMetrics, type BodyAppearance, type BodyPanels, type BodyRegionKey } from "@/lib/body-visualization";
 import { BodyFigurePicker } from "./body-figure-picker";
 import { BodyMeasurementChart } from "./body-measurement-chart";
 import { BodyMeasurementTable } from "./body-measurement-table";
@@ -22,6 +23,13 @@ import { BodyProgressCard } from "./body-progress-card";
  * current are the only state: every delta, polygon and label is a function of
  * that pair, which is what makes the reference selector feel like it changes
  * the entire section at once.
+ *
+ * The switches reach past the drawings into the cards below them, because those
+ * cards are the same measurements in another form: the key figures are all
+ * waist- and hip-derived, and the history and the table list exactly the
+ * metrics the two panels are made of. Showing a table of body-fat readings to
+ * someone who switched the composition panel off would be the same panel with
+ * extra steps.
  */
 export function BodyProgressSection({
   measurements,
@@ -48,6 +56,11 @@ export function BodyProgressSection({
     indexNearestDaysBefore(measurements, latestIndex(measurements), 28),
   );
   const [activeRegion, setActiveRegion] = useState<BodyRegionKey | null>(null);
+
+  /* The rows and chips each switch is answerable for, in their catalogue and
+     reading orders respectively. */
+  const metrics = panelMetrics(panels);
+  const seriesMetrics = SERIES_METRICS.filter((key) => metrics.includes(key));
 
   /** A reference must stay older than the current session it is compared with. */
   function selectCurrent(index: number) {
@@ -89,21 +102,27 @@ export function BodyProgressSection({
         locale={locale}
       />
 
-      <BodyMetricSummary
-        current={measurements[currentIndex]}
-        reference={measurements[hasReference ? referenceIndex : currentIndex]}
-        profile={profile}
-        referenceLabel={referenceLabel}
-        hasReference={hasReference}
-        locale={locale}
-      />
+      {/* Every key figure here is the waist or the hip read against height,
+          each other or an estimate built from them, so they belong to the shape
+          switch and go with it. */}
+      {panels.shape ? (
+        <BodyMetricSummary
+          current={measurements[currentIndex]}
+          reference={measurements[hasReference ? referenceIndex : currentIndex]}
+          profile={profile}
+          referenceLabel={referenceLabel}
+          hasReference={hasReference}
+          locale={locale}
+        />
+      ) : null}
 
-      {measurements.length > 1 ? (
+      {measurements.length > 1 && seriesMetrics.length > 0 ? (
         <BodyMeasurementChart
           measurements={measurements}
           referenceIndex={referenceIndex}
           currentIndex={currentIndex}
           onCurrentIndex={selectCurrent}
+          metrics={seriesMetrics}
           locale={locale}
         />
       ) : null}
@@ -113,6 +132,7 @@ export function BodyProgressSection({
         reference={measurements[hasReference ? referenceIndex : currentIndex]}
         referenceLabel={referenceLabel}
         hasReference={hasReference}
+        metrics={metrics}
         locale={locale}
       />
 

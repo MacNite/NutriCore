@@ -398,11 +398,9 @@
     },
     "panels": {
       "title": "Body progress display",
-      "hint": "Choose which visualisations appear on the progress page. Both are on by default. Switching one off only hides the drawing — your measurements stay recorded, stay in the table and stay in the data export.",
-      "compositionHint": "The four-axis diagram of muscle, water, fat and bone.",
-      "shapeHint": "The schematic body outline and the change by region.",
-      "allHidden": "Both visualisations are hidden. The values and the history are still further down this page.",
-      "settingsLink": "Change in settings"
+      "hint": "Choose which drawings and measurements appear on the progress page. Both are on by default. With both off, body progress goes entirely and the page shows only weight and nutrition. Only the display is hidden — your measurements stay recorded and stay in the data export.",
+      "compositionHint": "The four-axis diagram, plus body fat, muscle mass, body water and bone mass in the history and the table.",
+      "shapeHint": "The schematic body outline with its change by region, plus the key figures and every circumference in the history and the table."
     },
     "change": {
       "microHead": "Regional change",

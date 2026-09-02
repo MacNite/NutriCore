@@ -4,32 +4,37 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/locales";
 import {
-  BODY_METRICS,
+  BODY_METRIC_BY_KEY,
   formatMeasure,
   metricDelta,
   metricSource,
   metricValue,
   type BodyMeasurement,
+  type BodyMetricKey,
 } from "@/lib/body-metrics";
 import { BodyFold } from "./body-fold";
 import { BodySourceBadge, DeltaText, UNIT_KEY } from "./body-value";
 
 /**
- * The tabular form of everything the two visualisations show. On narrow screens
- * each row folds into a compact card via CSS, so the table never scrolls
- * sideways on a phone.
+ * The tabular form of everything the two visualisations show, so it lists
+ * exactly the metrics they do: switching a panel off takes its rows with it. On
+ * narrow screens each row folds into a compact card via CSS, so the table never
+ * scrolls sideways on a phone.
  */
 export function BodyMeasurementTable({
   current,
   reference,
   referenceLabel,
   hasReference,
+  metrics,
   locale,
 }: {
   current: BodyMeasurement;
   reference: BodyMeasurement;
   referenceLabel: string;
   hasReference: boolean;
+  /** The rows to list, already narrowed to the switched-on panels. */
+  metrics: BodyMetricKey[];
   locale: Locale;
 }) {
   const t = useTranslations("bodyProgress");
@@ -43,7 +48,7 @@ export function BodyMeasurementTable({
       </p>
 
       <BodyFold
-        label={t("table.foldLabel", { count: BODY_METRICS.length })}
+        label={t("table.foldLabel", { count: metrics.length })}
         open={open}
         onToggle={() => setOpen(!open)}
       >
@@ -61,7 +66,8 @@ export function BodyMeasurementTable({
           </tr>
         </thead>
         <tbody>
-          {BODY_METRICS.map((def) => {
+          {metrics.map((key) => {
+            const def = BODY_METRIC_BY_KEY.get(key)!;
             const value = metricValue(current, def.key);
             return (
               <tr key={def.key}>

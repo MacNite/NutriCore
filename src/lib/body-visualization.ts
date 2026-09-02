@@ -1,4 +1,4 @@
-import type { BodyMeasurement } from "./body-metrics";
+import { BODY_METRICS, type BodyMeasurement, type BodyMetricKey } from "./body-metrics";
 
 /**
  * Geometry for the two body-progress visualisations: the four-axis composition
@@ -158,7 +158,7 @@ export const DEFAULT_APPEARANCE: BodyAppearance = { type: "MESOMORPH", figure: "
 /**
  * Which of the two visualisations a reader wants to see. They are a display
  * preference, not a data one: hiding a panel never stops a value being
- * recorded, exported or shown in the table below the card.
+ * recorded or exported.
  */
 export interface BodyPanels {
   composition: boolean;
@@ -167,6 +167,51 @@ export interface BodyPanels {
 
 /** Both on, for everyone who never opens the setting. */
 export const DEFAULT_PANELS: BodyPanels = { composition: true, shape: true };
+
+/** Whether any of the body-progress section is left to show. */
+export const anyPanel = (panels: BodyPanels) => panels.composition || panels.shape;
+
+/**
+ * Which switch each recorded metric answers to. The four composition values are
+ * the diamond's own axes; the circumferences are what the outline and the
+ * regional heatmap are drawn from, and what the waist-based key figures below
+ * the card are derived from.
+ *
+ * Weight answers to neither. It has its own card further down the progress page
+ * and is recorded from three other screens, so it is never what these switches
+ * are about.
+ */
+export const METRIC_PANEL: Record<BodyMetricKey, keyof BodyPanels | null> = {
+  weightKg: null,
+  neckCm: "shape",
+  chestCm: "shape",
+  waistCm: "shape",
+  hipCm: "shape",
+  upperArmCm: "shape",
+  thighCm: "shape",
+  calfCm: "shape",
+  bodyFatPct: "composition",
+  muscleKg: "composition",
+  bodyWaterPct: "composition",
+  boneKg: "composition",
+};
+
+/**
+ * The metrics worth listing for a given pair of switches, in catalogue order.
+ *
+ * Weight rides along for as long as the section exists at all: it is the value
+ * every other reading is understood against, and a history of circumferences
+ * with no weight beside them is harder to read, not tidier. With both switches
+ * off nothing is left - the section goes, weight included, because its own card
+ * already covers it.
+ */
+export function panelMetrics(panels: BodyPanels): BodyMetricKey[] {
+  if (!anyPanel(panels)) return [];
+  return BODY_METRICS.filter(({ key }) => {
+    const owner = METRIC_PANEL[key];
+    return owner === null || panels[owner];
+  }).map(({ key }) => key);
+}
 
 /** Circumferences of an average adult build, in centimetres, per presentation. */
 const FIGURE_BASE: Record<BodyFigure, BodyOutlineInput> = {

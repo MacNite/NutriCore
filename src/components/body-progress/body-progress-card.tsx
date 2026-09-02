@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/locales";
 import { emptyMeasurement, type BodyMeasurement } from "@/lib/body-metrics";
@@ -15,10 +14,9 @@ import { BodyShapeProgress, useBodyShapeSummary } from "./body-shape-progress";
  * reference chosen at the top of the card. Roughly a 45/55 split on desktop,
  * stacked below 900px.
  *
- * Either panel can be switched off in settings. A single remaining panel gets
- * the full width rather than staying in its half, and with both off the card
- * keeps its head and reference bar - the reference drives the summary, chart
- * and table below it, so the section still needs to be steerable from here.
+ * Either panel can be switched off in settings; a single remaining panel gets
+ * the full card rather than staying in its half. With both off the whole
+ * section is gone before this renders, so there is no empty-card state here.
  */
 export function BodyProgressCard({
   measurements,
@@ -77,57 +75,46 @@ export function BodyProgressCard({
         </p>
       )}
 
-      {shown === 0 ? (
-        <p className="notice" role="note">
-          <span className="notice-icon" aria-hidden="true">
-            i
-          </span>
-          <span>
-            {t("panels.allHidden")} <Link href="/settings">{t("panels.settingsLink")}</Link>
-          </span>
-        </p>
-      ) : (
-        <div className={shown === 1 ? "body-hero body-hero-single" : "body-hero"}>
-          {panels.composition ? (
-            <div className="body-hero-panel">
-              <BodyCompositionDiamond
-                current={current}
-                reference={reference}
-                referenceLabel={referenceLabel}
-                hasReference={hasReference}
-                locale={locale}
-              />
-            </div>
-          ) : null}
+      <div className={shown === 1 ? "body-hero body-hero-single" : "body-hero"}>
+        {panels.composition ? (
+          <div className="body-hero-panel">
+            <BodyCompositionDiamond
+              current={current}
+              reference={reference}
+              referenceLabel={referenceLabel}
+              hasReference={hasReference}
+              locale={locale}
+            />
+          </div>
+        ) : null}
 
-          {panels.shape ? (
-            <div className="body-hero-panel">
-              <p className="body-micro-head">{t("shape.microHead")}</p>
-              {/* The figure is decorative once this sentence exists; the sentence is
-                  the guaranteed equivalent for anyone not reading the drawing. */}
-              <p className="sr-only">{shapeSummary}</p>
-              <BodyShapeProgress
-                current={current}
-                reference={reference}
-                appearance={appearance}
-                hasReference={hasReference}
-                locale={locale}
-                referenceLabel={referenceLabel}
-                active={activeRegion}
-                onActive={onActiveRegion}
-              />
-              <BodyChangeHeatmap
-                current={current}
-                reference={reference}
-                locale={locale}
-                referenceLabel={referenceLabel}
-                active={activeRegion}
-                onActive={onActiveRegion}
-              />
-            </div>
-          ) : null}
-        </div>
-      )}
+        {panels.shape ? (
+          <div className="body-hero-panel">
+            <p className="body-micro-head">{t("shape.microHead")}</p>
+            {/* The figure is decorative once this sentence exists; the sentence is
+                the guaranteed equivalent for anyone not reading the drawing. */}
+            <p className="sr-only">{shapeSummary}</p>
+            <BodyShapeProgress
+              current={current}
+              reference={reference}
+              appearance={appearance}
+              hasReference={hasReference}
+              locale={locale}
+              referenceLabel={referenceLabel}
+              active={activeRegion}
+              onActive={onActiveRegion}
+            />
+            <BodyChangeHeatmap
+              current={current}
+              reference={reference}
+              locale={locale}
+              referenceLabel={referenceLabel}
+              active={activeRegion}
+              onActive={onActiveRegion}
+            />
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }

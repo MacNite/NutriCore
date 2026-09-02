@@ -123,9 +123,10 @@ export function SettingsForms({
         </form>
       </section>
 
-      {/* Which body-progress visualisations to draw. A switch here only hides a
-          chart: the measurements behind it stay recorded, stay in the table
-          under the card and stay in the data export. */}
+      {/* Which body-progress visualisations to draw, and with them the key
+          figures, history and table rows that are those same measurements in
+          another form. A switch here only hides: the measurements behind it
+          stay recorded and stay in the data export. */}
       <section className="card">
         <h2>{bodyT("panels.title")}</h2>
         <p className="muted" style={{ marginTop: 0, fontSize: 13.5 }}>

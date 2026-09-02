@@ -6,7 +6,6 @@ import type { Locale } from "@/i18n/locales";
 import { formatDate } from "@/lib/format";
 import {
   BODY_METRIC_BY_KEY,
-  SERIES_METRICS,
   daysBetween,
   deltaBetween,
   formatDelta,
@@ -51,16 +50,20 @@ export function BodyMeasurementChart({
   referenceIndex,
   currentIndex,
   onCurrentIndex,
+  metrics,
   locale,
 }: {
   measurements: BodyMeasurement[];
   referenceIndex: number;
   currentIndex: number;
   onCurrentIndex: (index: number) => void;
+  /** The metrics offered as chips, already narrowed to the switched-on panels. */
+  metrics: BodyMetricKey[];
   locale: Locale;
 }) {
   const t = useTranslations("bodyProgress");
-  const [metric, setMetric] = useState<BodyMetricKey>("waistCm");
+  /* The waist leads wherever it is offered; otherwise whatever comes first. */
+  const [metric, setMetric] = useState<BodyMetricKey>(() => metrics[0]);
   const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("all");
   const [active, setActive] = useState<number | null>(null);
 
@@ -108,7 +111,7 @@ export function BodyMeasurementChart({
       <p className="muted nutrition-subtitle">{t("series.subtitle")}</p>
 
       <div className="progress-tabs body-metric-tabs" role="tablist" aria-label={t("series.selectMetric")}>
-        {SERIES_METRICS.map((key) => (
+        {metrics.map((key) => (
           <button
             key={key}
             type="button"
