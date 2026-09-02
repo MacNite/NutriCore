@@ -1548,11 +1548,25 @@ legend {
    existing tokens, so light and dark mode need no second palette. Removing the
    preview means removing this block. */
 
+/* The metric chips scroll rather than wrap, so their row has a wide minimum.
+   Without an explicit zero-minimum track that minimum would size the whole
+   column and push the page sideways on a phone. */
+.body-preview-stack {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .body-preview-head {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+/* Disclosures that exist only below the breakpoint: the toggle is hidden above
+   it and the content always shows, so the desktop layout is unchanged. Same
+   chevron and rhythm as the weight log so the two read as one pattern. */
+.body-fold-toggle {
+  display: none;
 }
 
 /* The change list is a new block under the figure, not a continuation of its
@@ -1656,6 +1670,13 @@ legend {
 .body-series-chart {
   max-width: 780px;
   margin: 0 auto;
+}
+
+/* Height follows width so the chart never sits letterboxed inside a taller
+   box, which is what a fixed height does once the card is narrower or wider
+   than the view box. */
+.body-series-chart svg {
+  height: auto;
 }
 
 /* Measurement names are two words; a chip that wraps mid-name is unreadable,
@@ -1975,6 +1996,105 @@ legend {
     width: 100%;
   }
 
+  .body-fold {
+    margin-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+
+  .body-fold-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 0 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .body-fold-chevron {
+    width: 9px;
+    height: 9px;
+    margin: 0 4px 4px 0;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 160ms ease, margin 160ms ease;
+  }
+
+  .body-fold-toggle[aria-expanded="true"] .body-fold-chevron {
+    margin: 4px 4px 0 0;
+    transform: rotate(-135deg);
+  }
+
+  .body-fold-content {
+    padding-top: 12px;
+  }
+
+  .body-fold-content[data-open="false"] {
+    display: none;
+  }
+
+  /* The toggle carries this heading on small screens. */
+  .body-change-block {
+    margin-top: 0;
+  }
+
+  .body-change-block > .body-micro-head {
+    display: none;
+  }
+
+  /* Four stats across one line rather than four stacked rows: the panel is a
+     glanceable strip under the diamond, not a list. */
+  .body-stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 0;
+  }
+
+  .body-stat {
+    padding: 8px 7px;
+    gap: 2px;
+  }
+
+  .body-stat-name {
+    flex-wrap: wrap;
+    gap: 3px;
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+  }
+
+  /* A source badge does not fit a cell this narrow in either language, so it
+     is read out rather than drawn. The same provenance stays visible in the
+     detail line under the strip and in the measurement detail table. */
+  .body-stat-name .badge {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Four narrow cells only line up if none of them wraps, so the value keeps
+     its unit on the same line. */
+  .body-stat-value {
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .body-stat .body-delta {
+    font-size: 11px;
+  }
 }
 
 /* The measurement detail folds into compact cards rather than scrolling

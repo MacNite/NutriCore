@@ -383,7 +383,8 @@
         "water": "Water",
         "fat": "Fat",
         "bone": "Bone"
-      }
+      },
+      "foldLabel": "Values and sources"
     },
     "shape": {
       "title": "Body shape",
@@ -487,7 +488,8 @@
       "measurement": "Measurement",
       "current": "Current",
       "deltaReference": "Δ reference",
-      "source": "Source"
+      "source": "Source",
+      "foldLabel": "All measurements ({count})"
     },
     "checkin": {
       "open": "Body check-in",

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/locales";
 import {
@@ -10,6 +11,7 @@ import {
   metricValue,
   type BodyMeasurement,
 } from "@/lib/body-metrics";
+import { BodyFold } from "./body-fold";
 import { BodySourceBadge, DeltaText, UNIT_KEY } from "./body-value";
 
 /**
@@ -29,13 +31,19 @@ export function BodyMeasurementTable({
   locale: Locale;
 }) {
   const t = useTranslations("bodyProgress");
+  const [open, setOpen] = useState(false);
 
   return (
     <section className="card" aria-labelledby="body-table-heading">
       <h2 id="body-table-heading">{t("table.title")}</h2>
       <p className="muted nutrition-subtitle">{t("table.subtitle", { date: referenceLabel })}</p>
 
-      <table className="table body-detail-table">
+      <BodyFold
+        label={t("table.foldLabel", { count: BODY_METRICS.length })}
+        open={open}
+        onToggle={() => setOpen(!open)}
+      >
+        <table className="table body-detail-table">
         <thead>
           <tr>
             <th scope="col">{t("table.measurement")}</th>
@@ -74,7 +82,8 @@ export function BodyMeasurementTable({
             );
           })}
         </tbody>
-      </table>
+        </table>
+      </BodyFold>
     </section>
   );
 }

@@ -22,6 +22,7 @@ import {
   radiusForRatio,
   type CompositionAxisKey,
 } from "@/lib/body-visualization";
+import { BodyFold } from "./body-fold";
 import { BodyOverlayLegend, BodySourceBadge, DeltaText, UNIT_KEY } from "./body-value";
 
 const AXIS_METRIC: Record<CompositionAxisKey, BodyMetricKey> = {
@@ -62,7 +63,10 @@ export function BodyCompositionDiamond({
   const t = useTranslations("bodyProgress");
   const [active, setActive] = useState<CompositionAxisKey | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [foldOpen, setFoldOpen] = useState(false);
   const infoId = useId();
+  /* Tapping an axis opens the panel, because that is where its detail line is. */
+  const expanded = foldOpen || active !== null;
 
   const axes = COMPOSITION_AXES.map((axis) => {
     const metric = AXIS_METRIC[axis.key];
@@ -210,59 +214,73 @@ export function BodyCompositionDiamond({
 
       <BodyOverlayLegend referenceLabel={referenceLabel} />
 
-      <div className="body-stat-grid">
-        {axes.map((axis) => (
-          <button
-            key={axis.key}
-            type="button"
-            className="body-stat"
-            aria-pressed={active === axis.key}
-            onClick={() => setActive(active === axis.key ? null : axis.key)}
-            onMouseEnter={() => setActive(axis.key)}
-            onMouseLeave={() => setActive(null)}
-            onFocus={() => setActive(axis.key)}
-            onBlur={() => setActive(null)}
-          >
-            <span className="body-stat-name">
-              {t(`composition.axis.${axis.key}`)}
-              <BodySourceBadge source={axis.source} />
-            </span>
-            <span className="body-stat-value">
-              {axis.value == null
-                ? "–"
-                : `${formatMeasure(axis.value, locale, axis.def.digits)} ${t(UNIT_KEY[axis.def.unit])}`}
-            </span>
-            <DeltaText delta={axis.delta} unit={t(UNIT_KEY[axis.def.deltaUnit])} locale={locale} digits={axis.def.digits} />
-          </button>
-        ))}
-      </div>
-
-      <p className="body-detail" aria-live="polite">
-        {activeAxis ? (
-          <>
-            <strong>
-              {t(`composition.axis.${activeAxis.key}`)}
-              {activeAxis.value == null
-                ? ""
-                : ` · ${formatMeasure(activeAxis.value, locale, activeAxis.def.digits)} ${t(UNIT_KEY[activeAxis.def.unit])}`}
-            </strong>
-            <span>
+      <BodyFold
+        label={t("composition.foldLabel")}
+        open={expanded}
+        onToggle={() => {
+          setFoldOpen(!expanded);
+          if (expanded) setActive(null);
+        }}
+      >
+        <div className="body-stat-grid">
+          {axes.map((axis) => (
+            <button
+              key={axis.key}
+              type="button"
+              className="body-stat"
+              aria-pressed={active === axis.key}
+              onClick={() => setActive(active === axis.key ? null : axis.key)}
+              onMouseEnter={() => setActive(axis.key)}
+              onMouseLeave={() => setActive(null)}
+              onFocus={() => setActive(axis.key)}
+              onBlur={() => setActive(null)}
+            >
+              <span className="body-stat-name">
+                {t(`composition.axis.${axis.key}`)}
+                <BodySourceBadge source={axis.source} />
+              </span>
+              <span className="body-stat-value">
+                {axis.value == null
+                  ? "–"
+                  : `${formatMeasure(axis.value, locale, axis.def.digits)} ${t(UNIT_KEY[axis.def.unit])}`}
+              </span>
               <DeltaText
-                delta={activeAxis.delta}
-                unit={t(UNIT_KEY[activeAxis.def.deltaUnit])}
+                delta={axis.delta}
+                unit={t(UNIT_KEY[axis.def.deltaUnit])}
                 locale={locale}
-                digits={activeAxis.def.digits}
+                digits={axis.def.digits}
               />
-              {` · ${t(`sourceFull.${activeAxis.source}`)}`}
-            </span>
-          </>
-        ) : (
-          <span>{t("composition.hint")}</span>
-        )}
-      </p>
+            </button>
+          ))}
+        </div>
 
-      <p className="body-caption">{t("composition.rings")}</p>
-      <p className="body-caption">{t("composition.note")}</p>
+        <p className="body-detail" aria-live="polite">
+          {activeAxis ? (
+            <>
+              <strong>
+                {t(`composition.axis.${activeAxis.key}`)}
+                {activeAxis.value == null
+                  ? ""
+                  : ` · ${formatMeasure(activeAxis.value, locale, activeAxis.def.digits)} ${t(UNIT_KEY[activeAxis.def.unit])}`}
+              </strong>
+              <span>
+                <DeltaText
+                  delta={activeAxis.delta}
+                  unit={t(UNIT_KEY[activeAxis.def.deltaUnit])}
+                  locale={locale}
+                  digits={activeAxis.def.digits}
+                />
+                {` · ${t(`sourceFull.${activeAxis.source}`)}`}
+              </span>
+            </>
+          ) : (
+            <span>{t("composition.hint")}</span>
+          )}
+        </p>
+
+        <p className="body-caption">{t("composition.rings")}</p>
+        <p className="body-caption">{t("composition.note")}</p>
+      </BodyFold>
     </div>
   );
 }

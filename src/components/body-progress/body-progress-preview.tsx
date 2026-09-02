@@ -44,7 +44,7 @@ export function BodyProgressPreview({
   const referenceLabel = formatDate(measurements[referenceIndex].date, locale);
 
   return (
-    <div className="stack">
+    <div className="stack body-preview-stack">
       <BodyProgressCard
         measurements={measurements}
         referenceIndex={referenceIndex}

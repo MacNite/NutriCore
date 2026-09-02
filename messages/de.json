@@ -383,7 +383,8 @@
         "water": "Wasser",
         "fat": "Fett",
         "bone": "Knochen"
-      }
+      },
+      "foldLabel": "Werte und Quellen"
     },
     "shape": {
       "title": "Körperform",
@@ -487,7 +488,8 @@
       "measurement": "Messwert",
       "current": "Aktuell",
       "deltaReference": "Δ Referenz",
-      "source": "Quelle"
+      "source": "Quelle",
+      "foldLabel": "Alle Messwerte ({count})"
     },
     "checkin": {
       "open": "Körpermessung",
