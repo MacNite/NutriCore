@@ -194,6 +194,19 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
               ) : (
                 <p>{t("nothingLogged")}</p>
               )}
+              {/* A quick meal the submitter asked to keep. Said here because the
+                  recipe list can only show one that exists, and the reason it
+                  does not was previously a line in the worker's log. */}
+              {outcome?.recipeId ? (
+                <p>
+                  <Link href={`/recipes/${outcome.recipeId}`}>{t("recipeKept", { name: outcome.recipeName ?? "" })}</Link>
+                </p>
+              ) : outcome?.recipeSkipped ? (
+                <div className="notice notice-warn">
+                  <span className="notice-icon" aria-hidden="true">!</span>
+                  <span>{t("recipeSkipped")}</span>
+                </div>
+              ) : null}
               {outcome && outcome.skipped.length > 0 ? (
                 <>
                   <p className="muted">{t("skipped")}</p>

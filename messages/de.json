@@ -803,6 +803,8 @@
     "addManually": "Lebensmittel suchen",
     "modelEstimate": "KI-Schätzung",
     "loggedAsEstimate": "Ohne Treffer in der Datenbank – aus den Zahlen des Modells als Schätzung übernommen: {names}. Diese Werte sind nicht belegt; prüfe sie, wenn sie zählen sollen.",
+    "recipeKept": "Als Rezeptentwurf gespeichert: {name}. Öffnen und bestätigen, um es zu verwenden.",
+    "recipeSkipped": "Es wurde kein Rezept gespeichert: keine Zutat konnte einem Lebensmittel zugeordnet werden.",
     "skipComponent": "Nicht übernehmen",
     "skipReason": {
       "DECLINED": "nicht zur Übernahme ausgewählt",

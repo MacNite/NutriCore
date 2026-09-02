@@ -1,6 +1,7 @@
 import type { MealType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { diaryDate } from "./diary";
+import { quickMealOptions } from "./ai-types";
 
 /**
  * Placeholders for AI runs that are still going.
@@ -45,12 +46,6 @@ function sourceLabel(text: string | null, sourceUrl: string | null) {
   return (text?.trim() || sourceUrl?.trim() || "").slice(0, 120);
 }
 
-/** Options a quick meal was submitted with; both default to the old behaviour. */
-function options(metadata: unknown) {
-  const value = (metadata ?? {}) as { addToMeal?: unknown; createRecipe?: unknown };
-  return { addToMeal: value.addToMeal !== false, createRecipe: value.createRecipe === true };
-}
-
 /**
  * Runs that will write into this day's diary, one placeholder per meal.
  *
@@ -76,7 +71,7 @@ export async function mealPlaceholders(userId: string, date: string): Promise<Ai
   });
 
   return jobs.flatMap((job) => {
-    if (!job.mealInput || !options(job.metadata).addToMeal) return [];
+    if (!job.mealInput || !quickMealOptions(job.metadata).addToMeal) return [];
     return [{
       id: job.id,
       status: job.status as AiPlaceholderStatus,
@@ -133,7 +128,7 @@ export async function recipePlaceholders(userId: string): Promise<AiPlaceholder[
         source: sourceLabel(input.text, input.sourceUrl),
       }];
     }
-    if (!job.mealInput || !options(job.metadata).createRecipe) return [];
+    if (!job.mealInput || !quickMealOptions(job.metadata).createRecipe) return [];
     return [{
       id: job.id,
       status: job.status as AiPlaceholderStatus,
