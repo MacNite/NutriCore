@@ -231,26 +231,6 @@ a:hover {
   border: 0;
 }
 
-/* Centred rather than pinned to the corner: at the top left it landed on top
-   of the back arrow, so the two controls covered each other while tabbing. */
-.skip-link {
-  position: absolute;
-  left: -9999px;
-  top: 0;
-  z-index: 100;
-  background: var(--surface);
-  color: var(--text);
-  padding: 12px 18px;
-  border: 2px solid var(--focus);
-  border-radius: var(--radius-sm);
-}
-
-.skip-link:focus {
-  left: 50%;
-  top: 12px;
-  transform: translateX(-50%);
-}
-
 /* --------------------------------------------------------------------- Layout */
 
 .shell {

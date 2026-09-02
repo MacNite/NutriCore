@@ -13,8 +13,7 @@
     "main": "Main navigation",
     "account": "Account",
     "dataSources": "Data sources",
-    "signOut": "Sign out",
-    "skipToContent": "Skip to content"
+    "signOut": "Sign out"
   },
   "common": {
     "save": "Save",
