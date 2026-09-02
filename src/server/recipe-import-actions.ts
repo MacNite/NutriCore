@@ -25,7 +25,7 @@ export interface RecipeImportDraft {
   servings: number;
   instructions: string;
   /** `units` is what this food can be measured in, for the form's dropdown. */
-  ingredients: Array<{ foodId: string; name: string; amount: number; unit: string; units?: string[] }>;
+  ingredients: Array<{ foodId: string; name: string; amount: number; unit: string; units?: string[]; sourceLine?: string; resolution?: "deterministic" | "ai-assisted" | "unresolved" }>;
   unmatched: string[];
   /**
    * Ingredients whose food was found but whose source unit cannot be converted
@@ -36,6 +36,17 @@ export interface RecipeImportDraft {
   unconverted?: string[];
   /** Structured source lines that had no explicit deterministic quantity. */
   unparsedIngredients?: string[];
+  /** Original source text for every line still requiring recipe review. */
+  unresolvedIngredientLines?: string[];
+  /** Aggregate diagnostics only; no page body or image data is retained here. */
+  resolutionDiagnostics?: {
+    ingredientCount: number;
+    deterministicallyResolvedCount: number;
+    aiAssistedCount: number;
+    unresolvedCount: number;
+    unquantifiedCount: number;
+    ollamaCallsUsed: number;
+  };
   /** The draft recipe stored under the user's recipes, once the worker made one. */
   recipeId?: string;
 }

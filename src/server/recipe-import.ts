@@ -9,6 +9,7 @@ import { fetchMealPage } from "./meal-url";
 import { foodPortionContext, visibleFoodWhere } from "./foods";
 import { saveRecipe } from "./recipes";
 import { ingredientFromText, repairExtractedRecipe } from "./ai-repair";
+import { resolveIngredientLines, type IngredientResolution, type IngredientResolutionDiagnostics, type ResolutionMethod } from "./ingredient-resolution";
 import type { RecipeImportDraft } from "./recipe-import-actions";
 
 export const extractedRecipeSchema = z.object({
@@ -87,13 +88,14 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
   const images = record.imageData ? [Buffer.from(record.imageData).toString("base64")] : undefined;
   const deterministicIngredients = structured?.ingredientLines.map((line) => ({ line, ingredient: ingredientFromText(line) })) ?? [];
   const unparsedIngredients = deterministicIngredients.filter((item) => !item.ingredient).map((item) => item.line);
+  const ai = deps.ai ?? new OllamaProvider();
   const parsed: z.infer<typeof extractedRecipeSchema> = structured && !images ? {
     name: structured.name || record.text || "Unbenanntes Rezept",
     description: structured.description ?? "",
     servings: Number(record.servings),
     instructions: structured.instructions ?? "",
     ingredients: deterministicIngredients.flatMap((item) => item.ingredient ? [item.ingredient] : []),
-  } : await (deps.ai ?? new OllamaProvider()).complete({
+  } : await ai.complete({
     system: SYSTEM,
     prompt,
     images,
@@ -111,8 +113,28 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
   const ingredients: RecipeImportDraft["ingredients"] = [];
   const unmatched: string[] = [];
   const unconverted: string[] = [];
-  for (const ingredient of parsed.ingredients) {
-    const food = await prisma.food.findFirst({
+  let diagnostics: IngredientResolutionDiagnostics | undefined;
+  let resolvedStructured: Awaited<ReturnType<typeof resolveIngredientLines>>["ingredients"] | undefined;
+  type VisibleFood = { id: string; name: string; basisUnit: "G" | "ML"; densityGPerMl: Prisma.Decimal | null; servings: Array<{ label: string; unit: string; amount: Prisma.Decimal; gramEquivalent: Prisma.Decimal | null; mlEquivalent: Prisma.Decimal | null }> };
+  let visibleFoods: VisibleFood[] = [];
+  if (structured && !images) {
+    visibleFoods = await prisma.food.findMany({
+      where: visibleFoodWhere(record.userId),
+      select: { id: true, name: true, basisUnit: true, densityGPerMl: true, servings: { select: { label: true, unit: true, amount: true, gramEquivalent: true, mlEquivalent: true } } },
+      take: 1000,
+    });
+    const result = await resolveIngredientLines(structured.ingredientLines, visibleFoods, ai);
+    resolvedStructured = result.ingredients;
+    diagnostics = result.diagnostics;
+  }
+
+  const items: IngredientResolution[] = resolvedStructured ?? parsed.ingredients.map((ingredient) => ({ sourceLine: ingredient.name, status: "resolved", parsed: ingredient, resolution: "deterministic" as ResolutionMethod }));
+  for (const item of items) {
+    const ingredient = item.parsed;
+    if (!ingredient) continue;
+    const food = item.foodId
+      ? visibleFoods.find((candidate) => candidate.id === item.foodId)
+      : await prisma.food.findFirst({
       where: { AND: [visibleFoodWhere(record.userId), { normalizedName: normalizeName(ingredient.name) }] },
       select: { id: true, name: true, basisUnit: true, densityGPerMl: true, servings: { select: { label: true, unit: true, amount: true, gramEquivalent: true, mlEquivalent: true } } },
     });
@@ -133,7 +155,7 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
       unconverted.push(`${ingredient.name} (${ingredient.amount} ${ingredient.unit})`);
       continue;
     }
-    ingredients.push({ foodId: food.id, name: food.name, amount: ingredient.amount, unit, units: allowedUnits(context) });
+    ingredients.push({ foodId: food.id, name: food.name, amount: ingredient.amount, unit, units: allowedUnits(context), sourceLine: item.sourceLine, resolution: item.resolution });
   }
 
   const servings = Number(record.servings);
@@ -147,7 +169,10 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
   } catch (error) {
     logger.warn("recipe-import draft not stored", { importId, error: error instanceof Error ? error.message : String(error) });
   }
-  const draft: RecipeImportDraft = { ...parsed, servings, ingredients, unmatched, unconverted, unparsedIngredients, recipeId };
+  const unresolvedLines = resolvedStructured?.filter((item) => item.resolution === "unresolved").map((item) => item.sourceLine) ?? unparsedIngredients;
+  const stillUnparsed = resolvedStructured?.filter((item) => !item.parsed).map((item) => item.sourceLine) ?? unparsedIngredients;
+  const draft: RecipeImportDraft = { ...parsed, servings, ingredients, unmatched, unconverted, unparsedIngredients: stillUnparsed, unresolvedIngredientLines: unresolvedLines, resolutionDiagnostics: diagnostics, recipeId };
+  if (diagnostics) logger.info("recipe ingredient resolution completed", { importId, ...diagnostics });
   await prisma.recipeImport.update({
     where: { id: importId },
     data: {

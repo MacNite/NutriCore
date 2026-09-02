@@ -1,0 +1,87 @@
+[
+  {
+    "name": "clean German JSON-LD",
+    "kind": "clean-json-ld",
+    "ingredients": [
+      "250 g Spaghetti",
+      "1 kleine Zwiebel",
+      "Salz nach Geschmack"
+    ],
+    "expected": {
+      "sourceCount": 3,
+      "unquantifiedCount": 1,
+      "noQuantityInventions": true,
+      "deterministicResolutionCount": 1,
+      "aiRequiredCount": 1,
+      "unresolvedCount": 1
+    }
+  },
+  {
+    "name": "messy publisher JSON-LD",
+    "kind": "messy-json-ld",
+    "ingredients": [
+      "500 ml Milch",
+      "1 Packung Feta",
+      "Pfeffer"
+    ],
+    "expected": {
+      "sourceCount": 3,
+      "unquantifiedCount": 1,
+      "noQuantityInventions": true,
+      "deterministicResolutionCount": 1,
+      "aiRequiredCount": 1,
+      "unresolvedCount": 1
+    }
+  },
+  {
+    "name": "English soup",
+    "kind": "clean-json-ld",
+    "ingredients": [
+      "2 carrots",
+      "3 cloves garlic, minced",
+      "fresh parsley for garnish"
+    ],
+    "expected": {
+      "sourceCount": 3,
+      "unquantifiedCount": 1,
+      "noQuantityInventions": true,
+      "deterministicResolutionCount": 2,
+      "aiRequiredCount": 0,
+      "unresolvedCount": 1
+    }
+  },
+  {
+    "name": "package units",
+    "kind": "clean-json-ld",
+    "ingredients": [
+      "1 Dose gehackte Tomaten",
+      "1 Becher Joghurt",
+      "1 kg Kartoffeln"
+    ],
+    "expected": {
+      "sourceCount": 3,
+      "unquantifiedCount": 0,
+      "noQuantityInventions": true,
+      "deterministicResolutionCount": 1,
+      "aiRequiredCount": 2,
+      "unresolvedCount": 0
+    }
+  },
+  {
+    "name": "fractions and seasonings",
+    "kind": "messy-json-ld",
+    "ingredients": [
+      "½ TL Salz",
+      "¼ cup olive oil",
+      "Olivenöl zum Braten"
+    ],
+    "expected": {
+      "sourceCount": 3,
+      "unquantifiedCount": 1,
+      "noQuantityInventions": true,
+      "deterministicResolutionCount": 2,
+      "aiRequiredCount": 0,
+      "unresolvedCount": 1
+    }
+  }
+]
