@@ -318,6 +318,7 @@
     "trend": "7-Tage-Durchschnitt",
     "goalLine": "Zielgewicht",
     "noWeightData": "Noch keine Gewichtseinträge.",
+    "entries": "Einträge ({count})",
     "needMoreData": "Für einen gleitenden Durchschnitt werden mindestens 7 Einträge benötigt.",
     "chartSummary": "Gewicht von {from} bis {to}: {count} Einträge zwischen {min} und {max} kg.",
     "dayToDayNote": "Schwankungen von Tag zu Tag sind meist Wasser. Entscheidend ist der Trend.",
