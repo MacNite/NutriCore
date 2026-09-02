@@ -6,9 +6,6 @@ import { FoodSearch } from "./food-search";
 import { formatDateKey } from "@/server/diary";
 import { researchAvailability } from "@/server/research";
 import { validDateKey } from "@/lib/date";
-import Link from "next/link";
-import { prisma } from "@/lib/db";
-import { SourceBadge } from "@/components/source-badge";
 
 export async function generateMetadata() {
   const t = await getTranslations("foods");
@@ -27,13 +24,6 @@ export default async function FoodsPage({
   const t = await getTranslations("foods");
   const today = formatDateKey(new Date());
   const availability = researchAvailability(user);
-  const recipes = await prisma.recipe.findMany({
-    where: { ownerId: user.id },
-    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
-    include: { _count: { select: { ingredients: true } } },
-  });
-  const recipesT = await getTranslations("recipes");
-  const common = await getTranslations("common");
 
   return (
     <AppShell displayName={user.displayName}>
@@ -55,35 +45,6 @@ export default async function FoodsPage({
         researchUnavailableReason={availability.reason}
         editMeal={(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"] as string[]).includes(params.editMeal ?? "") ? params.editMeal : undefined}
       />
-
-      <section className="card" id="recipes" style={{ marginTop: 20 }} aria-labelledby="recipes-heading">
-        <div className="card-head">
-          <div>
-            <h2 id="recipes-heading">{recipesT("title")}</h2>
-            <p className="muted" style={{ margin: 0 }}>{recipesT("combinedHint")}</p>
-          </div>
-          <Link className="btn btn-primary" href="/recipes/new">{recipesT("create")}</Link>
-        </div>
-        {recipes.length === 0 ? <p className="empty">{common("noData")}</p> : recipes.map((recipe) => (
-          // The whole row is the link, as in the food results above: a recipe
-          // name is a small target, and two lists that open the same way are
-          // easier to use than two that do not.
-          <div className="row clickable-row" key={recipe.id}>
-            <Link className="row-main-link" href={`/recipes/${recipe.id}`}>
-              <div className="row-body">
-                <strong>{recipe.name}</strong>
-                <span>{recipesT("ingredientCount", { count: recipe._count.ingredients })}</span>
-              </div>
-              {/* A draft is listed with the rest but marked, so nobody mistakes an
-                  unreviewed extraction for a recipe they checked themselves. */}
-              <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
-                {recipe.status === "DRAFT" ? <span className="badge" title={recipesT("draftHint")}>{recipesT("draft")}</span> : null}
-                {recipe.sourceType === "AI_RESEARCH" ? <SourceBadge source={recipe.sourceType} /> : null}
-              </span>
-            </Link>
-          </div>
-        ))}
-      </section>
     </AppShell>
   );
 }

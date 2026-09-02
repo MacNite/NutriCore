@@ -7,7 +7,10 @@ const { prismaMock, searchQueryCache } = vi.hoisted(() => {
   };
   return { searchQueryCache, prismaMock: {
     searchQueryCache,
-    food: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    food: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+    favorite: { findMany: vi.fn() },
+    foodUsageStats: { findMany: vi.fn() },
+    recipe: { findMany: vi.fn() },
     foodNutrient: { deleteMany: vi.fn(), createMany: vi.fn() },
     foodServing: { deleteMany: vi.fn(), create: vi.fn() },
     foodSource: { deleteMany: vi.fn(), create: vi.fn() },
@@ -31,7 +34,7 @@ vi.mock("@/lib/db", () => ({
 
 import { OpenFoodFactsProvider } from "@/providers/open-food-facts";
 import { ProviderUnavailableError } from "@/providers/food";
-import { fetchRemote, hasIdentityMatch, hasStrongLocalMatch, upsertProviderFood } from "./foods";
+import { fetchRemote, hasIdentityMatch, hasStrongLocalMatch, searchFoods, upsertProviderFood } from "./foods";
 
 const cachedProduct = {
   externalId: "4000000000001", barcode: "4000000000001", name: "Müller Milchreis Original", brand: "Müller",
@@ -42,6 +45,31 @@ const cachedProduct = {
 const cacheRow = (expiresAt: Date) => ({
   id: "cache-1", provider: "OPEN_FOOD_FACTS", queryKey: "milchreis",
   results: [cachedProduct], expiresAt, createdAt: new Date(),
+});
+
+describe("draft recipe search", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.favorite.findMany.mockResolvedValue([]);
+    prismaMock.foodUsageStats.findMany.mockResolvedValue([]);
+    prismaMock.food.findMany.mockResolvedValue([]);
+    prismaMock.recipe.findMany.mockResolvedValue([{ id: "draft-1", name: "Apfelkuchen", _count: { ingredients: 3 } }]);
+  });
+
+  it("returns matching drafts scoped to their owner when explicitly requested", async () => {
+    const outcome = await searchFoods({ userId: "owner-1", query: "Apfel", locale: "de", includeRecipeDrafts: true });
+    expect(outcome.recipeDrafts).toEqual([{ id: "draft-1", name: "Apfelkuchen", ingredientCount: 3 }]);
+    expect(prismaMock.recipe.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { ownerId: "owner-1", status: "DRAFT", name: { contains: "Apfel", mode: "insensitive" } },
+      take: 5,
+    }));
+  });
+
+  it("never queries or leaks drafts into the default food/ingredient path", async () => {
+    const outcome = await searchFoods({ userId: "owner-1", query: "Apfel", locale: "de" });
+    expect(prismaMock.recipe.findMany).not.toHaveBeenCalled();
+    expect(outcome.recipeDrafts).toEqual([]);
+  });
 });
 
 describe("remote food search cache", () => {

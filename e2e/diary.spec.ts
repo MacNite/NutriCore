@@ -31,6 +31,26 @@ test("meal rows open the correct editor without leaving Today", async ({ page })
   await expect(page.getByRole("dialog", { name: /lunch|mittagessen/i })).toBeVisible();
 });
 
+test("a meal panel search logs a result and reopens the same panel", async ({ page }) => {
+  await page.goto("/foods/new");
+  await page.getByLabel(/^name$/i).first().fill("Panel Banane");
+  await page.getByLabel(/^energy \(kcal\)|^energie \(kcal\)/i).fill("90");
+  await page.getByRole("button", { name: /^save$|^speichern$/i }).click();
+  await page.goto("/");
+
+  const row = mealRowTrigger(page, /lunch|mittagessen/i);
+  await row.locator("xpath=following-sibling::button").click();
+  const dialog = page.getByRole("dialog", { name: /lunch|mittagessen/i });
+  const search = dialog.getByRole("combobox");
+  await expect(search).toBeFocused();
+  await search.fill("Panel Banane");
+  await expect(dialog.getByRole("option", { name: /Panel Banane/i })).toBeVisible();
+  await dialog.getByRole("option", { name: /Panel Banane/i }).click();
+  await page.getByRole("button", { name: /lunch|mittagessen/i }).click();
+  await expect(page).toHaveURL(/editMeal=LUNCH/);
+  await expect(page.getByRole("dialog", { name: /lunch|mittagessen/i })).toBeVisible();
+});
+
 test("Diary is absent from navigation and its legacy URL preserves dates", async ({ page }) => {
   await expect(page.locator(".nav, .bottom-nav").getByText(/^diary$|^tagebuch$/i)).toHaveCount(0);
   await page.goto("/diary?date=2026-08-30");
