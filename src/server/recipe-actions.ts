@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser } from "./session";
-import { deleteRecipe, saveRecipe } from "./recipes";
+import { confirmRecipe, deleteRecipe, saveRecipe } from "./recipes";
 import { prisma } from "@/lib/db";
 import { resolveAiModel } from "@/lib/env";
 import { NotFoundError, PortionError } from "./diary";
@@ -47,6 +47,20 @@ export async function logRecipeAction(_state: FormState, formData: FormData): Pr
   const input = await prisma.mealInput.create({ data: { userId: user.id, text: recipe.name, meal: parsed.data.meal, diaryDate: new Date(`${parsed.data.date}T00:00:00.000Z`) } });
   await prisma.aiJob.create({ data: { userId: user.id, entityType: "RECIPE_LOG", entityId: input.id, mealInputId: input.id, model: resolveAiModel(), priority: jobPriority("RECIPE_LOG"), metadata: { recipeId: recipe.id, servings: parsed.data.quantity } } });
   redirect(`/ai-review/${input.id}?queued=1`);
+}
+
+/**
+ * Accepts an AI draft as a real recipe. Only from here does it get the Food
+ * entry that makes it loggable, so nothing the model wrote reaches a diary
+ * without someone having said yes to it.
+ */
+export async function confirmRecipeAction(_state: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const parsed = z.object({ id: z.string().min(1) }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "validation" };
+  try { await confirmRecipe(user.id, parsed.data.id); } catch (error) { return errorState(error); }
+  revalidatePath("/recipes"); revalidatePath("/foods"); revalidatePath(`/recipes/${parsed.data.id}`);
+  redirect(`/recipes/${parsed.data.id}`);
 }
 
 export async function deleteRecipeAction(_state: FormState, formData: FormData): Promise<FormState> {

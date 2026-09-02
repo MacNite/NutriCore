@@ -8,6 +8,7 @@ import { researchAvailability } from "@/server/research";
 import { validDateKey } from "@/lib/date";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { SourceBadge } from "@/components/source-badge";
 
 export async function generateMetadata() {
   const t = await getTranslations("foods");
@@ -28,7 +29,7 @@ export default async function FoodsPage({
   const availability = researchAvailability(user);
   const recipes = await prisma.recipe.findMany({
     where: { ownerId: user.id },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
     include: { _count: { select: { ingredients: true } } },
   });
   const recipesT = await getTranslations("recipes");
@@ -69,6 +70,12 @@ export default async function FoodsPage({
               <strong><Link href={`/recipes/${recipe.id}`}>{recipe.name}</Link></strong>
               <span>{recipesT("ingredientCount", { count: recipe._count.ingredients })}</span>
             </div>
+            {/* A draft is listed with the rest but marked, so nobody mistakes an
+                unreviewed extraction for a recipe they checked themselves. */}
+            <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
+              {recipe.status === "DRAFT" ? <span className="badge" title={recipesT("draftHint")}>{recipesT("draft")}</span> : null}
+              {recipe.sourceType === "AI_RESEARCH" ? <SourceBadge source={recipe.sourceType} /> : null}
+            </span>
           </div>
         ))}
       </section>

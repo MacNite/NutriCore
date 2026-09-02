@@ -42,6 +42,14 @@ enum FoodType {
   RECIPE
 }
 
+/// An AI-generated recipe is stored as a DRAFT: it is listed with the user's
+/// recipes but has no Food entry, so nothing can be logged from it until the
+/// user has confirmed it.
+enum RecipeStatus {
+  DRAFT
+  ACTIVE
+}
+
 enum Goal {
   LOSE
   MAINTAIN
@@ -182,6 +190,7 @@ model RecipeImport {
   draft     Json?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipes   Recipe[]
 
   @@index([userId, createdAt])
 }
@@ -482,17 +491,24 @@ model Recipe {
   yieldWeightG    Decimal?   @db.Decimal(10, 2)
   instructions    String?
   tags            String[]
-  favorite        Boolean    @default(false)
-  sourceType      SourceType @default(RECIPE)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  favorite        Boolean      @default(false)
+  sourceType      SourceType   @default(RECIPE)
+  status          RecipeStatus @default(ACTIVE)
+  /// The AI import this draft came from, so the review can still name the
+  /// ingredients that could not be matched or converted.
+  importId        String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   owner        User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  import       RecipeImport?      @relation(fields: [importId], references: [id], onDelete: SetNull)
   ingredients  RecipeIngredient[]
   diaryEntries DiaryEntry[]
   sources      RecipeSource[]
 
   @@index([ownerId, name])
+  @@index([ownerId, status])
+  @@index([importId])
 }
 
 model RecipeSource {

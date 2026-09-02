@@ -5,9 +5,25 @@ import { useTranslations } from "next-intl";
 import { saveRecipeAction } from "@/server/recipe-actions";
 import type { FormState } from "@/server/profile-actions";
 import { BarcodeScanner } from "@/components/barcode-scanner";
+import { allowedUnits } from "@/lib/units";
 
-interface Ingredient { foodId: string; name: string; amount: number; unit: string }
-interface SearchResult { id: string; name: string; brand: string | null; basisUnit: string }
+interface Ingredient { foodId: string; name: string; amount: number; unit: string; units?: string[] }
+interface SearchResult { id: string; name: string; brand: string | null; basisUnit: "G" | "ML"; densityGPerMl: number | null; servings: { label: string; amount: number; unit: string; gramEquivalent: number | null; mlEquivalent: number | null }[] }
+
+/**
+ * What this ingredient may be measured in.
+ *
+ * Free text was how "2 EL" reached the save and came back as "Unbekannte
+ * Einheit": the units a food can be converted from are knowable, so they are
+ * offered instead of typed. A unit already on the ingredient is kept in the
+ * list even when the food no longer allows it, so an existing recipe never
+ * silently changes what it says.
+ */
+const FALLBACK_UNITS = ["g", "kg", "ml", "l"];
+function unitOptions(item: Ingredient) {
+  const offered = item.units?.length ? item.units : FALLBACK_UNITS;
+  return offered.includes(item.unit) ? offered : [item.unit, ...offered];
+}
 
 export function RecipeForm({ recipe, createMode = false }: { recipe?: { id: string; name: string; description: string; servings: number; yieldWeightG: number | null; instructions: string; tags: string[]; ingredients: Ingredient[] }; createMode?: boolean }) {
   const t = useTranslations("recipes"); const common = useTranslations("common"); const errors = useTranslations("errors");
@@ -28,8 +44,8 @@ export function RecipeForm({ recipe, createMode = false }: { recipe?: { id: stri
     </section><section className="card"><h2>{t("ingredients")}</h2>
       <div className="field"><label htmlFor="ingredient-search">{t("searchFood")}</label><input id="ingredient-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
       <BarcodeScanner onScan={setQuery} />
-      {results.map((food) => <div className="row" key={food.id}><div className="row-body"><strong>{food.name}</strong><span>{food.brand}</span></div><button className="btn" type="button" onClick={() => { if (!ingredients.some((item) => item.foodId === food.id)) setIngredients([...ingredients, { foodId: food.id, name: food.name, amount: 100, unit: food.basisUnit === "ML" ? "ml" : "g" }]); setQuery(""); }}>{common("add")}</button></div>)}
-      {ingredients.length === 0 ? <p className="empty">{t("noIngredients")}</p> : ingredients.map((item, index) => <div className="row" key={item.foodId}><div className="row-body"><strong>{item.name}</strong><div className="field-row"><div className="field"><label htmlFor={`amount-${index}`}>{t("amount")}</label><input id={`amount-${index}`} type="number" min="0.001" step="0.001" value={item.amount} onChange={(event) => setIngredients(ingredients.map((value, i) => i === index ? { ...value, amount: Number(event.target.value) } : value))} /></div><div className="field"><label htmlFor={`unit-${index}`}>{t("unit")}</label><input id={`unit-${index}`} value={item.unit} onChange={(event) => setIngredients(ingredients.map((value, i) => i === index ? { ...value, unit: event.target.value } : value))} /></div></div></div><button className="btn btn-danger" type="button" onClick={() => setIngredients(ingredients.filter((_, i) => i !== index))}>{common("delete")}</button></div>)}
+      {results.map((food) => <div className="row" key={food.id}><div className="row-body"><strong>{food.name}</strong><span>{food.brand}</span></div><button className="btn" type="button" onClick={() => { if (!ingredients.some((item) => item.foodId === food.id)) { const units = allowedUnits({ basisUnit: food.basisUnit, densityGPerMl: food.densityGPerMl, servings: food.servings }); setIngredients([...ingredients, { foodId: food.id, name: food.name, amount: 100, unit: units[0] ?? (food.basisUnit === "ML" ? "ml" : "g"), units }]); } setQuery(""); }}>{common("add")}</button></div>)}
+      {ingredients.length === 0 ? <p className="empty">{t("noIngredients")}</p> : ingredients.map((item, index) => <div className="row" key={item.foodId}><div className="row-body"><strong>{item.name}</strong><div className="field-row"><div className="field"><label htmlFor={`amount-${index}`}>{t("amount")}</label><input id={`amount-${index}`} type="number" min="0.001" step="0.001" value={item.amount} onChange={(event) => setIngredients(ingredients.map((value, i) => i === index ? { ...value, amount: Number(event.target.value) } : value))} /></div><div className="field"><label htmlFor={`unit-${index}`}>{t("unit")}</label><select id={`unit-${index}`} value={item.unit} onChange={(event) => setIngredients(ingredients.map((value, i) => i === index ? { ...value, unit: event.target.value } : value))}>{unitOptions(item).map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></div></div></div><button className="btn btn-danger" type="button" onClick={() => setIngredients(ingredients.filter((_, i) => i !== index))}>{common("delete")}</button></div>)}
     </section></div><aside><section className="card"><button className="btn btn-primary btn-block" type="submit" disabled={pending || ingredients.length === 0}>{pending ? common("loading") : common("save")}</button></section></aside></div>
   </form>;
 }

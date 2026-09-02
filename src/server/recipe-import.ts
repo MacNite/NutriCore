@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { normalizeName } from "@/lib/units";
+import { allowedUnits, canonicalUnit, normalizeName, resolvePortion } from "@/lib/units";
 import { asUntrustedExcerpt } from "@/lib/url-guard";
 import { OllamaProvider } from "@/providers/ollama";
 import { fetchMealPage } from "./meal-url";
-import { visibleFoodWhere } from "./foods";
+import { foodPortionContext, visibleFoodWhere } from "./foods";
+import { saveRecipe } from "./recipes";
 import { repairExtractedRecipe } from "./ai-repair";
 import type { RecipeImportDraft } from "./recipe-import-actions";
 
@@ -98,16 +99,34 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
 
   const ingredients: RecipeImportDraft["ingredients"] = [];
   const unmatched: string[] = [];
+  const unconverted: string[] = [];
   for (const ingredient of parsed.ingredients) {
     const food = await prisma.food.findFirst({
       where: { AND: [visibleFoodWhere(record.userId), { normalizedName: normalizeName(ingredient.name) }] },
-      select: { id: true, name: true },
+      select: { id: true, name: true, basisUnit: true, densityGPerMl: true, servings: { select: { label: true, unit: true, amount: true, gramEquivalent: true, mlEquivalent: true } } },
     });
-    if (food) ingredients.push({ foodId: food.id, name: food.name, amount: ingredient.amount, unit: ingredient.unit });
-    else unmatched.push(ingredient.name);
+    if (!food) {
+      unmatched.push(ingredient.name);
+      continue;
+    }
+
+    const context = foodPortionContext(food);
+    // The source's own spelling first - "Gramm", "grams" - then whatever else
+    // the model wrote, which may still name a portion this food defines.
+    const unit = canonicalUnit(ingredient.unit) ?? ingredient.unit;
+    if (!resolvePortion(ingredient.amount, unit, context).ok) {
+      // A spoon or a piece has no weight for this food, and inventing one is
+      // exactly what this feature must not do. Reported instead, so the reader
+      // can add the ingredient with a quantity they chose.
+      unconverted.push(`${ingredient.name} (${ingredient.amount} ${ingredient.unit})`);
+      continue;
+    }
+    ingredients.push({ foodId: food.id, name: food.name, amount: ingredient.amount, unit, units: allowedUnits(context) });
   }
 
-  const draft: RecipeImportDraft = { ...parsed, servings: Number(record.servings), ingredients, unmatched };
+  const servings = Number(record.servings);
+  const recipeId = await storeDraftRecipe(record, { ...parsed, servings }, ingredients);
+  const draft: RecipeImportDraft = { ...parsed, servings, ingredients, unmatched, unconverted, recipeId };
   await prisma.recipeImport.update({
     where: { id: importId },
     data: {
@@ -119,4 +138,45 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
     },
   });
   return draft;
+}
+
+/**
+ * Stores the extraction as a draft recipe, listed with the user's own recipes
+ * and marked as one the AI wrote.
+ *
+ * A draft has no Food entry, so nothing can be logged from it before the user
+ * has confirmed it - the review the model's numbers have not had yet. The
+ * import id is kept on the recipe so that review can still name the ingredients
+ * that were matched to nothing, or measured in something this food cannot use.
+ *
+ * A retry updates the draft it wrote last time instead of adding a second one.
+ */
+async function storeDraftRecipe(
+  record: { id: string; userId: string; sourceUrl: string | null },
+  parsed: { name: string; description: string; servings: number; instructions: string },
+  ingredients: RecipeImportDraft["ingredients"],
+) {
+  const existing = await prisma.recipe.findFirst({ where: { importId: record.id, ownerId: record.userId }, select: { id: true, status: true } });
+  // Already accepted by the user; a retry of this job must not undo that.
+  if (existing?.status === "ACTIVE") return existing.id;
+
+  const { recipe } = await saveRecipe(
+    record.userId,
+    {
+      name: parsed.name,
+      description: parsed.description,
+      servings: parsed.servings,
+      instructions: parsed.instructions,
+      tags: [],
+      ingredients: ingredients.map(({ foodId, amount, unit }) => ({ foodId, amount, unit })),
+    },
+    existing?.id,
+    { status: "DRAFT", sourceType: "AI_RESEARCH", importId: record.id },
+  );
+
+  // Provenance the reader can check before confirming anything.
+  if (record.sourceUrl && !existing) {
+    await prisma.recipeSource.create({ data: { recipeId: recipe.id, url: record.sourceUrl, title: parsed.name, provider: "RECIPE_IMPORT", retrievedAt: new Date() } });
+  }
+  return recipe.id;
 }

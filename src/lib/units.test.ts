@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeName, parseServingSize, resolvePortion } from "./units";
+import { allowedUnits, canonicalUnit, normalizeName, parseServingSize, resolvePortion } from "./units";
 
 const gramFood = { basisUnit: "G" as const };
 const mlFood = { basisUnit: "ML" as const };
@@ -67,5 +67,39 @@ describe("name normalisation", () => {
   it("keeps brand and product words distinct", () => {
     expect(normalizeName("Alpro Soja Drink")).toBe("alpro soja drink");
     expect(normalizeName("Alpro Soja Drink")).not.toBe(normalizeName("Alpro Soja"));
+  });
+});
+
+describe("the units a food can be measured in", () => {
+  const flour = { basisUnit: "G" as const, densityGPerMl: null, servings: [] };
+  const milk = { basisUnit: "ML" as const, densityGPerMl: 1.03, servings: [] };
+
+  it("reads the source's own spelling of a metric unit", () => {
+    expect(canonicalUnit("Gramm")).toBe("g");
+    expect(canonicalUnit(" GRAMS ")).toBe("g");
+    expect(canonicalUnit("Milliliter")).toBe("ml");
+    // A measure word is not a metric unit and has no weight to map to.
+    expect(canonicalUnit("EL")).toBeNull();
+    expect(canonicalUnit("Stück")).toBeNull();
+  });
+
+  it("offers only what this food can actually be converted from", () => {
+    // No density, so the volume family would fail the save and is not offered.
+    expect(allowedUnits(flour)).toEqual(["g", "kg", "mg"]);
+    expect(allowedUnits(milk)).toEqual(["ml", "l", "dl", "cl", "g", "kg", "mg"]);
+  });
+
+  it("adds a named portion once the food defines its weight", () => {
+    const withServing = { ...flour, servings: [{ label: "Scheibe", unit: "Scheibe", amount: 1, gramEquivalent: 25 }] };
+    expect(allowedUnits(withServing)).toContain("Scheibe");
+    // Named but weightless: `resolvePortion` cannot use it, so neither is it offered.
+    const weightless = { ...flour, servings: [{ label: "Prise", unit: "Prise", amount: 1, gramEquivalent: null }] };
+    expect(allowedUnits(weightless)).not.toContain("Prise");
+  });
+
+  it("never offers a unit the portion resolver would reject", () => {
+    for (const food of [flour, milk]) {
+      for (const unit of allowedUnits(food)) expect(resolvePortion(1, unit, food).ok).toBe(true);
+    }
   });
 });
