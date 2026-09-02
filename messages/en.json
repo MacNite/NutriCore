@@ -820,6 +820,17 @@
     "nothingLoggable": "No component has both a food with nutrition values and a usable portion weight.",
     "skippedShort": "Not logged:"
   },
+  "aiPlaceholder": {
+    "name": "AI draft in the making",
+    "hint": "The AI is still working on this input.",
+    "queued": "Queued",
+    "running": "Working…",
+    "tagAi": "AI",
+    "tagDraft": "Draft",
+    "openReview": "Open the AI review",
+    "mealHint": "A placeholder only: it leads back to the AI review and is replaced by the real entry once the run is done.",
+    "recipeHint": "A placeholder only: it leads back to the AI review and is replaced by the finished draft recipe once the run is done."
+  },
   "admin": {
     "title": "Administration",
     "subtitle": "Users, invitations and background AI work.",

@@ -820,6 +820,17 @@
     "nothingLoggable": "Kein Bestandteil hat sowohl ein Lebensmittel mit Nährwerten als auch ein verwertbares Portionsgewicht.",
     "skippedShort": "Nicht übernommen:"
   },
+  "aiPlaceholder": {
+    "name": "KI-Entwurf entsteht",
+    "hint": "Die KI arbeitet noch an dieser Eingabe.",
+    "queued": "In der Warteschlange",
+    "running": "Läuft…",
+    "tagAi": "AI",
+    "tagDraft": "Entwurf",
+    "openReview": "KI-Prüfung öffnen",
+    "mealHint": "Nur ein Platzhalter: Er führt zurück zur KI-Prüfung und wird durch den echten Eintrag ersetzt, sobald der Lauf fertig ist.",
+    "recipeHint": "Nur ein Platzhalter: Er führt zurück zur KI-Prüfung und wird durch den fertigen Rezeptentwurf ersetzt, sobald der Lauf fertig ist."
+  },
   "admin": {
     "title": "Administration",
     "subtitle": "Benutzer, Einladungen und KI-Aufgaben im Hintergrund.",
