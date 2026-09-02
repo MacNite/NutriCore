@@ -215,7 +215,7 @@
   },
   "foods": {
     "title": "Lebensmittel",
-    "searchPlaceholder": "Lebensmittel suchen oder Barcode eingeben",
+    "searchPlaceholder": "Lebensmittel / Rezept suchen oder Barcode eingeben",
     "searchHint": "Beim Tippen wird nur die lokale NutriCore-Datenbank durchsucht; zuletzt verwendete Lebensmittel erscheinen sofort. Open Food Facts wird ausschließlich auf ausdrückliche Anforderung abgefragt.",
     "recentlyUsed": "Zuletzt verwendet",
     "noResults": "Kein passendes Lebensmittel gefunden.",

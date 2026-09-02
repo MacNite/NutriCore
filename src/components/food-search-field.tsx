@@ -297,30 +297,32 @@ export function FoodSearchField({
             )}
           </div>
         ) : (
-          outcome.results.map((result) => (
-            <div className="row clickable-row" key={result.id}>
-              <Link className="row-main-link" href={resultHref(result)}>
-                <div className="row-body">
-                  <strong>{result.name}</strong>
-                  <span>
-                    {result.brand ? `${result.brand} · ` : ""}
-                    {result.nutrients.energyKcal === null
-                      ? "–"
-                      : `${formatKcal(result.nutrients.energyKcal, locale)} kcal`}{" "}
-                    {t("perBasis", {
-                      amount: formatNumber(result.basisAmount, locale, 0),
-                      unit: result.basisUnit === "ML" ? "ml" : "g",
-                    })}
-                  </span>
-                </div>
-                <SourceBadge source={result.sourceType} />
-              </Link>
+          <div className={query.trim().length === 0 ? "recent-food-list" : undefined}>
+            {outcome.results.map((result) => (
+              <div className="row clickable-row" key={result.id}>
+                <Link className="row-main-link" href={resultHref(result)}>
+                  <div className="row-body">
+                    <strong>{result.name}</strong>
+                    <span>
+                      {result.brand ? `${result.brand} · ` : ""}
+                      {result.nutrients.energyKcal === null
+                        ? "–"
+                        : `${formatKcal(result.nutrients.energyKcal, locale)} kcal`}{" "}
+                      {t("perBasis", {
+                        amount: formatNumber(result.basisAmount, locale, 0),
+                        unit: result.basisUnit === "ML" ? "ml" : "g",
+                      })}
+                    </span>
+                  </div>
+                  <SourceBadge source={result.sourceType} />
+                </Link>
 
-              <Link className="btn btn-primary add-food-button" aria-label={t("servingLabel")} href={resultHref(result)}>
-                <span aria-hidden="true">＋</span>
-              </Link>
-            </div>
-          ))
+                <Link className="btn btn-primary add-food-button" aria-label={t("servingLabel")} href={resultHref(result)}>
+                  <span aria-hidden="true">＋</span>
+                </Link>
+              </div>
+            ))}
+          </div>
         )}
       </section>
       {outcome?.recipeDrafts.length ? <section className="card" style={{ marginTop: 16 }}>
