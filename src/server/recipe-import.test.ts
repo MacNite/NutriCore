@@ -73,6 +73,64 @@ describe("recipe import from a URL", () => {
     expect(draft.unmatched).toEqual(["Mehl", "Eier", "Olivenöl", "Salz"]);
     expect(draft.unparsedIngredients).toEqual(["Salz und Pfeffer nach Geschmack"]);
   });
+  it("falls back to the model when the source's own lines carry no quantities", async () => {
+    // Committing to the deterministic reading regardless stored a draft recipe
+    // with no ingredients at all - one that neither `confirmRecipe` nor the
+    // recipe form accepts, so the user could only delete it.
+    vi.mocked(fetchMealPage).mockResolvedValue({
+      url: "https://example.org/auflauf", title: "Pfannengericht", recipeFound: true,
+      excerpt: "Recipe: Pfannengericht\nIngredients:\n- Salz und Pfeffer\n- Öl zum Braten\n- etwas Butter",
+      structuredRecipe: { name: "Pfannengericht", ingredientLines: ["Salz und Pfeffer", "Öl zum Braten", "etwas Butter"] },
+    });
+    food.findFirst.mockResolvedValue(weighed("Butter"));
+    const ai = modelAnswering({ name: "Pfannengericht", ingredients: [{ name: "Butter", amount: 20, unit: "g" }] });
+
+    const draft = await runRecipeImport("import-1", { ai: asProvider(ai) });
+
+    expect(ai.complete).toHaveBeenCalledTimes(1);
+    expect(ai.complete.mock.calls[0][0].prompt).toContain("- Salz und Pfeffer");
+    expect(draft.ingredients[0]).toMatchObject({ foodId: "food-Butter", amount: 20, unit: "g" });
+  });
+
+  it("keeps the page in the prompt when an image forces the model to run", async () => {
+    // `structuredRecipe` used to suppress the excerpt outright, so an import
+    // carrying both a link and a photo reached the model with neither.
+    recipeImport.findUnique.mockResolvedValue({
+      id: "import-1", userId: "user-1", text: null, sourceUrl: "https://example.org/auflauf", servings: 4,
+      imageData: Buffer.from("photo"),
+    });
+    vi.mocked(fetchMealPage).mockResolvedValue({
+      url: "https://example.org/auflauf", title: "Auflauf", excerpt: "Recipe: Auflauf\nIngredients:\n- 200 g Mehl", recipeFound: true,
+      structuredRecipe: { name: "Auflauf", ingredientLines: ["200 g Mehl"] },
+    });
+    food.findFirst.mockResolvedValue(weighed("Mehl"));
+    const ai = modelAnswering({ name: "Auflauf", ingredients: [{ name: "Mehl", amount: 200, unit: "g" }] });
+
+    await runRecipeImport("import-1", { ai: asProvider(ai) });
+
+    expect(ai.complete.mock.calls[0][0].prompt).toContain("- 200 g Mehl");
+  });
+
+  it("holds the deterministic draft to the same limits the recipe form enforces", async () => {
+    // The branch asserted the schema's type without ever running it, so a
+    // source's own name and steps reached the database at lengths that made the
+    // stored draft impossible to save again.
+    recipeImport.findUnique.mockResolvedValue({
+      id: "import-1", userId: "user-1", text: "n".repeat(5_000), sourceUrl: "https://example.org/auflauf", servings: 4, imageData: null,
+    });
+    vi.mocked(fetchMealPage).mockResolvedValue({
+      url: "https://example.org/auflauf", title: "Auflauf", excerpt: "fallback", recipeFound: true,
+      structuredRecipe: {
+        ingredientLines: ["200 g Mehl"],
+        instructions: Array.from({ length: 60 }, (_, index) => `${index + 1}. ${"s".repeat(2_000)}`).join("\n"),
+      },
+    });
+    const draft = await runRecipeImport("import-1", { ai: asProvider(modelAnswering({})) });
+
+    expect(draft.name.length).toBeLessThanOrEqual(200);
+    expect(draft.instructions.length).toBeLessThanOrEqual(20_000);
+  });
+
   it("reads the page through the same extractor Quick meal uses", async () => {
     food.findFirst.mockResolvedValue(weighed("Mehl"));
     const ai = modelAnswering({ name: "Auflauf", ingredients: [{ name: "Mehl", amount: 200, unit: "g" }] });

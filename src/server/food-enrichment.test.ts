@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { aiEnrichmentMetadata, extractNutritionForName, isPlausibleNutrition, missingNutritionKeys, normalizeNutritionPer100g, rankNutritionSources } from "./food-enrichment";
+import { AIInvalidOutputError, AIUnavailableError } from "@/providers/ai";
 import type { OllamaProvider } from "@/providers/ollama";
 import type { SearxngClient } from "@/providers/searxng";
 
@@ -25,6 +26,24 @@ describe("nutrition source ranking", () => {
     ]);
     expect(ranked[0].url).toBe("https://facts.test");
     expect(ranked[0].score).toBeGreaterThan(ranked[1].score);
+  });
+  it("matches an umlaut name against the page that actually names it", () => {
+    // "Käse" tokenised to nothing at all, so both of these scored identically on
+    // their other evidence and the tie fell to search order.
+    const ranked = rankNutritionSources("Käse", ["protein"], [
+      { title: "Nährwerte", url: "https://generic.test", pageText: "Nährwerte pro 100 g: Protein 25 g" },
+      { title: "Käse Nährwerte", url: "https://cheese.test", pageText: "Käse: Nährwerte pro 100 g, Protein 25 g" },
+    ]);
+    expect(ranked[0].url).toBe("https://cheese.test");
+    expect(ranked[0].score).toBeGreaterThan(ranked[1].score);
+  });
+  it("does not read a recipe's own '100 g Zucker' as a per-100-g basis", () => {
+    const [blog] = rankNutritionSources("Zucker", ["protein"], [
+      { title: "Kuchen Rezept", url: "https://blog.test", pageText: "Zutaten: 100 g Zucker, 2 Eier" },
+    ]);
+    // Unqualified, the quantity awarded the largest bonus in the score and, via
+    // `prose`, cancelled the blog penalty with it.
+    expect(blog.score).toBeLessThan(0);
   });
   it("uses search order only to break evidence ties", () => {
     const ranked = rankNutritionSources("tofu", ["protein"], [
@@ -86,5 +105,24 @@ describe("source retries", () => {
     const ai = { capabilities: async () => ({ model: "local" }), complete: vi.fn().mockResolvedValue({ basisAmount: 100, basisUnit: "ml", nutrients: { protein: 2 } }) } as unknown as OllamaProvider;
     await expect(extractNutritionForName("Food", ["protein"], { search, ai, fetchSource: (async (url: string) => ({ url, excerpt: "Food nutrition per 100 g protein" })) as never })).resolves.toBeNull();
     expect(ai.complete).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("provider failures during extraction", () => {
+  const search = { search: async () => [{ title: "Tofu nutrition facts", url: "https://a.test" }] } as unknown as SearxngClient;
+  const fetchSource = (async (url: string) => ({ url, excerpt: "Tofu nutrition per 100 g protein 12 g" })) as never;
+
+  it("propagates an unreachable provider instead of reporting an empty result", async () => {
+    // Swallowed, this reached `enrichFood` as "nothing found", which counts as
+    // an attempt - and `enrichedAt` then withholds the food from the sweep for
+    // a month over an outage rather than a fact about the food.
+    const ai = { capabilities: async () => ({ model: "local" }), complete: vi.fn().mockRejectedValue(new AIUnavailableError("ollama", "Ollama is unreachable")) } as unknown as OllamaProvider;
+    await expect(extractNutritionForName("Tofu", ["protein"], { search, ai, fetchSource })).rejects.toThrow(AIUnavailableError);
+    expect(ai.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("still moves past a candidate the model answered badly", async () => {
+    const ai = { capabilities: async () => ({ model: "local" }), complete: vi.fn().mockRejectedValue(new AIInvalidOutputError("nutrients: expected object")) } as unknown as OllamaProvider;
+    await expect(extractNutritionForName("Tofu", ["protein"], { search, ai, fetchSource })).resolves.toBeNull();
   });
 });

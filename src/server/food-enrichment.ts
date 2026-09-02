@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { hasAnyNutrient, chooseNutrition } from "@/lib/research";
 import { asUntrustedExcerpt } from "@/lib/url-guard";
 import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
+import { AIInvalidOutputError, AIOutputTruncatedError } from "@/providers/ai";
 import { OllamaProvider } from "@/providers/ollama";
 import { SearxngClient } from "@/providers/searxng";
 import type { SearchSource } from "@/providers/searxng";
@@ -52,20 +53,43 @@ const extractionSchema = z.object({
 
 export type RawNutritionExtraction = z.infer<typeof extractionSchema>;
 
-const words = (value: string) => value.toLocaleLowerCase().normalize("NFKD").replace(/[^a-z0-9äöüß]+/gi, " ").split(/\s+/).filter((word) => word.length > 2);
+/**
+ * Case, sharp s and diacritics removed, so a German name and a German page are
+ * compared in the same alphabet.
+ *
+ * `NFKD` splits "ä" into "a" plus a combining diaeresis; leaving that mark for a
+ * character class to turn into a word break is what reduced "Käse" to nothing
+ * at all. Both sides are folded, because folding only the name would leave its
+ * "kase" unable to find the page's "Käse".
+ */
+const fold = (value: string) =>
+  value.toLocaleLowerCase().replace(/ß/g, "ss").normalize("NFKD").replace(/\p{M}+/gu, "");
+
+/** Name tokens for the relevance score. A short name keeps its one token rather than scoring zero. */
+const words = (value: string) => {
+  const all = fold(value).replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter(Boolean);
+  const long = all.filter((word) => word.length > 2);
+  return long.length ? long : all;
+};
 
 /** Scores evidence, never domains. Search order is used only after equal scores. */
 export function rankNutritionSources(name: string, keys: readonly string[], candidates: Array<SearchSource & { pageText: string }>) {
   const nameTokens = [...new Set(words(name))];
   return candidates.map((candidate, index) => {
-    const title = `${candidate.title} ${candidate.excerpt ?? ""}`.toLocaleLowerCase();
-    const page = candidate.pageText.toLocaleLowerCase();
+    const title = fold(`${candidate.title} ${candidate.excerpt ?? ""}`);
+    const page = fold(candidate.pageText);
     const all = `${title} ${page}`;
     const tokenHits = nameTokens.filter((token) => all.includes(token)).length;
-    const basis = /(?:per|pro|je|\/)?\s*100\s*g\b/i.test(all);
-    const nutrition = /nutrition|nutrient|nutrition facts|nährwert|naehrwert/i.test(all);
+    // The prefix is required: unqualified, this matched any recipe line reading
+    // "100 g Zucker", which handed a cooking blog the largest bonus in the score
+    // and, because `prose` is conditioned on it, cancelled the blog penalty too.
+    const basis = /(?:\bper|\bpro|\bje|\bfur|\bauf|\/)\s*100\s*(?:g|gramm?|grams)\b/.test(all);
+    // Judged on the title and the search snippet. A page body that happens to
+    // say "nutrition" once somewhere is not evidence that the page is a
+    // nutrition table. Matched against folded text, so no umlauts here.
+    const nutrition = /nutrition|nutrient|nahrwert|naehrwert|kalorien|calories|kcal/.test(title);
     const nutrientHits = keys.filter((key) => all.includes(key.toLocaleLowerCase())).length;
-    const prose = /recipe|rezept|blog|article/i.test(title) && !basis && !nutrition;
+    const prose = /recipe|rezept|blog|article/.test(title) && !basis && !nutrition;
     const score = tokenHits * 8 + (nameTokens.length > 0 && tokenHits === nameTokens.length ? 10 : 0) + (basis ? 18 : 0) + (nutrition ? 12 : -8) + Math.min(nutrientHits, 5) * 3 - (prose ? 12 : 0);
     return { ...candidate, score, searchIndex: index };
   }).sort((a, b) => b.score - a.score || a.searchIndex - b.searchIndex);
@@ -145,7 +169,14 @@ export async function extractNutritionForName(
       const per100g = normalizeNutritionPer100g(extracted);
       if (!per100g || !isPlausibleNutrition(per100g)) continue;
       return { per100g, servingSizeG: extracted.servingSizeG, url: page.url, model: capabilities.model, consideredUrls: sources.map((source) => source.url) };
-    } catch { /* one malformed candidate must not prevent trying the next */ }
+    } catch (error) {
+      // One malformed candidate must not prevent trying the next. A provider
+      // that is down is not a malformed candidate: swallowing it reported the
+      // food as "nothing found", which the caller records as a successful
+      // attempt - and `enrichedAt` then keeps that food out of the sweep for a
+      // month over what was an outage.
+      if (!(error instanceof AIInvalidOutputError) && !(error instanceof AIOutputTruncatedError)) throw error;
+    }
   }
   return null;
 }

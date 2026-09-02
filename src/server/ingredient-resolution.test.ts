@@ -36,6 +36,14 @@ describe("deterministic food matching", () => {
     expect(matchFoodCandidates("Zwiebel, fein gehackt", foods)[0]).toMatchObject({ id: "onion", exact: true, score: 1 });
   });
 
+  it("commits to a lone near-match a stray adjective used to disqualify", async () => {
+    // "glatte Petersilie" against a stored "Petersilie" scores exactly 0.7, two
+    // hundredths under the old threshold - so the ingredient was reported as
+    // not found while the food sat in the user's catalogue.
+    const result = await resolveIngredientLines(["1 Bund glatte Petersilie"], [{ id: "parsley", name: "Petersilie" }]);
+    expect(result.ingredients[0]).toMatchObject({ foodId: "parsley", resolution: "deterministic", status: "resolved" });
+  });
+
   it("safely normalizes a common German plural", () => {
     expect(matchFoodCandidates("Frühlingszwiebeln", foods)[0]).toMatchObject({ id: "spring", exact: true });
   });
@@ -74,6 +82,15 @@ describe("selective batched AI resolution", () => {
     expect(result.diagnostics).toMatchObject({ ingredientCount: 10, deterministicallyResolvedCount: 8, aiAssistedCount: 2, ollamaCallsUsed: 1 });
     // Source amount/unit survived untouched because the response schema has no writable quantity fields.
     expect(result.ingredients[8].parsed).toMatchObject({ amount: 1, unit: "Packung" });
+  });
+
+  it("asks about a single candidate it could not commit to on its own", async () => {
+    // Requiring two candidates excluded the most fixable case there is: one
+    // plausible food that the deterministic rules stopped short of accepting.
+    const ai = provider({ ingredients: [{ id: 0, candidateIndex: 0, confidence: "high" }] });
+    const result = await resolveIngredientLines(["1 Dose passierte Tomaten"], [{ id: "tomato-can", name: "Tomaten Konserve" }], ai);
+    expect(ai.complete).toHaveBeenCalledTimes(1);
+    expect(result.ingredients[0]).toMatchObject({ foodId: "tomato-can", resolution: "ai-assisted" });
   });
 
   it("isolates invalid, duplicate, unknown, and low-confidence answers", async () => {
