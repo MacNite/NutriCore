@@ -3,8 +3,10 @@
 import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import { ProfileFields, type ProfileValues } from "@/components/profile-fields";
+import type { BodyPanels } from "@/lib/body-visualization";
 import {
   deleteAccountAction,
+  saveBodyPanelsAction,
   saveLanguageAction,
   saveProfileAction,
   saveTargetOverrideAction,
@@ -40,20 +42,24 @@ export function SettingsForms({
   username,
   values,
   overrideKcal,
+  bodyPanels,
 }: {
   username: string;
   values: ProfileValues;
   overrideKcal: number | null;
+  bodyPanels: BodyPanels;
 }) {
   const t = useTranslations("settings");
   const targetT = useTranslations("target");
   const profileT = useTranslations("profile");
+  const bodyT = useTranslations("bodyProgress");
   const common = useTranslations("common");
 
   const [profileState, profileAction, profilePending] = useActionState<FormState, FormData>(saveProfileAction, {});
   const [languageState, languageAction, languagePending] = useActionState<FormState, FormData>(saveLanguageAction, {});
   const [targetState, targetAction, targetPending] = useActionState<FormState, FormData>(saveTargetOverrideAction, {});
   const [deleteState, deleteAction, deletePending] = useActionState<FormState, FormData>(deleteAccountAction, {});
+  const [panelState, panelAction, panelPending] = useActionState<FormState, FormData>(saveBodyPanelsAction, {});
 
   return (
     <>
@@ -113,6 +119,55 @@ export function SettingsForms({
 
           <button type="submit" className="btn btn-primary" disabled={languagePending}>
             {languagePending ? common("loading") : common("save")}
+          </button>
+        </form>
+      </section>
+
+      {/* Which body-progress visualisations to draw. A switch here only hides a
+          chart: the measurements behind it stay recorded, stay in the table
+          under the card and stay in the data export. */}
+      <section className="card">
+        <h2>{bodyT("panels.title")}</h2>
+        <p className="muted" style={{ marginTop: 0, fontSize: 13.5 }}>
+          {bodyT("panels.hint")}
+        </p>
+        <form action={panelAction}>
+          <Feedback state={panelState} savedLabel={t("saved")} />
+
+          <div className="checkbox">
+            <input
+              id="showBodyComposition"
+              name="showBodyComposition"
+              type="checkbox"
+              defaultChecked={bodyPanels.composition}
+              aria-describedby="composition-panel-hint"
+            />
+            <div>
+              <label htmlFor="showBodyComposition">{bodyT("composition.title")}</label>
+              <div className="hint" id="composition-panel-hint">
+                {bodyT("panels.compositionHint")}
+              </div>
+            </div>
+          </div>
+
+          <div className="checkbox">
+            <input
+              id="showBodyShape"
+              name="showBodyShape"
+              type="checkbox"
+              defaultChecked={bodyPanels.shape}
+              aria-describedby="shape-panel-hint"
+            />
+            <div>
+              <label htmlFor="showBodyShape">{bodyT("shape.title")}</label>
+              <div className="hint" id="shape-panel-hint">
+                {bodyT("panels.shapeHint")}
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" className="btn btn-primary" disabled={panelPending}>
+            {panelPending ? common("loading") : common("save")}
           </button>
         </form>
       </section>

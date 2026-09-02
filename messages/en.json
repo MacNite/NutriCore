@@ -396,6 +396,14 @@
       "decreased": "decreased",
       "noChanges": "No region changed measurably."
     },
+    "panels": {
+      "title": "Body progress display",
+      "hint": "Choose which visualisations appear on the progress page. Both are on by default. Switching one off only hides the drawing — your measurements stay recorded, stay in the table and stay in the data export.",
+      "compositionHint": "The four-axis diagram of muscle, water, fat and bone.",
+      "shapeHint": "The schematic body outline and the change by region.",
+      "allHidden": "Both visualisations are hidden. The values and the history are still further down this page.",
+      "settingsLink": "Change in settings"
+    },
     "change": {
       "microHead": "Regional change",
       "increase": "Increase",

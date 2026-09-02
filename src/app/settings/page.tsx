@@ -5,6 +5,7 @@ import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { prisma } from "@/lib/db";
 import { getCurrentTarget } from "@/server/targets";
+import { DEFAULT_PANELS } from "@/lib/body-visualization";
 import { SettingsForms } from "./settings-forms";
 import { TargetPanel } from "@/components/target-panel";
 
@@ -49,6 +50,10 @@ export default async function SettingsPage() {
               isBreastfeeding: profile?.isBreastfeeding ?? false,
             }}
             overrideKcal={target?.overrideKcal ?? null}
+            bodyPanels={{
+              composition: profile?.showBodyComposition ?? DEFAULT_PANELS.composition,
+              shape: profile?.showBodyShape ?? DEFAULT_PANELS.shape,
+            }}
           />
         </div>
 

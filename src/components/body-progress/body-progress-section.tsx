@@ -10,7 +10,7 @@ import {
   type BodyMeasurement,
   type BodyProfile,
 } from "@/lib/body-metrics";
-import type { BodyAppearance, BodyRegionKey } from "@/lib/body-visualization";
+import type { BodyAppearance, BodyPanels, BodyRegionKey } from "@/lib/body-visualization";
 import { BodyFigurePicker } from "./body-figure-picker";
 import { BodyMeasurementChart } from "./body-measurement-chart";
 import { BodyMeasurementTable } from "./body-measurement-table";
@@ -27,12 +27,15 @@ export function BodyProgressSection({
   measurements,
   profile,
   appearance,
+  panels,
   checkin,
   locale,
 }: {
   measurements: BodyMeasurement[];
   profile: BodyProfile;
   appearance: BodyAppearance;
+  /** Which of the two visualisations this reader has switched on. */
+  panels: BodyPanels;
   /** The check-in dialog, rendered by the page so it sits in the card head. */
   checkin: React.ReactNode;
   locale: Locale;
@@ -60,9 +63,11 @@ export function BodyProgressSection({
      change until there are two. */
   const hasReference = currentIndex > 0;
   const referenceLabel = formatDate(measurements[referenceIndex].date, locale);
+  /* The figure picker only changes how the drawn body looks, so it goes with
+     the drawing. The check-in button stays whatever is on screen. */
   const actions = (
     <span className="body-card-actions">
-      <BodyFigurePicker key="figure" appearance={appearance} locale={locale} />
+      {panels.shape ? <BodyFigurePicker key="figure" appearance={appearance} locale={locale} /> : null}
       <span key="checkin">{checkin}</span>
     </span>
   );
@@ -80,6 +85,7 @@ export function BodyProgressSection({
         appearance={appearance}
         hasReference={hasReference}
         figurePicker={actions}
+        panels={panels}
         locale={locale}
       />
 
@@ -110,7 +116,8 @@ export function BodyProgressSection({
         locale={locale}
       />
 
-      <p className="body-caption">{t("figure.disclaimer")}</p>
+      {/* The disclaimer is about the drawn figure, so it goes when the figure does. */}
+      {panels.shape ? <p className="body-caption">{t("figure.disclaimer")}</p> : null}
     </div>
   );
 }
