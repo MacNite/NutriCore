@@ -113,6 +113,29 @@ describe("units the draft may carry", () => {
     expect(draft.unconverted).toEqual(["Olivenöl (2 EL)"]);
   });
 
+  it("reports a millilitre the food carries no density for", async () => {
+    // The picture import's failure: the portion resolves to millilitres, but a
+    // recipe ingredient needs a weight, so the save threw "density-required"
+    // and took the whole extraction with it.
+    food.findFirst.mockResolvedValue({ id: "food-bruehe", name: "Gemüsebrühe", basisUnit: "ML", densityGPerMl: null, servings: [] });
+    const ai = modelAnswering({ name: "Risotto", ingredients: [{ name: "Gemüsebrühe", amount: 1.5, unit: "l" }] });
+
+    const draft = await runRecipeImport("import-1", { ai: asProvider(ai) });
+
+    expect(draft.ingredients).toEqual([]);
+    expect(draft.unconverted).toEqual(["Gemüsebrühe (1.5 l)"]);
+  });
+
+  it("weighs a millilitre once the food carries a density", async () => {
+    food.findFirst.mockResolvedValue({ id: "food-sahne", name: "Cremefine", basisUnit: "ML", densityGPerMl: 1.01, servings: [] });
+    const ai = modelAnswering({ name: "Risotto", ingredients: [{ name: "Cremefine", amount: 250, unit: "ml" }] });
+
+    const draft = await runRecipeImport("import-1", { ai: asProvider(ai) });
+
+    expect(draft.ingredients[0]).toMatchObject({ amount: 250, unit: "ml" });
+    expect(draft.unconverted).toEqual([]);
+  });
+
   it("keeps a named portion the food itself defines", async () => {
     food.findFirst.mockResolvedValue({
       id: "food-eier", name: "Eier", basisUnit: "G", densityGPerMl: null,
@@ -153,6 +176,20 @@ describe("the draft recipe the import stores", () => {
 
     expect(saveRecipe).not.toHaveBeenCalled();
     expect(draft.recipeId).toBe("recipe-1");
+  });
+
+  it("keeps the extraction when the draft recipe cannot be stored", async () => {
+    food.findFirst.mockResolvedValue(weighed("Mehl"));
+    vi.mocked(saveRecipe).mockRejectedValueOnce(new Error("Cannot resolve portion: density-required"));
+    const ai = modelAnswering({ name: "Auflauf", ingredients: [{ name: "Mehl", amount: 200, unit: "g" }] });
+
+    // The expensive part already succeeded; it must not be discarded over a
+    // convenience that failed after it.
+    const draft = await runRecipeImport("import-1", { ai: asProvider(ai) });
+
+    expect(draft.recipeId).toBeUndefined();
+    expect(draft.ingredients).toHaveLength(1);
+    expect(recipeImport.update).toHaveBeenCalled();
   });
 
   it("updates the draft it wrote last time instead of adding a second one", async () => {

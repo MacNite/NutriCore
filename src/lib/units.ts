@@ -74,6 +74,29 @@ export function resolvePortion(amount: number, unit: string, context: PortionCon
 }
 
 /**
+ * A resolved portion plus the weight in grams a recipe ingredient needs.
+ *
+ * Recipe totals, the per-100 g values and the portion weight are all derived
+ * from grams, so resolving to millilitres is only half an answer: turning those
+ * into a weight needs the food's density, and without one the ingredient cannot
+ * be used at all. That is the same refusal to assume 1 ml = 1 g that
+ * `resolvePortion` makes - stated here once, so the recipe save, the AI import
+ * and the form's unit list cannot disagree about which units are usable.
+ */
+export type IngredientWeightResult =
+  | { ok: true; amount: number; unit: BasisUnit; weightG: number }
+  | Extract<PortionResult, { ok: false }>;
+
+export function resolveIngredientWeight(amount: number, unit: string, context: PortionContext): IngredientWeightResult {
+  const portion = resolvePortion(amount, unit, context);
+  if (!portion.ok) return portion;
+  if (portion.unit === "G") return { ...portion, weightG: portion.amount };
+  const density = context.densityGPerMl ?? 0;
+  if (density > 0) return { ...portion, weightG: portion.amount * density };
+  return { ok: false, reason: "density-required" };
+}
+
+/**
  * Spellings of the metric units, mapped to the one `resolvePortion` knows.
  *
  * A model asked for a recipe answers in the source's words - "Gramm", "grams",
@@ -114,7 +137,7 @@ export function allowedUnits(context: PortionContext): string[] {
     const key = normalizeUnit(unit ?? "");
     if (!key || seen.has(key)) return false;
     seen.add(key);
-    return resolvePortion(1, unit, context).ok;
+    return resolveIngredientWeight(1, unit, context).ok;
   });
 }
 

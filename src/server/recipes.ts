@@ -2,7 +2,7 @@ import { Prisma, type MealType, type RecipeStatus, type SourceType } from "@pris
 import { prisma } from "@/lib/db";
 import { NUTRIENT_KEYS } from "@/lib/nutrients";
 import { recipeNutrition, scaleNutrients, type Nutrients } from "@/lib/nutrition";
-import { normalizeName, resolvePortion } from "@/lib/units";
+import { normalizeName, resolveIngredientWeight } from "@/lib/units";
 import { diaryDate, NotFoundError, PortionError } from "./diary";
 import { foodPortionContext, visibleFoodWhere } from "./foods";
 
@@ -49,13 +49,9 @@ async function resolveIngredients(userId: string, ingredients: RecipeInput["ingr
 
   return ingredients.map((item, position) => {
     const food = byId.get(item.foodId)!;
-    const portion = resolvePortion(item.amount, item.unit, foodPortionContext(food));
+    const portion = resolveIngredientWeight(item.amount, item.unit, foodPortionContext(food));
     if (!portion.ok) throw new PortionError(portion.reason);
-
-    let weightG: number;
-    if (portion.unit === "G") weightG = portion.amount;
-    else if (food.densityGPerMl && Number(food.densityGPerMl) > 0) weightG = portion.amount * Number(food.densityGPerMl);
-    else throw new PortionError("density-required");
+    const weightG = portion.weightG;
 
     const nutrients: Nutrients = Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, null]));
     for (const nutrient of food.nutrients) nutrients[nutrient.nutrientKey] = nutrient.value === null ? null : Number(nutrient.value);

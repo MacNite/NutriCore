@@ -523,6 +523,7 @@
     "noIngredients": "Mindestens ein Lebensmittel hinzufügen.",
     "amount": "Menge",
     "unit": "Einheit",
+    "needsDensity": "Für dieses Lebensmittel ist keine Dichte hinterlegt, daher lässt sich sein Gewicht nicht bestimmen. Ergänze die Dichte am Lebensmittel, um es in einem Rezept zu verwenden.",
     "nutritionPerServing": "Nährwerte pro Portion",
     "nutritionPer100g": "Nährwerte pro 100 g",
     "portionWeight": "Portionsgewicht",

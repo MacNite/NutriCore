@@ -44,7 +44,17 @@ export function RecipeForm({ recipe, createMode = false }: { recipe?: { id: stri
     </section><section className="card"><h2>{t("ingredients")}</h2>
       <div className="field"><label htmlFor="ingredient-search">{t("searchFood")}</label><input id="ingredient-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
       <BarcodeScanner onScan={setQuery} />
-      {results.map((food) => <div className="row" key={food.id}><div className="row-body"><strong>{food.name}</strong><span>{food.brand}</span></div><button className="btn" type="button" onClick={() => { if (!ingredients.some((item) => item.foodId === food.id)) { const units = allowedUnits({ basisUnit: food.basisUnit, densityGPerMl: food.densityGPerMl, servings: food.servings }); setIngredients([...ingredients, { foodId: food.id, name: food.name, amount: 100, unit: units[0] ?? (food.basisUnit === "ML" ? "ml" : "g"), units }]); } setQuery(""); }}>{common("add")}</button></div>)}
+      {results.map((food) => {
+        const units = allowedUnits({ basisUnit: food.basisUnit, densityGPerMl: food.densityGPerMl, servings: food.servings });
+        return <div className="row" key={food.id}><div className="row-body"><strong>{food.name}</strong><span>{food.brand}</span></div>
+          {/* A recipe ingredient has to end up with a weight, and a food sold by
+              volume with no stored density has none. Saying so here beats adding
+              it and failing the save with "Unbekannte Einheit". */}
+          {units.length === 0
+            ? <span className="hint">{t("needsDensity")}</span>
+            : <button className="btn" type="button" onClick={() => { if (!ingredients.some((item) => item.foodId === food.id)) setIngredients([...ingredients, { foodId: food.id, name: food.name, amount: 100, unit: units[0], units }]); setQuery(""); }}>{common("add")}</button>}
+        </div>;
+      })}
       {ingredients.length === 0 ? <p className="empty">{t("noIngredients")}</p> : ingredients.map((item, index) => <div className="row" key={item.foodId}><div className="row-body"><strong>{item.name}</strong><div className="field-row"><div className="field"><label htmlFor={`amount-${index}`}>{t("amount")}</label><input id={`amount-${index}`} type="number" min="0.001" step="0.001" value={item.amount} onChange={(event) => setIngredients(ingredients.map((value, i) => i === index ? { ...value, amount: Number(event.target.value) } : value))} /></div><div className="field"><label htmlFor={`unit-${index}`}>{t("unit")}</label><select id={`unit-${index}`} value={item.unit} onChange={(event) => setIngredients(ingredients.map((value, i) => i === index ? { ...value, unit: event.target.value } : value))}>{unitOptions(item).map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></div></div></div><button className="btn btn-danger" type="button" onClick={() => setIngredients(ingredients.filter((_, i) => i !== index))}>{common("delete")}</button></div>)}
     </section></div><aside><section className="card"><button className="btn btn-primary btn-block" type="submit" disabled={pending || ingredients.length === 0}>{pending ? common("loading") : common("save")}</button></section></aside></div>
   </form>;
