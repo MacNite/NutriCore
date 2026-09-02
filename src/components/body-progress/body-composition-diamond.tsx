@@ -53,11 +53,13 @@ export function BodyCompositionDiamond({
   current,
   reference,
   referenceLabel,
+  hasReference,
   locale,
 }: {
   current: BodyMeasurement;
   reference: BodyMeasurement;
   referenceLabel: string;
+  hasReference: boolean;
   locale: Locale;
 }) {
   const t = useTranslations("bodyProgress");
@@ -212,7 +214,7 @@ export function BodyCompositionDiamond({
         </svg>
       </figure>
 
-      <BodyOverlayLegend referenceLabel={referenceLabel} />
+      {hasReference ? <BodyOverlayLegend referenceLabel={referenceLabel} /> : null}
 
       <BodyFold
         label={t("composition.foldLabel")}

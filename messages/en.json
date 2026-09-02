@@ -347,9 +347,6 @@
   },
   "bodyProgress": {
     "title": "Body progress",
-    "navHint": "Body progress (preview)",
-    "previewBadge": "Design preview",
-    "previewNote": "Design preview with example data. Nothing you enter here is saved, and no body measurements are stored yet.",
     "intro": "How your composition and your measured circumferences changed against a reference session.",
     "reference": "Reference",
     "current": "Current",
@@ -449,7 +446,8 @@
     },
     "summary": {
       "microHead": "Key figures",
-      "sinceReference": "since {date}"
+      "sinceReference": "since {date}",
+      "firstSession": "First session"
     },
     "kpi": {
       "whtr": "WHtR",
@@ -508,12 +506,33 @@
       "sourceBia": "BIA / smart scale",
       "sourceOther": "Other device",
       "save": "Save check-in",
-      "previewOnly": "Design preview: this form does not save anything yet."
+      "saved": "Check-in saved.",
+      "nothingEntered": "Enter at least one measurement.",
+      "weightHint": "Saved to your weight log."
     },
-    "existing": {
-      "title": "Existing progress areas",
-      "body": "Weight and nutrition stay where they are. This preview exists to decide whether body progress should become the top section of the progress page.",
-      "link": "Open progress"
+    "figure": {
+      "title": "Body figure",
+      "change": "Figure",
+      "intro": "Choose how the figure is drawn. It is a look, not a finding.",
+      "presentation": "Presentation",
+      "build": "Build",
+      "presentationName": {
+        "NEUTRAL": "Neutral",
+        "MASCULINE": "Masculine",
+        "FEMININE": "Feminine"
+      },
+      "typeName": {
+        "ECTOMORPH": "Ectomorph",
+        "MESOMORPH": "Mesomorph",
+        "ENDOMORPH": "Endomorph"
+      },
+      "disclaimer": "The build you pick only sets the drawing's starting proportions, which your own measurements then adjust. It is never read from your measurements, and it is not used in any calculation on this page.",
+      "saved": "Figure saved."
+    },
+    "empty": {
+      "intro": "No body measurements yet. A check-in records what you measured with a tape and, if you have one, what a smart scale reported.",
+      "records": "Weight goes to your weight log, so the weight chart below stays the single record of it.",
+      "needsSecond": "This is your first session, so there is nothing to compare it with yet. Record a second check-in to see changes."
     }
   },
   "settings": {

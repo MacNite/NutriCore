@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  carryForward,
   deltaBetween,
+  emptyMeasurement,
   formatDelta,
   indexNearestDaysBefore,
+  isEmptyMeasurement,
   metricDelta,
   metricSource,
   metricValue,
@@ -12,39 +15,61 @@ import {
   type BodyMeasurement,
   type BodyProfile,
 } from "./body-metrics";
-import { MOCK_MEASUREMENTS, MOCK_PROFILE, MOCK_REFERENCE_INDEX } from "./body-mock-data";
 
-const reference = MOCK_MEASUREMENTS[MOCK_REFERENCE_INDEX];
-const current = MOCK_MEASUREMENTS[MOCK_MEASUREMENTS.length - 1];
+const session = (date: string, values: Partial<BodyMeasurement> = {}): BodyMeasurement => ({
+  ...emptyMeasurement(date),
+  ...values,
+});
 
-describe("mock series", () => {
-  it("pins the reference and current sessions to their stated values", () => {
-    expect(reference.date).toBe("2026-05-12");
-    expect(reference.waistCm).toBe(90);
-    expect(reference.weightKg).toBe(83.2);
-    expect(current.date).toBe("2026-09-02");
-    expect(current.waistCm).toBe(84.2);
-    expect(current.bodyFatPct).toBe(18.4);
-  });
+const reference = session("2026-05-12", {
+  weightKg: 83.2,
+  waistCm: 90,
+  hipCm: 103,
+  upperArmLeftCm: 33.7,
+  upperArmRightCm: 34.3,
+  bodyFatPct: 20.6,
+  muscleKg: 33.7,
+  boneKg: 3.2,
+  compositionSource: "BIA",
+});
 
-  it("is deterministic, so server and client render the same numbers", () => {
-    expect(MOCK_MEASUREMENTS.map((entry) => entry.waistCm)).toEqual(
-      MOCK_MEASUREMENTS.map((entry) => entry.waistCm),
-    );
-    expect(MOCK_MEASUREMENTS.every((entry, index, all) => index === 0 || entry.date > all[index - 1].date)).toBe(true);
-  });
+const current = session("2026-09-02", {
+  weightKg: 78.4,
+  waistCm: 84.2,
+  hipCm: 100.9,
+  upperArmLeftCm: 34.5,
+  upperArmRightCm: 35.1,
+  bodyFatPct: 18.4,
+  muscleKg: 34.8,
+  boneKg: 3.2,
+  compositionSource: "BIA",
 });
 
 describe("metric values", () => {
   it("averages paired limbs", () => {
     expect(metricValue(current, "upperArmCm")).toBeCloseTo(34.8);
-    expect(metricValue(current, "thighCm")).toBeCloseTo(60);
   });
 
-  it("reports the composition source for composition metrics only", () => {
+  it("uses the one side that was measured rather than discarding it", () => {
+    expect(metricValue(session("x", { thighLeftCm: 60 }), "thighCm")).toBe(60);
+    expect(metricValue(session("x", { thighRightCm: 58 }), "thighCm")).toBe(58);
+  });
+
+  it("reports nothing for a metric nobody recorded", () => {
+    expect(metricValue(session("x"), "waistCm")).toBeNull();
+    expect(metricValue(session("x"), "calfCm")).toBeNull();
+  });
+
+  it("labels composition by the session's device and bone as derived", () => {
     expect(metricSource(current, "waistCm")).toBe("MANUAL");
     expect(metricSource(current, "bodyFatPct")).toBe("BIA");
+    expect(metricSource(session("x", { compositionSource: "OTHER_DEVICE" }), "muscleKg")).toBe("OTHER_DEVICE");
     expect(metricSource(current, "boneKg")).toBe("DERIVED");
+  });
+
+  it("recognises a session with nothing in it", () => {
+    expect(isEmptyMeasurement(emptyMeasurement("2026-01-01"))).toBe(true);
+    expect(isEmptyMeasurement(current)).toBe(false);
   });
 });
 
@@ -60,9 +85,10 @@ describe("deltas", () => {
     expect(deltaBetween(3.26, 3.2, 1)!.direction).toBe("up");
   });
 
-  it("returns nothing when either side is missing", () => {
+  it("returns nothing when either side was never measured", () => {
     expect(deltaBetween(null, 80)).toBeNull();
     expect(deltaBetween(80, null)).toBeNull();
+    expect(metricDelta(current, emptyMeasurement("2026-01-01"), "waistCm")).toBeNull();
   });
 
   it("writes the direction into the string, not only into a colour", () => {
@@ -73,18 +99,52 @@ describe("deltas", () => {
   });
 });
 
-describe("derived ratios", () => {
-  it("divides waist by height", () => {
-    expect(waistToHeight(84.2, 182)).toBeCloseTo(0.463, 3);
+describe("carrying values forward", () => {
+  const series = [
+    session("2026-01-01", { waistCm: 92, chestCm: 101, thighLeftCm: 59, thighRightCm: 59 }),
+    session("2026-01-08", { waistCm: 91 }),
+    session("2026-01-15", { waistCm: 90 }),
+  ];
+
+  it("keeps what this session measured", () => {
+    const { measurement, carried } = carryForward(series, 2);
+    expect(measurement.waistCm).toBe(90);
+    expect(carried.has("waistCm")).toBe(false);
   });
 
-  it("divides waist by hips", () => {
+  it("fills a gap from the most recent earlier session", () => {
+    const { measurement, carried } = carryForward(series, 2);
+    expect(measurement.chestCm).toBe(101);
+    expect(carried.has("chestCm")).toBe(true);
+  });
+
+  it("carries a paired limb onto both sides, because the drawing uses the pair", () => {
+    const { measurement } = carryForward(series, 2);
+    expect(measurement.thighLeftCm).toBe(59);
+    expect(measurement.thighRightCm).toBe(59);
+  });
+
+  it("leaves a metric that was never recorded empty", () => {
+    const { measurement, carried } = carryForward(series, 2);
+    expect(measurement.neckCm).toBeNull();
+    expect(carried.has("neckCm")).toBe(false);
+  });
+
+  it("has nothing to carry into the first session", () => {
+    expect(carryForward(series, 0).carried.size).toBe(0);
+  });
+});
+
+describe("derived ratios", () => {
+  it("divides waist by height and waist by hips", () => {
+    expect(waistToHeight(84.2, 182)).toBeCloseTo(0.463, 3);
     expect(waistToHip(84.2, 100.9)).toBeCloseTo(0.8345, 4);
   });
 
-  it("guards against a zero denominator", () => {
+  it("guards against a zero or missing denominator", () => {
     expect(waistToHeight(84.2, 0)).toBeNull();
-    expect(waistToHip(84.2, 0)).toBeNull();
+    expect(waistToHip(84.2, null)).toBeNull();
+    expect(waistToHeight(null, 182)).toBeNull();
   });
 });
 
@@ -100,33 +160,30 @@ describe("relative fat mass", () => {
     expect(relativeFatMass({ ...adult, sex: null }, 84.2)).toBeNull();
     expect(relativeFatMass(adult, null)).toBeNull();
     expect(relativeFatMass({ ...adult, ageYears: null }, 84.2)).toBeNull();
+    expect(relativeFatMass({ ...adult, heightCm: 0 }, 84.2)).toBeNull();
   });
 
   it("is not calculated for children or adolescents", () => {
     expect(relativeFatMass({ ...adult, ageYears: 17 }, 84.2)).toBeNull();
     expect(relativeFatMass({ ...adult, ageYears: 18 }, 84.2)).not.toBeNull();
   });
-
-  it("stays available for the preview profile", () => {
-    expect(relativeFatMass(MOCK_PROFILE, current.waistCm)).toBeGreaterThan(0);
-  });
 });
 
 describe("quick reference choices", () => {
-  const currentIndex = MOCK_MEASUREMENTS.length - 1;
+  const series = Array.from({ length: 10 }, (_unused, index) =>
+    session(new Date(Date.UTC(2026, 0, 1 + index * 7)).toISOString().slice(0, 10)),
+  );
 
   it("picks the session closest to the requested distance", () => {
-    const index = indexNearestDaysBefore(MOCK_MEASUREMENTS, currentIndex, 28);
-    const chosen = MOCK_MEASUREMENTS[index];
-    expect(Math.abs(Date.parse(current.date) - Date.parse(chosen.date)) / 86_400_000).toBeLessThanOrEqual(31);
+    expect(indexNearestDaysBefore(series, 9, 28)).toBe(5);
+    expect(indexNearestDaysBefore(series, 9, 63)).toBe(0);
   });
 
   it("never returns the current session itself", () => {
-    expect(indexNearestDaysBefore(MOCK_MEASUREMENTS, currentIndex, 0)).toBeLessThan(currentIndex);
+    expect(indexNearestDaysBefore(series, 9, 0)).toBeLessThan(9);
   });
 
   it("falls back to the first session when there is nothing earlier", () => {
-    const single: BodyMeasurement[] = [MOCK_MEASUREMENTS[0]];
-    expect(indexNearestDaysBefore(single, 0, 90)).toBe(0);
+    expect(indexNearestDaysBefore([series[0]], 0, 90)).toBe(0);
   });
 });

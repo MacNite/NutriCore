@@ -8,28 +8,40 @@ import type { Locale } from "@/i18n/locales";
  * the numbers can be unit tested without rendering an SVG.
  */
 
-/** Where a value came from. Shown as a text badge, never as colour alone. */
-export type MeasurementSource = "MANUAL" | "BIA" | "ESTIMATE" | "DERIVED";
+/**
+ * Where a value came from. Shown as a text badge, never as colour alone.
+ * MANUAL, BIA and OTHER_DEVICE are recorded; ESTIMATE and DERIVED are produced
+ * here and never stored.
+ */
+export type MeasurementSource = "MANUAL" | "BIA" | "OTHER_DEVICE" | "ESTIMATE" | "DERIVED";
 
+/** The three a person can actually choose when entering composition values. */
+export type RecordedSource = Extract<MeasurementSource, "MANUAL" | "BIA" | "OTHER_DEVICE">;
+
+/**
+ * One measuring-tape session. Every value is optional: a session where only the
+ * waist was measured is a real session, and a zero would be a lie about the
+ * rest. `weightKg` is joined from the weight log rather than stored here, so
+ * the weight chart and body progress can never disagree.
+ */
 export interface BodyMeasurement {
   date: string;
-  weightKg: number;
-  neckCm: number;
-  chestCm: number;
-  waistCm: number;
-  hipCm: number;
-  upperArmLeftCm: number;
-  upperArmRightCm: number;
-  thighLeftCm: number;
-  thighRightCm: number;
-  calfLeftCm: number;
-  calfRightCm: number;
-  /** Composition is optional: a tape measure alone cannot produce it. */
+  weightKg: number | null;
+  neckCm: number | null;
+  chestCm: number | null;
+  waistCm: number | null;
+  hipCm: number | null;
+  upperArmLeftCm: number | null;
+  upperArmRightCm: number | null;
+  thighLeftCm: number | null;
+  thighRightCm: number | null;
+  calfLeftCm: number | null;
+  calfRightCm: number | null;
   bodyFatPct: number | null;
   muscleKg: number | null;
   bodyWaterPct: number | null;
   boneKg: number | null;
-  compositionSource: MeasurementSource | null;
+  compositionSource: RecordedSource | null;
 }
 
 export interface BodyProfile {
@@ -92,8 +104,16 @@ export const SERIES_METRICS: BodyMetricKey[] = [
   "muscleKg",
 ];
 
-/** Paired limbs are averaged for every summary view; both sides stay in the log. */
-const mean = (left: number, right: number) => (left + right) / 2;
+/**
+ * Paired limbs are averaged for every summary view; both sides stay in the log.
+ * One measured side still answers "how big is the arm", so a single value is
+ * used rather than discarded.
+ */
+const mean = (left: number | null, right: number | null) => {
+  const sides = [left, right].filter((value): value is number => value != null);
+  if (sides.length === 0) return null;
+  return sides.reduce((sum, value) => sum + value, 0) / sides.length;
+};
 
 export function metricValue(measurement: BodyMeasurement, key: BodyMetricKey): number | null {
   switch (key) {
@@ -110,11 +130,39 @@ export function metricValue(measurement: BodyMeasurement, key: BodyMetricKey): n
 
 export function metricSource(measurement: BodyMeasurement, key: BodyMetricKey): MeasurementSource {
   const def = BODY_METRIC_BY_KEY.get(key);
-  if (def && def.source !== "MANUAL" && measurement.compositionSource) {
-    return key === "boneKg" ? "DERIVED" : measurement.compositionSource;
+  if (def && def.source !== "MANUAL") {
+    /* Bone mass is derived by the scale from the impedance reading, never
+       measured directly, so it keeps that label whatever the session used. */
+    if (key === "boneKg") return "DERIVED";
+    return measurement.compositionSource ?? def.source;
   }
   return def?.source ?? "MANUAL";
 }
+
+/** A session with nothing in it, used where there is no reference to compare against. */
+export const emptyMeasurement = (date: string): BodyMeasurement => ({
+  date,
+  weightKg: null,
+  neckCm: null,
+  chestCm: null,
+  waistCm: null,
+  hipCm: null,
+  upperArmLeftCm: null,
+  upperArmRightCm: null,
+  thighLeftCm: null,
+  thighRightCm: null,
+  calfLeftCm: null,
+  calfRightCm: null,
+  bodyFatPct: null,
+  muscleKg: null,
+  bodyWaterPct: null,
+  boneKg: null,
+  compositionSource: null,
+});
+
+/** Whether a session recorded anything at all. */
+export const isEmptyMeasurement = (measurement: BodyMeasurement) =>
+  BODY_METRICS.every((def) => metricValue(measurement, def.key) == null);
 
 /* ------------------------------------------------------------------- Deltas */
 
@@ -208,6 +256,46 @@ export function formatDelta(value: number, locale: Locale, digits = 1) {
 }
 
 /* -------------------------------------------------------------- Series helpers */
+
+/**
+ * A session filled in from earlier ones, for anything that needs a complete set
+ * of numbers — the silhouette cannot be drawn with a missing waist. Each gap
+ * takes the most recent earlier value, and the keys that were filled are
+ * reported so the interface can say which parts were not measured this time.
+ */
+export function carryForward(
+  measurements: BodyMeasurement[],
+  index: number,
+): { measurement: BodyMeasurement; carried: Set<BodyMetricKey> } {
+  const filled = { ...measurements[index] };
+  const carried = new Set<BodyMetricKey>();
+
+  for (const def of BODY_METRICS) {
+    if (metricValue(filled, def.key) != null) continue;
+    for (let earlier = index - 1; earlier >= 0; earlier -= 1) {
+      const value = metricValue(measurements[earlier], def.key);
+      if (value == null) continue;
+      /* Paired limbs are stored per side but carried as the pair, because the
+         drawing only ever uses their average. */
+      if (def.key === "upperArmCm") {
+        filled.upperArmLeftCm = value;
+        filled.upperArmRightCm = value;
+      } else if (def.key === "thighCm") {
+        filled.thighLeftCm = value;
+        filled.thighRightCm = value;
+      } else if (def.key === "calfCm") {
+        filled.calfLeftCm = value;
+        filled.calfRightCm = value;
+      } else {
+        filled[def.key] = value;
+      }
+      carried.add(def.key);
+      break;
+    }
+  }
+
+  return { measurement: filled, carried };
+}
 
 /** Measurements are held oldest first; the newest one is the current state. */
 export const latestIndex = (measurements: BodyMeasurement[]) => Math.max(measurements.length - 1, 0);

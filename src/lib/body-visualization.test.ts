@@ -1,21 +1,50 @@
 import { describe, expect, it } from "vitest";
+import { emptyMeasurement, type BodyMeasurement } from "./body-metrics";
 import {
+  BODY_FIGURES,
   BODY_REGIONS,
+  BODY_TYPES,
   BODY_VIEW,
+  DEFAULT_APPEARANCE,
   DIAMOND,
   axisRatio,
+  baselineInput,
   bodyRegionGeometry,
+  buildBodyFigure,
   buildBodyOutline,
   changeIntensity,
+  clipShapes,
   outlineInput,
   outlineShapes,
   polarPoint,
   radiusForRatio,
+  type BodyAppearance,
 } from "./body-visualization";
-import { MOCK_MEASUREMENTS, MOCK_REFERENCE_INDEX } from "./body-mock-data";
 
-const current = outlineInput(MOCK_MEASUREMENTS[MOCK_MEASUREMENTS.length - 1]);
-const reference = outlineInput(MOCK_MEASUREMENTS[MOCK_REFERENCE_INDEX]);
+const appearance = DEFAULT_APPEARANCE;
+const measured: BodyMeasurement = {
+  ...emptyMeasurement("2026-09-02"),
+  neckCm: 38.8,
+  chestCm: 103.2,
+  waistCm: 84.2,
+  hipCm: 100.9,
+  upperArmLeftCm: 34.5,
+  upperArmRightCm: 35.1,
+  thighLeftCm: 59.6,
+  thighRightCm: 60.4,
+  calfLeftCm: 38.6,
+  calfRightCm: 39,
+};
+const input = outlineInput(measured, appearance);
+
+/**
+ * Every coordinate pair in a path, control points included. An arc's leading
+ * radius pair and flags are dropped first, or they would read as a point.
+ */
+const pointsOf = (path: string) =>
+  [...path.replace(/A[\d.]+,[\d.]+ 0 [01] [01] /g, "").matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)].map(
+    ([, x, y]) => ({ x: Number(x), y: Number(y) }),
+  );
 
 describe("diamond scale", () => {
   it("puts an unchanged axis on the reference ring", () => {
@@ -45,67 +74,124 @@ describe("diamond scale", () => {
   });
 });
 
-/** Every coordinate pair in a path, control points included. */
-const pointsOf = (path: string) =>
-  [...path.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)].map(([, x, y]) => ({
-    x: Number(x),
-    y: Number(y),
-  }));
+describe("the chosen build", () => {
+  it("gives each somatotype different proportions", () => {
+    const waists = BODY_TYPES.map((type) => baselineInput({ type, figure: "NEUTRAL" }).waistCm);
+    expect(new Set(waists).size).toBe(BODY_TYPES.length);
+    const [ecto, meso, endo] = waists;
+    expect(ecto).toBeLessThan(meso);
+    expect(meso).toBeLessThan(endo);
+  });
 
-describe("body outline", () => {
-  const outline = buildBodyOutline(current);
+  it("gives each presentation a different waist-to-hip shape", () => {
+    const ratios = BODY_FIGURES.map((figure) => {
+      const base = baselineInput({ type: "MESOMORPH", figure });
+      return base.waistCm / base.hipCm;
+    });
+    expect(new Set(ratios.map((value) => value.toFixed(3))).size).toBe(BODY_FIGURES.length);
+  });
 
-  it("produces one closed path per body part", () => {
-    for (const path of outlineShapes(outline)) {
-      expect(path.startsWith("M")).toBe(true);
-      expect(path.trimEnd().endsWith("Z")).toBe(true);
-      expect(path).not.toContain("NaN");
+  it("is only a fallback: a recorded circumference always wins", () => {
+    expect(outlineInput(measured, appearance).waistCm).toBe(84.2);
+    const partial = { ...emptyMeasurement("x"), waistCm: 70 };
+    const resolved = outlineInput(partial, appearance);
+    expect(resolved.waistCm).toBe(70);
+    expect(resolved.chestCm).toBe(baselineInput(appearance).chestCm);
+  });
+
+  it("averages a measured pair and falls back per limb", () => {
+    const partial = { ...emptyMeasurement("x"), thighLeftCm: 60, thighRightCm: 62 };
+    expect(outlineInput(partial, appearance).thighCm).toBe(61);
+    expect(outlineInput(partial, appearance).calfCm).toBe(baselineInput(appearance).calfCm);
+  });
+});
+
+describe("the silhouette", () => {
+  const outline = buildBodyOutline(input, appearance);
+
+  it("is one closed path, so the arms carry no seam across them", () => {
+    expect(outlineShapes(outline)).toHaveLength(1);
+    expect(outline.silhouette.startsWith("M")).toBe(true);
+    expect(outline.silhouette.trimEnd().endsWith("Z")).toBe(true);
+    expect(outline.silhouette).not.toContain("NaN");
+  });
+
+  it("starts on the centre line, so its two halves join", () => {
+    expect(Number(outline.silhouette.slice(1).split(",")[0])).toBeCloseTo(BODY_VIEW.cx, 1);
+  });
+
+  it("stays inside the drawing area for every build", () => {
+    for (const type of BODY_TYPES) {
+      for (const figure of BODY_FIGURES) {
+        const option: BodyAppearance = { type, figure };
+        const shape = buildBodyOutline(baselineInput(option), option).silhouette;
+        for (const point of pointsOf(shape)) {
+          expect(point.x).toBeGreaterThan(0);
+          expect(point.x).toBeLessThan(BODY_VIEW.width);
+          expect(point.y).toBeGreaterThan(0);
+          expect(point.y).toBeLessThan(BODY_VIEW.height);
+        }
+      }
     }
   });
 
-  it("mirrors the arms around the centre line", () => {
-    const xOf = (path: string) => Number(path.slice(1).split(",")[0]);
-    expect(xOf(outline.arms[0]) + xOf(outline.arms[1])).toBeCloseTo(2 * BODY_VIEW.cx, 1);
-  });
-
-  it("starts the body path on the centre line, so its two halves join", () => {
-    expect(Number(outline.body.slice(1).split(",")[0])).toBeCloseTo(BODY_VIEW.cx, 1);
-  });
-
-  it("keeps the arms clear of the body outline at every height", () => {
-    /* Compared band by band: an arm that crosses the torso would draw a seam
-       through the silhouette, which is exactly what the single body path and
-       the hanging arms exist to avoid. */
-    const near = (points: { x: number; y: number }[], top: number) =>
-      points.filter((point) => point.y >= top && point.y < top + 20).map((point) => point.x);
-    const arm = pointsOf(outline.arms[1]);
-    const body = pointsOf(outline.body);
-    for (let top = 110; top < 290; top += 20) {
-      const inner = near(arm, top);
-      const outer = near(body, top);
-      if (inner.length === 0 || outer.length === 0) continue;
-      expect(Math.min(...inner)).toBeGreaterThan(Math.max(...outer));
-    }
-  });
-
-  it("stays inside the drawing area", () => {
-    for (const point of outlineShapes(outline).flatMap(pointsOf)) {
-      expect(point.x).toBeGreaterThan(0);
-      expect(point.x).toBeLessThan(BODY_VIEW.width);
-      expect(point.y).toBeGreaterThan(0);
-      expect(point.y).toBeLessThan(BODY_VIEW.height);
-    }
+  it("is symmetric about the centre line", () => {
+    const xs = pointsOf(outline.silhouette).map((point) => point.x);
+    const span = Math.max(...xs) + Math.min(...xs);
+    expect(span).toBeCloseTo(2 * BODY_VIEW.cx, 0);
   });
 
   it("narrows the waist when the recorded waist shrinks", () => {
-    const waistX = (input: typeof current) =>
-      bodyRegionGeometry(input).find((region) => region.key === "waist")!.rects[0].width;
-    expect(waistX(current)).toBeLessThan(waistX(reference));
+    const waistWidth = (waistCm: number) =>
+      bodyRegionGeometry(outlineInput({ ...measured, waistCm }, appearance), appearance).find(
+        (region) => region.key === "waist",
+      )!.rects[0].width;
+    expect(waistWidth(78)).toBeLessThan(waistWidth(96));
+  });
+
+  it("widens the shoulders for a mesomorph build", () => {
+    const span = (type: (typeof BODY_TYPES)[number]) => {
+      const option: BodyAppearance = { type, figure: "NEUTRAL" };
+      const xs = pointsOf(buildBodyOutline(input, option).silhouette).map((point) => point.x);
+      return Math.max(...xs) - Math.min(...xs);
+    };
+    expect(span("MESOMORPH")).toBeGreaterThan(span("ECTOMORPH"));
+  });
+
+  it("keeps clip shapes that are never drawn", () => {
+    expect(clipShapes(outline, "body")).toEqual([outline.torso]);
+    expect(clipShapes(outline, "arms")).toEqual(outline.arms);
+    expect(outlineShapes(outline)).not.toContain(outline.torso);
+  });
+});
+
+describe("figure art", () => {
+  it("draws hair on every figure and long hair only where the style has it", () => {
+    for (const figure of BODY_FIGURES) {
+      const option: BodyAppearance = { type: "MESOMORPH", figure };
+      const art = buildBodyFigure(baselineInput(option), option);
+      expect(art.hairFront).toContain("A");
+      expect(art.hairBack === null).toBe(figure !== "FEMININE");
+    }
+  });
+
+  it("draws a bra only on the feminine figure", () => {
+    for (const figure of BODY_FIGURES) {
+      const option: BodyAppearance = { type: "MESOMORPH", figure };
+      expect(buildBodyFigure(baselineInput(option), option).bra === null).toBe(figure !== "FEMININE");
+    }
+  });
+
+  it("always draws underwear and interior lines", () => {
+    const art = buildBodyFigure(input, appearance);
+    expect(art.briefs).not.toContain("NaN");
+    expect(art.contours.length).toBeGreaterThanOrEqual(3);
+    expect(art.contours.join(" ")).not.toContain("NaN");
   });
 });
 
 describe("region bands", () => {
-  const regions = bodyRegionGeometry(current);
+  const regions = bodyRegionGeometry(input, appearance);
 
   it("covers every named region", () => {
     expect(regions.map((region) => region.key)).toEqual(BODY_REGIONS);

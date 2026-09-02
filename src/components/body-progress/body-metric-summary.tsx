@@ -41,12 +41,14 @@ export function BodyMetricSummary({
   profile,
   locale,
   referenceLabel,
+  hasReference,
 }: {
   current: BodyMeasurement;
   reference: BodyMeasurement;
   profile: BodyProfile;
   locale: Locale;
   referenceLabel: string;
+  hasReference: boolean;
 }) {
   const t = useTranslations("bodyProgress");
 
@@ -114,7 +116,7 @@ export function BodyMetricSummary({
       <div className="card-head">
         <h2 id="body-summary-heading">{t("summary.microHead")}</h2>
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-          {t("summary.sinceReference", { date: referenceLabel })}
+          {hasReference ? t("summary.sinceReference", { date: referenceLabel }) : t("summary.firstSession")}
         </p>
       </div>
 

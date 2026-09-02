@@ -63,6 +63,30 @@ enum BiologicalSex {
   UNSPECIFIED
 }
 
+/// Where a recorded body value came from. Shown as a text badge, never as colour alone.
+enum MeasurementSource {
+  MANUAL
+  BIA
+  OTHER_DEVICE
+}
+
+/// A cosmetic build for the drawn figure. Chosen by the user, never inferred
+/// from their measurements and never used in any calculation: somatotypes are
+/// not a diagnosis and carry no predictive meaning here.
+enum BodyType {
+  ECTOMORPH
+  MESOMORPH
+  ENDOMORPH
+}
+
+/// How the drawn figure is presented. Separate from `biologicalSex`, which is
+/// a clinical input to the energy and body-fat formulas.
+enum BodyFigure {
+  NEUTRAL
+  MASCULINE
+  FEMININE
+}
+
 enum ActivityLevel {
   SEDENTARY
   LIGHT
@@ -113,21 +137,22 @@ model User {
   active             Boolean  @default(true)
   mustChangePassword Boolean  @default(false)
 
-  profile         UserProfile?
-  sessions        Session[]
-  targets         NutritionTarget[]
-  weights         WeightEntry[]
-  foods           Food[]
-  recipes         Recipe[]
-  diaryDays       DiaryDay[]
-  favorites       Favorite[]
-  usage           FoodUsageStats[]
-  research        ResearchJob[]
-  invitationsSent UserInvitation[]  @relation("InvitationSender")
-  aiJobs          AiJob[]
-  mealInputs      MealInput[]
-  recipeImports   RecipeImport[]
-  activityEntries ActivityEntry[]
+  profile          UserProfile?
+  sessions         Session[]
+  targets          NutritionTarget[]
+  weights          WeightEntry[]
+  bodyMeasurements BodyMeasurement[]
+  foods            Food[]
+  recipes          Recipe[]
+  diaryDays        DiaryDay[]
+  favorites        Favorite[]
+  usage            FoodUsageStats[]
+  research         ResearchJob[]
+  invitationsSent  UserInvitation[]  @relation("InvitationSender")
+  aiJobs           AiJob[]
+  mealInputs       MealInput[]
+  recipeImports    RecipeImport[]
+  activityEntries  ActivityEntry[]
 }
 
 model UserInvitation {
@@ -148,21 +173,25 @@ model UserInvitation {
 }
 
 model MealInput {
-  id        String   @id @default(cuid())
-  userId    String
-  text      String
-  sourceUrl String?
-  /** Transient worker handoff; cleared after extraction or terminal cleanup. */
-  imageMime String?
-  imageData Bytes?
+  id             String    @id @default(cuid())
+  userId         String
+  text           String
+  sourceUrl      String?
+  /**
+   * Transient worker handoff; cleared after extraction or terminal cleanup.
+   */
+  imageMime      String?
+  imageData      Bytes?
   imageExpiresAt DateTime?
-  meal      MealType
-  diaryDate DateTime @db.Date
-  /** Number of portions described by the submitted text, URL, or photo. */
-  servings  Decimal  @default(1) @db.Decimal(8, 2)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  aiJobs    AiJob[]
+  meal           MealType
+  diaryDate      DateTime  @db.Date
+  /**
+   * Number of portions described by the submitted text, URL, or photo.
+   */
+  servings       Decimal   @default(1) @db.Decimal(8, 2)
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiJobs         AiJob[]
 
   @@index([userId, createdAt])
   @@index([imageExpiresAt])
@@ -170,7 +199,6 @@ model MealInput {
 
 /**
  * One "create a recipe from a URL, an image or free text" request.
- *
  * It exists because the extraction moved into the worker: the input has to
  * outlive the request that submitted it, and the resulting draft has to be
  * somewhere the page can pick it up afterwards. Doing it inline held a page
@@ -181,12 +209,18 @@ model RecipeImport {
   userId    String
   text      String?
   sourceUrl String?
-  /** User-supplied yield; authoritative when the source is ambiguous. */
+  /**
+   * User-supplied yield; authoritative when the source is ambiguous.
+   */
   servings  Decimal  @default(1) @db.Decimal(8, 2)
-  /** Transient: cleared as soon as the worker has read it. Never re-served. */
+  /**
+   * Transient: cleared as soon as the worker has read it. Never re-served.
+   */
   imageMime String?
   imageData Bytes?
-  /** The extracted recipe plus the ingredient names nothing matched. */
+  /**
+   * The extracted recipe plus the ingredient names nothing matched.
+   */
   draft     Json?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -196,33 +230,37 @@ model RecipeImport {
 }
 
 model AiJob {
-  id           String      @id @default(cuid())
+  id           String         @id @default(cuid())
   userId       String
   entityType   String
   entityId     String
   mealInputId  String?
-  status       AiJobStatus @default(QUEUED)
+  status       AiJobStatus    @default(QUEUED)
   /**
    * Higher runs first. A "Backfill missing nutrition" sweep can queue hundreds
    * of jobs at once, and a strictly chronological queue put every quick meal
    * behind all of them - hours of waiting for a request the user is watching.
    */
-  priority     Int         @default(10)
-  retryCount   Int         @default(0)
-  maxRetries   Int         @default(2)
+  priority     Int            @default(10)
+  retryCount   Int            @default(0)
+  maxRetries   Int            @default(2)
   model        String?
   errorMessage String?
   metadata     Json?
-  createdAt    DateTime    @default(now())
+  createdAt    DateTime       @default(now())
   startedAt    DateTime?
   completedAt  DateTime?
   failedAt     DateTime?
-  /** Machine-readable cause of the last failure; see `AiFailureKind`. */
+  /**
+   * Machine-readable cause of the last failure; see `AiFailureKind`.
+   */
   failureKind  String?
-  /** Longest useful diagnostic detail, e.g. the underlying fetch/undici cause. */
+  /**
+   * Longest useful diagnostic detail, e.g. the underlying fetch/undici cause.
+   */
   errorDetail  String?
-  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  mealInput    MealInput?  @relation(fields: [mealInputId], references: [id], onDelete: Cascade)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mealInput    MealInput?     @relation(fields: [mealInputId], references: [id], onDelete: Cascade)
   proposal     AiProposal?
   attempts     AiJobAttempt[]
 
@@ -239,7 +277,9 @@ model AiJob {
 model AiJobAttempt {
   id         String   @id @default(cuid())
   jobId      String
-  /** Value of `AiJob.retryCount` when the attempt ran; 0 is the first try. */
+  /**
+   * Value of `AiJob.retryCount` when the attempt ran; 0 is the first try.
+   */
   attempt    Int
   kind       String
   message    String
@@ -303,6 +343,9 @@ model UserProfile {
    */
   autoApproveAi   Boolean       @default(true)
   theme           String        @default("system")
+  /// Appearance of the body-progress figure. Null until the user picks one.
+  bodyType        BodyType?
+  bodyFigure      BodyFigure?
   onboardedAt     DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -339,6 +382,42 @@ model WeightEntry {
   weightKg  Decimal  @db.Decimal(6, 2)
   note      String?
   createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+/// One measuring-tape session. Weight is deliberately absent: it lives in
+/// `WeightEntry` so the weight chart, the goal line and body progress can never
+/// disagree about what someone weighed on a given day.
+///
+/// Every value is optional. A session where only the waist was measured is a
+/// real session, and storing zero for the rest would be a lie about it.
+model BodyMeasurement {
+  id                String             @id @default(cuid())
+  userId            String
+  date              DateTime           @db.Date
+  neckCm            Decimal?           @db.Decimal(5, 1)
+  chestCm           Decimal?           @db.Decimal(5, 1)
+  waistCm           Decimal?           @db.Decimal(5, 1)
+  hipCm             Decimal?           @db.Decimal(5, 1)
+  upperArmLeftCm    Decimal?           @db.Decimal(5, 1)
+  upperArmRightCm   Decimal?           @db.Decimal(5, 1)
+  thighLeftCm       Decimal?           @db.Decimal(5, 1)
+  thighRightCm      Decimal?           @db.Decimal(5, 1)
+  calfLeftCm        Decimal?           @db.Decimal(5, 1)
+  calfRightCm       Decimal?           @db.Decimal(5, 1)
+  bodyFatPct        Decimal?           @db.Decimal(4, 1)
+  muscleKg          Decimal?           @db.Decimal(5, 1)
+  bodyWaterPct      Decimal?           @db.Decimal(4, 1)
+  boneKg            Decimal?           @db.Decimal(4, 1)
+  /// Where the composition values came from. Null when none were recorded.
+  compositionSource MeasurementSource?
+  note              String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -482,13 +561,13 @@ model FoodNutrient {
 }
 
 model Recipe {
-  id              String     @id @default(cuid())
+  id              String       @id @default(cuid())
   ownerId         String
   name            String
   alternativeName String?
   description     String?
-  servings        Decimal    @db.Decimal(8, 2)
-  yieldWeightG    Decimal?   @db.Decimal(10, 2)
+  servings        Decimal      @db.Decimal(8, 2)
+  yieldWeightG    Decimal?     @db.Decimal(10, 2)
   instructions    String?
   tags            String[]
   favorite        Boolean      @default(false)
@@ -636,25 +715,25 @@ model SearchQueryCache {
 }
 
 model ResearchJob {
-  id                 String         @id @default(cuid())
-  userId             String
-  query              String
-  language           Locale
+  id                  String         @id @default(cuid())
+  userId              String
+  query               String
+  language            Locale
   /**
    * URLs the user supplied, already validated against their consent. Stored
    * because the run happens later, in the worker, rather than inline in the
    * request that submitted the form.
    */
   requestedSourceUrls Json?
-  status             ResearchStatus @default(REQUESTED)
-  model              String?
-  assumptions        Json?
-  structuredResponse Json?
-  failureReason      String?
-  meal               MealType?
-  diaryDate          DateTime?      @db.Date
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  status              ResearchStatus @default(REQUESTED)
+  model               String?
+  assumptions         Json?
+  structuredResponse  Json?
+  failureReason       String?
+  meal                MealType?
+  diaryDate           DateTime?      @db.Date
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
   user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   sources    ResearchSource[]
