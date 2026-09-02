@@ -523,6 +523,7 @@
     "noIngredients": "Add at least one food.",
     "amount": "Amount",
     "unit": "Unit",
+    "needsDensity": "This food has no stored density, so its weight cannot be determined. Add a density to the food to use it in a recipe.",
     "nutritionPerServing": "Nutrition per serving",
     "nutritionPer100g": "Nutrition per 100 g",
     "portionWeight": "Portion weight",

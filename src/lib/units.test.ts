@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowedUnits, canonicalUnit, normalizeName, parseServingSize, resolvePortion } from "./units";
+import { allowedUnits, canonicalUnit, normalizeName, parseServingSize, resolveIngredientWeight, resolvePortion } from "./units";
 
 const gramFood = { basisUnit: "G" as const };
 const mlFood = { basisUnit: "ML" as const };
@@ -100,6 +100,28 @@ describe("the units a food can be measured in", () => {
   it("never offers a unit the portion resolver would reject", () => {
     for (const food of [flour, milk]) {
       for (const unit of allowedUnits(food)) expect(resolvePortion(1, unit, food).ok).toBe(true);
+    }
+  });
+
+  it("offers nothing for a food sold by volume with no density", () => {
+    // The portion resolves - to millilitres - but a recipe ingredient needs a
+    // weight, and 1 ml is not 1 g. Offering "ml" here was how a saved recipe
+    // came back as "Cannot resolve portion: density-required".
+    const broth = { basisUnit: "ML" as const, densityGPerMl: null, servings: [] };
+    expect(resolvePortion(250, "ml", broth).ok).toBe(true);
+    expect(resolveIngredientWeight(250, "ml", broth)).toEqual({ ok: false, reason: "density-required" });
+    expect(allowedUnits(broth)).toEqual([]);
+  });
+
+  it("weighs a volume through the food's own density", () => {
+    expect(resolveIngredientWeight(250, "ml", milk)).toMatchObject({ ok: true, weightG: 257.5 });
+    expect(resolveIngredientWeight(200, "g", flour)).toMatchObject({ ok: true, weightG: 200 });
+  });
+
+  it("never offers a unit a recipe ingredient could not be weighed in", () => {
+    const foods = [flour, milk, { basisUnit: "ML" as const, densityGPerMl: null, servings: [] }];
+    for (const food of foods) {
+      for (const unit of allowedUnits(food)) expect(resolveIngredientWeight(1, unit, food).ok).toBe(true);
     }
   });
 });

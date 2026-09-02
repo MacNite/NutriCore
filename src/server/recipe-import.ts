@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { allowedUnits, canonicalUnit, normalizeName, resolvePortion } from "@/lib/units";
+import { logger } from "@/lib/logger";
+import { allowedUnits, canonicalUnit, normalizeName, resolveIngredientWeight } from "@/lib/units";
 import { asUntrustedExcerpt } from "@/lib/url-guard";
 import { OllamaProvider } from "@/providers/ollama";
 import { fetchMealPage } from "./meal-url";
@@ -114,10 +115,11 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
     // The source's own spelling first - "Gramm", "grams" - then whatever else
     // the model wrote, which may still name a portion this food defines.
     const unit = canonicalUnit(ingredient.unit) ?? ingredient.unit;
-    if (!resolvePortion(ingredient.amount, unit, context).ok) {
-      // A spoon or a piece has no weight for this food, and inventing one is
-      // exactly what this feature must not do. Reported instead, so the reader
-      // can add the ingredient with a quantity they chose.
+    if (!resolveIngredientWeight(ingredient.amount, unit, context).ok) {
+      // A spoon or a piece has no weight for this food, and neither has a
+      // millilitre while the food carries no density. Inventing one is exactly
+      // what this feature must not do, so the ingredient is reported instead
+      // and the reader can add it with a quantity they chose.
       unconverted.push(`${ingredient.name} (${ingredient.amount} ${ingredient.unit})`);
       continue;
     }
@@ -125,7 +127,16 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
   }
 
   const servings = Number(record.servings);
-  const recipeId = await storeDraftRecipe(record, { ...parsed, servings }, ingredients);
+  // The extraction is the expensive part and it has already succeeded here.
+  // Storing it as a draft recipe is a convenience on top, so a failure there is
+  // logged and the draft the form reads is still written - it must not turn a
+  // finished extraction into "Das Rezept konnte nicht ausgelesen werden".
+  let recipeId: string | undefined;
+  try {
+    recipeId = await storeDraftRecipe(record, { ...parsed, servings }, ingredients);
+  } catch (error) {
+    logger.warn("recipe-import draft not stored", { importId, error: error instanceof Error ? error.message : String(error) });
+  }
   const draft: RecipeImportDraft = { ...parsed, servings, ingredients, unmatched, unconverted, recipeId };
   await prisma.recipeImport.update({
     where: { id: importId },
