@@ -36,6 +36,10 @@ export async function queueMealInputAction(formData: FormData) {
       servings: z.coerce.number().positive().max(10_000),
       date: z.string(),
       returnTo: z.literal("/").default("/"),
+      // Unchecked boxes submit nothing at all, so both are read as "was it
+      // present" rather than as a value, and each falls back to its default.
+      addToMeal: z.literal("on").optional(),
+      createRecipe: z.literal("on").optional(),
     })
     .parse(Object.fromEntries([...formData.entries()].filter(([key]) => key !== "image")));
 
@@ -72,6 +76,10 @@ export async function queueMealInputAction(formData: FormData) {
       model: resolveAiModel(),
       // A meal the user is watching for goes ahead of background enrichment.
       priority: jobPriority("MEAL_INPUT"),
+      // What the submitter asked for, read by the worker once the extraction
+      // is done. It lives on the job because the choice belongs to this one
+      // submission, not to the meal input or to the user's settings.
+      metadata: { addToMeal: parsed.addToMeal === "on", createRecipe: parsed.createRecipe === "on" },
     },
   });
   redirect(`/ai-review/${input.id}?queued=1`);

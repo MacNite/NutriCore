@@ -5,8 +5,8 @@ import { useTranslations } from "next-intl";
 import { ProfileFields, type ProfileValues } from "@/components/profile-fields";
 import {
   deleteAccountAction,
+  saveLanguageAction,
   saveProfileAction,
-  saveSettingsAction,
   saveTargetOverrideAction,
   type FormState,
 } from "@/server/profile-actions";
@@ -39,16 +39,10 @@ function Feedback({ state, savedLabel }: { state: FormState; savedLabel: string 
 export function SettingsForms({
   username,
   values,
-  aiEnabled,
-  researchEnabled,
-  autoApproveAi,
   overrideKcal,
 }: {
   username: string;
   values: ProfileValues;
-  aiEnabled: boolean;
-  researchEnabled: boolean;
-  autoApproveAi: boolean;
   overrideKcal: number | null;
 }) {
   const t = useTranslations("settings");
@@ -57,7 +51,7 @@ export function SettingsForms({
   const common = useTranslations("common");
 
   const [profileState, profileAction, profilePending] = useActionState<FormState, FormData>(saveProfileAction, {});
-  const [privacyState, privacyAction, privacyPending] = useActionState<FormState, FormData>(saveSettingsAction, {});
+  const [languageState, languageAction, languagePending] = useActionState<FormState, FormData>(saveLanguageAction, {});
   const [targetState, targetAction, targetPending] = useActionState<FormState, FormData>(saveTargetOverrideAction, {});
   const [deleteState, deleteAction, deletePending] = useActionState<FormState, FormData>(deleteAccountAction, {});
 
@@ -102,10 +96,12 @@ export function SettingsForms({
         </form>
       </section>
 
+      {/* Language stays here; the AI consent switches moved to /admin. It is a
+          display preference every account needs, not administration. */}
       <section className="card">
-        <h2>{t("privacy")}</h2>
-        <form action={privacyAction}>
-          <Feedback state={privacyState} savedLabel={t("saved")} />
+        <h2>{t("language")}</h2>
+        <form action={languageAction}>
+          <Feedback state={languageState} savedLabel={t("saved")} />
 
           <div className="field">
             <label htmlFor="settings-language">{t("language")}</label>
@@ -115,50 +111,8 @@ export function SettingsForms({
             </select>
           </div>
 
-          <div className="checkbox">
-            <input id="aiEnabled" name="aiEnabled" type="checkbox" defaultChecked={aiEnabled} aria-describedby="ai-hint" />
-            <div>
-              <label htmlFor="aiEnabled">{t("aiEnabled")}</label>
-              <div className="hint" id="ai-hint">
-                {t("aiEnabledHint")}
-              </div>
-            </div>
-          </div>
-
-          <div className="checkbox">
-            <input
-              id="researchEnabled"
-              name="researchEnabled"
-              type="checkbox"
-              defaultChecked={researchEnabled}
-              aria-describedby="research-hint"
-            />
-            <div>
-              <label htmlFor="researchEnabled">{t("researchEnabled")}</label>
-              <div className="hint" id="research-hint">
-                {t("researchEnabledHint")}
-              </div>
-            </div>
-          </div>
-
-          <div className="checkbox">
-            <input
-              id="autoApproveAi"
-              name="autoApproveAi"
-              type="checkbox"
-              defaultChecked={autoApproveAi}
-              aria-describedby="auto-approve-hint"
-            />
-            <div>
-              <label htmlFor="autoApproveAi">{t("autoApproveAi")}</label>
-              <div className="hint" id="auto-approve-hint">
-                {t("autoApproveAiHint")}
-              </div>
-            </div>
-          </div>
-
-          <button type="submit" className="btn btn-primary" disabled={privacyPending}>
-            {privacyPending ? common("loading") : common("save")}
+          <button type="submit" className="btn btn-primary" disabled={languagePending}>
+            {languagePending ? common("loading") : common("save")}
           </button>
         </form>
       </section>

@@ -12,12 +12,11 @@ test("the interface can be switched between German and English", async ({ page }
   // The onboarding default is German.
   await expect(page.getByRole("heading", { name: /einstellungen/i })).toBeVisible();
 
-  await page.getByLabel(/sprache|language/i).last().selectOption("en");
-  await page
-    .locator("form")
-    .filter({ has: page.getByLabel(/enable ai|ki-funktionen/i) })
-    .getByRole("button", { name: /speichern|save/i })
-    .click();
+  // The language selector has its own form now that the AI switches moved to
+  // /admin, so the save button is scoped by that field rather than by them.
+  const languageForm = page.locator("form").filter({ has: page.locator("#settings-language") });
+  await languageForm.getByLabel(/sprache|language/i).selectOption("en");
+  await languageForm.getByRole("button", { name: /speichern|save/i }).click();
 
   await expect(page.getByRole("heading", { name: /^settings$/i })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");

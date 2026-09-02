@@ -42,8 +42,14 @@ export function RecipeForm({ recipe, createMode = false }: { recipe?: { id: stri
       <div className="field"><label htmlFor="instructions">{t("instructions")}</label><textarea id="instructions" name="instructions" maxLength={20000} defaultValue={recipe?.instructions} /></div>
       <div className="field"><label htmlFor="tags">{t("tags")}</label><input id="tags" name="tags" defaultValue={recipe?.tags.join(", ")} /></div>
     </section><section className="card"><h2>{t("ingredients")}</h2>
-      <div className="field"><label htmlFor="ingredient-search">{t("searchFood")}</label><input id="ingredient-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
-      <BarcodeScanner onScan={setQuery} />
+      {/* The scanner sits inside the search line, as it does in the food search:
+          scanning is a way of filling this field, not a separate action. */}
+      <div className="field"><label htmlFor="ingredient-search">{t("searchFood")}</label>
+        <div className="search-with-action">
+          <input id="ingredient-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <BarcodeScanner compact onScan={setQuery} />
+        </div>
+      </div>
       {results.map((food) => {
         const units = allowedUnits({ basisUnit: food.basisUnit, densityGPerMl: food.densityGPerMl, servings: food.servings });
         return <div className="row" key={food.id}><div className="row-body"><strong>{food.name}</strong><span>{food.brand}</span></div>
@@ -56,6 +62,12 @@ export function RecipeForm({ recipe, createMode = false }: { recipe?: { id: stri
         </div>;
       })}
       {ingredients.length === 0 ? <p className="empty">{t("noIngredients")}</p> : ingredients.map((item, index) => <div className="row" key={item.foodId}><div className="row-body"><strong>{item.name}</strong><div className="field-row"><div className="field"><label htmlFor={`amount-${index}`}>{t("amount")}</label><input id={`amount-${index}`} type="number" min="0.001" step="0.001" value={item.amount} onChange={(event) => setIngredients(ingredients.map((value, i) => i === index ? { ...value, amount: Number(event.target.value) } : value))} /></div><div className="field"><label htmlFor={`unit-${index}`}>{t("unit")}</label><select id={`unit-${index}`} value={item.unit} onChange={(event) => setIngredients(ingredients.map((value, i) => i === index ? { ...value, unit: event.target.value } : value))}>{unitOptions(item).map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></div></div></div><button className="btn btn-danger" type="button" onClick={() => setIngredients(ingredients.filter((_, i) => i !== index))}>{common("delete")}</button></div>)}
-    </section></div><aside><section className="card"><button className="btn btn-primary btn-block" type="submit" disabled={pending || ingredients.length === 0}>{pending ? common("loading") : common("save")}</button></section></aside></div>
+    </section></div><aside><section className="card">
+      <button className="btn btn-primary btn-block" type="submit" disabled={pending || ingredients.length === 0}>{pending ? common("loading") : common("save")}</button>
+      {/* A draft keeps a half-finished recipe without making it loggable: it
+          gets no Food entry, exactly like an unconfirmed AI extraction. */}
+      <button className="btn btn-block" type="submit" name="status" value="DRAFT" disabled={pending || ingredients.length === 0} style={{ marginTop: 8 }}>{t("saveDraft")}</button>
+      <span className="hint">{t("saveDraftHint")}</span>
+    </section></aside></div>
   </form>;
 }

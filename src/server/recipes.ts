@@ -115,8 +115,15 @@ export async function saveRecipe(userId: string, input: RecipeInput, recipeId?: 
     })) });
     // A draft is not loggable, so it gets no Food entry - and needs none of the
     // completeness a Food demands, which is what lets a half-matched extraction
-    // be stored at all.
-    const food = status === "DRAFT" ? null : await syncRecipeFood(tx, userId, recipe.id, input, nutrition);
+    // be stored at all. Saving an existing recipe back to a draft therefore also
+    // has to take its Food away, or it would stay loggable while marked
+    // unreviewed. Diary entries keep their own snapshot and are unaffected.
+    let food: Awaited<ReturnType<typeof syncRecipeFood>> | null = null;
+    if (status === "DRAFT") {
+      await tx.food.deleteMany({ where: { ownerId: userId, sourceType: "RECIPE", externalProvider: "NUTRICORE_RECIPE", externalId: recipe.id } });
+    } else {
+      food = await syncRecipeFood(tx, userId, recipe.id, input, nutrition);
+    }
     return { recipe, food, nutrition };
   });
 }

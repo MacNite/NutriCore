@@ -130,29 +130,41 @@ export async function saveTargetOverrideAction(_state: FormState, formData: Form
   return { ok: true };
 }
 
-const settingsSchema = z.object({
-  language: z.enum(LOCALES),
+/**
+ * Language and the AI flags are saved separately because they no longer live on
+ * the same page: an unchecked checkbox submits nothing, so one action reading
+ * both would silently switch every AI flag off whenever the language form - the
+ * only one a non-administrator sees - was submitted.
+ */
+export async function saveLanguageAction(_state: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const parsed = z.enum(LOCALES).safeParse(formData.get("language"));
+  if (!parsed.success) return { error: "validation" };
+
+  await prisma.userProfile.update({ where: { userId: user.id }, data: { language: parsed.data } });
+
+  (await cookies()).set("NEXT_LOCALE", parsed.data, { path: "/", maxAge: 31_536_000, sameSite: "lax" });
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+const aiSettingsSchema = z.object({
   aiEnabled: z.boolean(),
   researchEnabled: z.boolean(),
   autoApproveAi: z.boolean(),
 });
 
-export async function saveSettingsAction(_state: FormState, formData: FormData): Promise<FormState> {
+export async function saveAiSettingsAction(_state: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
-  const parsed = settingsSchema.safeParse({
-    language: formData.get("language"),
+  const parsed = aiSettingsSchema.safeParse({
     aiEnabled: asBool(formData.get("aiEnabled")),
     researchEnabled: asBool(formData.get("researchEnabled")),
     autoApproveAi: asBool(formData.get("autoApproveAi")),
   });
   if (!parsed.success) return { error: "validation" };
 
-  await prisma.userProfile.update({
-    where: { userId: user.id },
-    data: parsed.data,
-  });
+  await prisma.userProfile.update({ where: { userId: user.id }, data: parsed.data });
 
-  (await cookies()).set("NEXT_LOCALE", parsed.data.language, { path: "/", maxAge: 31_536_000, sameSite: "lax" });
   revalidatePath("/", "layout");
   return { ok: true };
 }

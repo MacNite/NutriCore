@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { MEALS } from "@/server/diary";
 import { queueMealInputAction } from "@/server/meal-ai-actions";
 import { imageUploadMaxMb } from "@/lib/image-upload-limit";
-import Link from "next/link";
+import { ServingsInput } from "./servings-input";
 
 export async function QuickMealForm({ date, returnTo }: { date: string; returnTo: "/" }) {
   const t = await getTranslations("diary");
@@ -20,11 +20,14 @@ export async function QuickMealForm({ date, returnTo }: { date: string; returnTo
           placeholder={t("ai.placeholder")}
         />
       </div>
-      <div className="field">
-        <label htmlFor="mealServings-today">{t("ai.servings")}</label>
-        <input id="mealServings-today" name="servings" type="number" min="0.01" max="10000" step="0.01" defaultValue="1" required aria-describedby="mealServingsHint-today" />
-        <span className="hint" id="mealServingsHint-today">{t("ai.servingsHint")}</span>
-      </div>
+      <ServingsInput
+        id="mealServings-today"
+        name="servings"
+        label={t("ai.servings")}
+        hint={t("ai.servingsHint")}
+        decrementLabel={t("ai.servingsDown")}
+        incrementLabel={t("ai.servingsUp")}
+      />
       <div className="field">
         <label htmlFor="mealImage-today">{t("ai.image")}</label>
         <input
@@ -58,8 +61,27 @@ export async function QuickMealForm({ date, returnTo }: { date: string; returnTo
           ))}
         </select>
       </div>
+
+      {/* What the extraction is for. Keeping a recipe and writing the meal into
+          the diary are independent, so they are two choices rather than two
+          buttons that each do one of them and abandon the other. */}
+      <div className="checkbox">
+        <input id="addToMeal-today" name="addToMeal" type="checkbox" defaultChecked aria-describedby="addToMealHint-today" />
+        <div>
+          <label htmlFor="addToMeal-today">{t("ai.addToMeal")}</label>
+          <div className="hint" id="addToMealHint-today">{t("ai.addToMealHint")}</div>
+        </div>
+      </div>
+
+      <div className="checkbox">
+        <input id="createRecipe-today" name="createRecipe" type="checkbox" aria-describedby="createRecipeHint-today" />
+        <div>
+          <label htmlFor="createRecipe-today">{t("ai.createRecipe")}</label>
+          <div className="hint" id="createRecipeHint-today">{t("ai.createRecipeHint")}</div>
+        </div>
+      </div>
+
       <button className="btn btn-primary">{t("ai.submit")}</button>
-      <Link className="btn btn-quiet" style={{ marginLeft: 8 }} href="/recipes/new">{t("ai.createRecipe")}</Link>
     </form>
   );
 }

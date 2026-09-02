@@ -8,9 +8,10 @@ import { CopyField } from "@/components/copy-field";
 import { formatDate } from "@/lib/format";
 import { runDiagnostics } from "@/server/diagnostics";
 import { enqueueFoodEnrichmentAction, inviteUserAction, manageAiJobsAction, resendInvitationAction, setUserActiveAction } from "@/server/admin-actions";
-import { AI_JOB_OPERATIONS, AI_JOB_STATUSES, STUCK_RUNNING_MS, type AiJobStatusName } from "@/server/ai-types";
+import { AI_JOB_OPERATIONS, AI_JOB_STATUSES, STUCK_RUNNING_MS, jobOutcome, type AcceptedOutcome, type AiJobStatusName } from "@/server/ai-types";
 import { AI_FAILURE_KINDS } from "@/server/ai-failures";
 import { AiJobsPanel, type JobLabels, type JobRow } from "./ai-jobs-panel";
+import { PrivacyAiPanel } from "@/components/privacy-ai-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function generateMetadata() {
 const JOB_LABEL = { QUEUED: "jobQueued", RUNNING: "jobRunning", COMPLETED: "jobCompleted", FAILED: "jobFailed" } as const;
 /** Cancelling is not a classifier output, but it is a reason a row can carry. */
 const REASON_KINDS = [...AI_FAILURE_KINDS, "CANCELLED"];
-const JOBS_PER_PAGE = 150;
+const JOBS_PER_PAGE = 50;
 
 /** Entity ids of the rows on this page for one entity type, deduplicated. */
 const entityIds = (jobs: { entityType: string; entityId: string }[], entityType: string) => [
@@ -38,6 +39,7 @@ export default async function AdminPage({
     enrichmentQueued?: string;
     enrichmentRemaining?: string;
     jobs?: string;
+    jobsPage?: string;
     jobsOp?: string;
     jobsCount?: string;
   }>;
@@ -50,7 +52,7 @@ export default async function AdminPage({
   const t = await getTranslations("admin");
   const tDiagnostics = await getTranslations("diagnostics");
   const locale = current.language;
-  const { token, enrichmentQueued, enrichmentRemaining, jobs: jobsFilterRaw, jobsOp: jobsOpRaw, jobsCount } = await searchParams;
+  const { token, enrichmentQueued, enrichmentRemaining, jobs: jobsFilterRaw, jobsPage: jobsPageRaw, jobsOp: jobsOpRaw, jobsCount } = await searchParams;
   // Never feed an unvalidated query value into a translation key.
   const jobsOp = (AI_JOB_OPERATIONS as readonly string[]).includes(jobsOpRaw ?? "")
     ? jobsOpRaw
@@ -60,35 +62,48 @@ export default async function AdminPage({
   // An unknown value in the query string must show everything, not nothing.
   const jobsFilter = (AI_JOB_STATUSES as readonly string[]).includes(jobsFilterRaw ?? "") ? (jobsFilterRaw as AiJobStatusName) : "";
 
-  const [users, jobs, jobCountsByStatus, invitations, diagnosticsChecks] = await Promise.all([
+  // Counted before the rows are fetched: how many pages there are decides which
+  // page may be asked for, so a hand-edited `jobsPage` cannot land past the end.
+  const jobCountsByStatus = await prisma.aiJob.groupBy({ by: ["status"], _count: { _all: true } });
+  const jobCounts = { ALL: 0, QUEUED: 0, RUNNING: 0, COMPLETED: 0, FAILED: 0 } as Record<AiJobStatusName | "ALL", number>;
+  for (const group of jobCountsByStatus) {
+    jobCounts[group.status] = group._count._all;
+    jobCounts.ALL += group._count._all;
+  }
+  const jobsTotal = jobsFilter ? jobCounts[jobsFilter] : jobCounts.ALL;
+  const jobsPageCount = Math.max(1, Math.ceil(jobsTotal / JOBS_PER_PAGE));
+  const jobsPage = Math.min(Math.max(1, Math.trunc(Number(jobsPageRaw)) || 1), jobsPageCount);
+
+  const [users, jobs, invitations, diagnosticsChecks, ownProfile] = await Promise.all([
     prisma.user.findMany({ include: { profile: true }, orderBy: { createdAt: "desc" } }),
     prisma.aiJob.findMany({
       where: jobsFilter ? { status: jobsFilter } : {},
       include: {
-        proposal: { select: { approvalStatus: true } },
+        // `accepted` is what an approved proposal actually wrote to the diary,
+        // which is the outcome of a meal job.
+        proposal: { select: { approvalStatus: true, accepted: true } },
         mealInput: { select: { text: true, sourceUrl: true } },
         // Newest first. Ordering by `attempt` would interleave the numbers of a
         // job that was manually run again, because a rerun resets the counter.
         attempts: { orderBy: { createdAt: "desc" }, take: 10 },
       },
       orderBy: { createdAt: "desc" },
+      skip: (jobsPage - 1) * JOBS_PER_PAGE,
       take: JOBS_PER_PAGE,
     }),
-    prisma.aiJob.groupBy({ by: ["status"], _count: { _all: true } }),
     prisma.userInvitation.findMany({ orderBy: { createdAt: "desc" }, take: 20 }),
     runDiagnostics(),
+    // The AI consent switches act on the signed-in administrator's own profile,
+    // which is where they lived before they moved off the settings page.
+    prisma.userProfile.findUnique({ where: { userId: current.id } }),
   ]);
-
-  const jobCounts = { ALL: 0, QUEUED: 0, RUNNING: 0, COMPLETED: 0, FAILED: 0 } as Record<AiJobStatusName | "ALL", number>;
-  for (const group of jobCountsByStatus) {
-    jobCounts[group.status] = group._count._all;
-    jobCounts.ALL += group._count._all;
-  }
 
   // What the job was actually asked to do. It lives on a different record for
   // each entity type, and it is the single most useful thing to see next to a
   // failure, so it is fetched for the rows on this page rather than guessed at.
-  const [researchInputs, recipeImportInputs] = await Promise.all([
+  // The same lookups name the entity: an opaque cuid says nothing about which
+  // food or recipe a row is, which is what the id column used to be on its own.
+  const [researchInputs, recipeImportInputs, enrichedFoods, importedRecipes] = await Promise.all([
     prisma.researchJob.findMany({
       where: { id: { in: entityIds(jobs, "RESEARCH") } },
       select: { id: true, query: true },
@@ -97,9 +112,36 @@ export default async function AdminPage({
       where: { id: { in: entityIds(jobs, "RECIPE_IMPORT") } },
       select: { id: true, text: true, sourceUrl: true },
     }),
+    prisma.food.findMany({
+      where: { id: { in: entityIds(jobs, "FOOD_ENRICHMENT") } },
+      select: { id: true, name: true },
+    }),
+    // The draft an import wrote, which is what a RECIPE_IMPORT job is "about".
+    prisma.recipe.findMany({
+      where: { importId: { in: entityIds(jobs, "RECIPE_IMPORT") } },
+      select: { importId: true, name: true },
+    }),
   ]);
   const researchById = new Map(researchInputs.map((row) => [row.id, row]));
   const recipeImportById = new Map(recipeImportInputs.map((row) => [row.id, row]));
+  const foodNameById = new Map(enrichedFoods.map((row) => [row.id, row.name]));
+  const recipeNameByImportId = new Map(importedRecipes.flatMap((row) => (row.importId ? [[row.importId, row.name] as const] : [])));
+
+  /** Truncated so one long meal description cannot take over the column. */
+  const shorten = (value: string | null | undefined, max = 80) =>
+    !value ? null : value.length > max ? `${value.slice(0, max).trimEnd()}…` : value;
+
+  /**
+   * The name of the thing a job worked on. A meal input and a recipe log both
+   * carry it as the input text; the other kinds keep it on their own record.
+   */
+  const entityName = (job: (typeof jobs)[number]) => {
+    if (job.entityType === "FOOD_ENRICHMENT") return shorten(foodNameById.get(job.entityId));
+    if (job.entityType === "RECIPE_IMPORT")
+      return shorten(recipeNameByImportId.get(job.entityId) ?? recipeImportById.get(job.entityId)?.text);
+    if (job.entityType === "RESEARCH") return shorten(researchById.get(job.entityId)?.query);
+    return shorten(job.mealInput?.text);
+  };
 
   const jobInput = (job: (typeof jobs)[number]) => {
     if (job.mealInput?.text) return { text: job.mealInput.text, sourceUrl: job.mealInput.sourceUrl };
@@ -110,6 +152,37 @@ export default async function AdminPage({
     return { text: null, sourceUrl: job.mealInput?.sourceUrl ?? null };
   };
 
+  /**
+   * What a finished job left behind, as short labelled facts.
+   *
+   * "COMPLETED" on its own never said whether an enrichment filled anything or
+   * a meal reached the diary, which is the question the reason column is read
+   * for. Meal jobs take it from the approved proposal, which is where the diary
+   * write is recorded; the other kinds take it from the outcome the worker
+   * stores on the job. Jobs finished before this existed simply have none.
+   */
+  const jobResult = (job: (typeof jobs)[number]) => {
+    const facts: { label: string; value: string }[] = [];
+    const outcome = jobOutcome(job.metadata);
+    const accepted = job.proposal?.accepted as AcceptedOutcome | null;
+
+    if (accepted?.logged?.length) facts.push({ label: t("resultLogged"), value: accepted.logged.join(", ") });
+    if (accepted?.skipped?.length) facts.push({ label: t("resultSkipped"), value: accepted.skipped.join(", ") });
+    if (outcome?.nutrientKeys?.length) facts.push({ label: t("resultNutrients"), value: outcome.nutrientKeys.join(", ") });
+    if (outcome?.servingFilled) facts.push({ label: t("resultServing"), value: t("resultServingSet") });
+    if (outcome?.recipeName)
+      facts.push({
+        label: t("resultRecipe"),
+        value: outcome.ingredientCount === undefined
+          ? outcome.recipeName
+          : `${outcome.recipeName} (${t("resultIngredients", { count: outcome.ingredientCount })})`,
+      });
+    if (outcome?.unmatched?.length) facts.push({ label: t("resultUnmatched"), value: outcome.unmatched.join(", ") });
+    if (outcome?.candidateName) facts.push({ label: t("resultCandidate"), value: outcome.candidateName });
+
+    return facts;
+  };
+
   const stuckBefore = Date.now() - STUCK_RUNNING_MS;
   const jobRows: JobRow[] = jobs.map((job) => {
     const finishedAt = job.completedAt ?? job.failedAt;
@@ -118,6 +191,8 @@ export default async function AdminPage({
       id: job.id,
       entityType: job.entityType,
       entityId: job.entityId,
+      entityName: entityName(job),
+      result: jobResult(job),
       status: job.status,
       retryCount: job.retryCount,
       maxRetries: job.maxRetries,
@@ -173,6 +248,9 @@ export default async function AdminPage({
     confirmDelete: t("confirmDestructive"),
     noJobs: t("noJobs"),
     jobId: t("jobId"),
+    pageStatus: t("jobsPageStatus", { page: jobsPage, pages: jobsPageCount, total: jobsTotal }),
+    previousPage: t("previousPage"),
+    nextPage: t("nextPage"),
   };
 
   const invitationLink = token
@@ -297,6 +375,14 @@ export default async function AdminPage({
         </div>
       </section>
 
+      <div style={{ marginTop: 20 }}>
+        <PrivacyAiPanel
+          aiEnabled={ownProfile?.aiEnabled ?? true}
+          researchEnabled={ownProfile?.researchEnabled ?? false}
+          autoApproveAi={ownProfile?.autoApproveAi ?? true}
+        />
+      </div>
+
       <section className="card" style={{ marginTop: 20 }} id="ai-jobs">
         <div className="card-head">
           <div>
@@ -327,10 +413,15 @@ export default async function AdminPage({
             </span>
           </div>
         ) : null}
-        <AiJobsPanel jobs={jobRows} counts={jobCounts} filter={jobsFilter} labels={jobLabels} action={manageAiJobsAction} />
-        {jobCounts.ALL > jobRows.length ? (
-          <p className="muted">{t("jobsTruncated", { shown: jobRows.length, total: jobCounts.ALL })}</p>
-        ) : null}
+        <AiJobsPanel
+          jobs={jobRows}
+          counts={jobCounts}
+          filter={jobsFilter}
+          page={jobsPage}
+          pageCount={jobsPageCount}
+          labels={jobLabels}
+          action={manageAiJobsAction}
+        />
       </section>
 
       <section className="card" style={{ marginTop: 20 }}>

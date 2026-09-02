@@ -65,17 +65,22 @@ export default async function FoodsPage({
           <Link className="btn btn-primary" href="/recipes/new">{recipesT("create")}</Link>
         </div>
         {recipes.length === 0 ? <p className="empty">{common("noData")}</p> : recipes.map((recipe) => (
-          <div className="row" key={recipe.id}>
-            <div className="row-body">
-              <strong><Link href={`/recipes/${recipe.id}`}>{recipe.name}</Link></strong>
-              <span>{recipesT("ingredientCount", { count: recipe._count.ingredients })}</span>
-            </div>
-            {/* A draft is listed with the rest but marked, so nobody mistakes an
-                unreviewed extraction for a recipe they checked themselves. */}
-            <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
-              {recipe.status === "DRAFT" ? <span className="badge" title={recipesT("draftHint")}>{recipesT("draft")}</span> : null}
-              {recipe.sourceType === "AI_RESEARCH" ? <SourceBadge source={recipe.sourceType} /> : null}
-            </span>
+          // The whole row is the link, as in the food results above: a recipe
+          // name is a small target, and two lists that open the same way are
+          // easier to use than two that do not.
+          <div className="row clickable-row" key={recipe.id}>
+            <Link className="row-main-link" href={`/recipes/${recipe.id}`}>
+              <div className="row-body">
+                <strong>{recipe.name}</strong>
+                <span>{recipesT("ingredientCount", { count: recipe._count.ingredients })}</span>
+              </div>
+              {/* A draft is listed with the rest but marked, so nobody mistakes an
+                  unreviewed extraction for a recipe they checked themselves. */}
+              <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
+                {recipe.status === "DRAFT" ? <span className="badge" title={recipesT("draftHint")}>{recipesT("draft")}</span> : null}
+                {recipe.sourceType === "AI_RESEARCH" ? <SourceBadge source={recipe.sourceType} /> : null}
+              </span>
+            </Link>
           </div>
         ))}
       </section>

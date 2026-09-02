@@ -80,9 +80,6 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
             {t("intro")}
           </p>
         </div>
-        <Link className="btn btn-quiet" href="/">
-          {t("back")}
-        </Link>
       </div>
 
       <section className="card">

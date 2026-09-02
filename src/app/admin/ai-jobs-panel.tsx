@@ -26,6 +26,10 @@ export interface JobRow {
   id: string;
   entityType: string;
   entityId: string;
+  /** The food, recipe, dish or meal text the job is about; null when it is gone. */
+  entityName: string | null;
+  /** What a finished job produced, as already-translated label/value pairs. */
+  result: { label: string; value: string }[];
   status: AiJobStatusName;
   retryCount: number;
   maxRetries: number;
@@ -73,22 +77,37 @@ export interface JobLabels {
   confirmDelete: string;
   noJobs: string;
   jobId: string;
+  pageStatus: string;
+  previousPage: string;
+  nextPage: string;
 }
 
 const SWEEPS: AiJobOperation[] = ["requeueAllFailed", "unstickRunning", "deleteFailed", "deleteCompleted"];
 
 const seconds = (ms: number | null) => (ms === null ? "—" : `${(ms / 1000).toFixed(1)}s`);
 
+/** `/admin?jobs=<status>&jobsPage=<n>#ai-jobs`, leaving out what is default. */
+function jobsHref(filter: string, page: number) {
+  const query = new URLSearchParams();
+  if (filter) query.set("jobs", filter);
+  if (page > 1) query.set("jobsPage", String(page));
+  return `/admin${query.size ? `?${query}` : ""}#ai-jobs`;
+}
+
 export function AiJobsPanel({
   jobs,
   counts,
   filter,
+  page,
+  pageCount,
   labels,
   action,
 }: {
   jobs: JobRow[];
   counts: Record<AiJobStatusName | "ALL", number>;
   filter: string;
+  page: number;
+  pageCount: number;
   labels: JobLabels;
   action: (formData: FormData) => void | Promise<void>;
 }) {
@@ -214,6 +233,9 @@ export function AiJobsPanel({
                   </td>
                   <td>
                     {job.entityType}
+                    {/* The name is what makes a row recognisable; the id stays
+                        below it because it is what the logs and the API use. */}
+                    {job.entityName ? <> — <strong>{job.entityName}</strong></> : null}
                     <br />
                     <code className="muted">{job.entityId}</code>
                   </td>
@@ -243,6 +265,20 @@ export function AiJobsPanel({
           </table>
         </div>
       )}
+
+      {/* Links rather than buttons: the page belongs in the URL for the same
+          reason the filter does, and a link still works inside this form. */}
+      <div className="job-pager">
+        {/* Hidden rather than removed, so the three grid tracks - and the
+            centred status between them - do not move on the first page. */}
+        <a className={`btn btn-quiet${page <= 1 ? " is-hidden" : ""}`} href={jobsHref(filter, page - 1)}>
+          <span aria-hidden="true">‹</span> {labels.previousPage}
+        </a>
+        <span className="muted" aria-live="polite">{labels.pageStatus}</span>
+        <a className={`btn btn-quiet${page >= pageCount ? " is-hidden" : ""}`} href={jobsHref(filter, page + 1)}>
+          {labels.nextPage} <span aria-hidden="true">›</span>
+        </a>
+      </div>
     </form>
   );
 }
@@ -257,14 +293,36 @@ function JobReason({ job, labels }: { job: JobRow; labels: JobLabels }) {
   const kind = job.failureKind;
   const hint = kind ? labels.hints[kind] : undefined;
   const hasDetail = Boolean(job.errorDetail || job.attempts.length || job.input || job.sourceUrl);
+  // What the job produced. A failure explains itself through its kind; a
+  // success used to explain nothing, so this is the whole content of the cell
+  // for the rows that worked.
+  const result = job.result.length ? (
+    <dl className="job-result">
+      {job.result.map((fact) => (
+        <div key={fact.label}>
+          <dt>{fact.label}</dt>
+          <dd>{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+  ) : null;
 
   if (!kind && !job.errorMessage) {
-    return <span className="muted">{job.reviewStatus ? `${labels.review}: ${job.reviewStatus}` : "—"}</span>;
+    return (
+      <div className="job-reason">
+        {result}
+        {result ? null : (
+          <span className="muted">{job.reviewStatus ? `${labels.review}: ${job.reviewStatus}` : "—"}</span>
+        )}
+        {result && job.reviewStatus ? <p className="muted job-reason-hint">{labels.review}: {job.reviewStatus}</p> : null}
+      </div>
+    );
   }
 
   return (
     <div className="job-reason">
       {kind ? <span className="badge badge-ai">{labels.kinds[kind] ?? kind}</span> : null}
+      {result}
       {job.errorMessage ? <div className="job-reason-message">{job.errorMessage}</div> : null}
       {hint ? <p className="muted job-reason-hint">{hint}</p> : null}
       {hasDetail ? (
@@ -344,11 +402,7 @@ function FilterLink({ current, value, label }: { current: string; value: string;
   return (
     // A link is not a toggle, so the selected filter is marked with
     // aria-current rather than with aria-pressed.
-    <a
-      className="progress-chip"
-      href={value ? `/admin?jobs=${value}#ai-jobs` : "/admin#ai-jobs"}
-      aria-current={active ? "page" : undefined}
-    >
+    <a className="progress-chip" href={jobsHref(value, 1)} aria-current={active ? "page" : undefined}>
       {label}
     </a>
   );
