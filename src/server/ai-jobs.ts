@@ -11,10 +11,11 @@ import { failResearchJob, runResearchJob } from "./research";
 import { fetchMealPage, mealPagePrompt } from "./meal-url";
 import { enrichFood } from "./food-enrichment";
 import { discardRecipeImportImage, runRecipeImport } from "./recipe-import";
+import { saveRecipe } from "./recipes";
 import { describeFailure } from "./ai-failures";
 import { autoApproveProposal } from "./ai-approval";
 import { repairMealParse } from "./ai-repair";
-import { jobPriority, STUCK_RUNNING_MS, type ProposedComponent } from "./ai-types";
+import { componentGrams, jobPriority, STUCK_RUNNING_MS, type AiJobOutcome, type ProposedComponent } from "./ai-types";
 import { resolveComponent, type ResolverContext } from "./component-resolver";
 import { discardMealInputImage } from "./meal-image";
 
@@ -188,25 +189,90 @@ async function recordFailure(
   if (job.entityType === "MEAL_INPUT") await discardMealInputImage(job.entityId);
 }
 
+/**
+ * Marks a job finished and records what it produced.
+ *
+ * The outcome is merged into `metadata` rather than replacing it, because the
+ * meal branch keeps its cached extraction there and a retry has to keep finding
+ * it. Failure to record an outcome must never fail the job: the work is already
+ * done, and recordFailure would put it back in the queue to be redone.
+ */
+async function completeJob(job: { id: string; metadata: Prisma.JsonValue | null }, outcome: AiJobOutcome) {
+  // `AiJobOutcome` is an interface, so it carries no index signature and Prisma's
+  // `InputJsonValue` will not take it directly; the shape is JSON by construction.
+  const metadata = { ...((job.metadata ?? {}) as Record<string, unknown>), outcome } as unknown as Prisma.InputJsonValue;
+  await prisma.aiJob.update({
+    where: { id: job.id },
+    data: {
+      status: "COMPLETED",
+      completedAt: new Date(),
+      errorMessage: null,
+      failureKind: null,
+      errorDetail: null,
+      metadata,
+    },
+  });
+}
+
+/**
+ * Describes what a job produced, never failing because of it.
+ *
+ * The work is done by the time this runs but the job is not marked COMPLETED
+ * yet, so a throw here would send a finished model call - minutes of work -
+ * back to the queue for the sake of a diagnostic line. An outcome that cannot
+ * be built is simply absent.
+ */
+async function describeOutcome(jobId: string, build: () => AiJobOutcome | Promise<AiJobOutcome>) {
+  try {
+    return await build();
+  } catch (error) {
+    logger.warn("Could not describe an AI job outcome", {
+      jobId,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+    return {};
+  }
+}
+
+/** The dish a finished research run ended up proposing, for the admin table. */
+async function researchCandidateName(researchJobId: string) {
+  const research = await prisma.researchJob.findUnique({
+    where: { id: researchJobId },
+    select: { structuredResponse: true },
+  });
+  const name = (research?.structuredResponse as { name?: unknown } | null)?.name;
+  return typeof name === "string" ? name : undefined;
+}
+
 export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: SearxngClient } = {}) {
   const job = await claimNextJob();
   if (!job) return false;
   try {
     if (job.entityType === "FOOD_ENRICHMENT") {
-      await enrichFood(job.entityId, deps);
-      await prisma.aiJob.update({ where: { id: job.id }, data: { status: "COMPLETED", completedAt: new Date(), errorMessage: null, failureKind: null, errorDetail: null } });
+      const result = await enrichFood(job.entityId, deps);
+      await completeJob(job, await describeOutcome(job.id, () => ({
+        nutrientKeys: result.filledNutrientKeys,
+        servingFilled: result.servingFilled,
+      })));
       return true;
     }
     if (job.entityType === "RECIPE_IMPORT") {
-      await runRecipeImport(job.entityId, deps);
-      await prisma.aiJob.update({ where: { id: job.id }, data: { status: "COMPLETED", completedAt: new Date(), errorMessage: null, failureKind: null, errorDetail: null } });
+      const draft = await runRecipeImport(job.entityId, deps);
+      await completeJob(job, await describeOutcome(job.id, () => ({
+        recipeId: draft.recipeId,
+        recipeName: draft.name,
+        ingredientCount: draft.ingredients.length,
+        unmatched: draft.unmatched,
+      })));
       return true;
     }
     if (job.entityType === "RESEARCH") {
       // The run itself lives in research.ts; it throws on failure so this job's
       // retry budget and failure classification apply to it like any other.
       await runResearchJob(job.entityId, deps);
-      await prisma.aiJob.update({ where: { id: job.id }, data: { status: "COMPLETED", completedAt: new Date(), errorMessage: null, failureKind: null, errorDetail: null } });
+      await completeJob(job, await describeOutcome(job.id, async () => ({
+        candidateName: await researchCandidateName(job.entityId),
+      })));
       return true;
     }
     if (job.entityType === "RECIPE_LOG") {
@@ -237,7 +303,14 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     }
     if (job.entityType !== "MEAL_INPUT" || !job.mealInput) throw new Error("Unsupported AI job entity");
     const ai = deps.ai ?? new OllamaProvider();
-    const cached = (job.metadata ?? {}) as { extraction?: z.infer<typeof mealParseSchema>; inputKind?: string; sourceUrl?: string };
+    const cached = (job.metadata ?? {}) as {
+      extraction?: z.infer<typeof mealParseSchema>;
+      inputKind?: string;
+      sourceUrl?: string;
+      /** What the quick-meal form asked for; both default to the old behaviour. */
+      addToMeal?: boolean;
+      createRecipe?: boolean;
+    };
     const capabilities = await ai.capabilities();
 
     let prompt = job.mealInput.text;
@@ -268,7 +341,9 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     // after successful extraction without making later resolver retries lossy.
     if (!cached.extraction) {
       await prisma.$transaction([
-        prisma.aiJob.update({ where: { id: job.id }, data: { metadata: { extraction: extracted, inputKind, sourceUrl: job.mealInput.sourceUrl ?? undefined } } }),
+        // Spread, not replace: the submitter's options live here too, and a
+        // retry that lost them would log a meal the user asked not to log.
+        prisma.aiJob.update({ where: { id: job.id }, data: { metadata: { ...cached, extraction: extracted, inputKind, sourceUrl: job.mealInput.sourceUrl ?? undefined } } }),
         prisma.mealInput.update({ where: { id: job.mealInput.id }, data: { imageData: null, imageMime: null, imageExpiresAt: null } }),
       ]);
     }
@@ -334,7 +409,11 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     // whole parse would run again. Applying the proposal is therefore guarded
     // here as well as inside `autoApproveProposal`, and a failure just leaves the
     // proposal pending for the review screen.
-    if (owner?.profile?.autoApproveAi !== false) {
+    // "Add to meal" is off only when the submitter said so. Nothing is written
+    // to the diary then, and the proposal is left pending rather than rejected:
+    // the extraction is still worth having, and a change of mind is one click
+    // away on the review screen instead of a whole second submission.
+    if (cached.addToMeal !== false && owner?.profile?.autoApproveAi !== false) {
       try {
         await autoApproveProposal(savedProposal.id);
       } catch (error) {
@@ -345,11 +424,75 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       }
     }
 
+    if (cached.createRecipe) await storeQuickMealRecipe(job, job.mealInput.text, components);
+
     await queueFoodEnrichments(job.userId, components.flatMap((component) => component.canonicalFoodId ? [component.canonicalFoodId] : []));
   } catch (error) {
     await recordFailure(job, error);
   }
   return true;
+}
+
+/**
+ * Stores a quick meal as a draft recipe, when the submitter asked for one.
+ *
+ * A draft, never an active recipe: these ingredients are a model's reading of a
+ * sentence, and a draft is exactly the state the app already has for "extracted
+ * but not reviewed" - it is listed and editable but gets no Food entry, so
+ * nothing here can be logged before someone has confirmed it.
+ *
+ * Only components that resolved to a real food with a weight can go in; a
+ * component that matched nothing has no nutrition anyone is entitled to invent.
+ * Runs after the job is already COMPLETED, so it must not throw: recordFailure
+ * would put the whole extraction back in the queue for the sake of a follow-up.
+ */
+async function storeQuickMealRecipe(
+  job: { id: string; userId: string },
+  text: string,
+  components: ProposedComponent[],
+) {
+  try {
+    const ingredients = components.flatMap((component) => {
+      const foodId = component.canonicalFoodId;
+      const grams = componentGrams(component, foodId);
+      return foodId && grams ? [{ foodId, amount: grams, unit: "g" }] : [];
+    });
+    if (!ingredients.length) {
+      logger.info("Quick meal recipe skipped: nothing resolved to a food", { jobId: job.id });
+      return;
+    }
+
+    // The components were already scaled to one portion by the extraction, so
+    // the recipe this builds is that one portion.
+    const name = text.trim().slice(0, 120) || "Quick meal";
+    const { recipe } = await saveRecipe(
+      job.userId,
+      { name, description: "", servings: 1, instructions: "", tags: [], ingredients },
+      undefined,
+      { status: "DRAFT", sourceType: "AI_RESEARCH" },
+    );
+
+    // Read back rather than reused from the claim: the extraction was cached
+    // into metadata after this job was claimed, and writing the stale copy here
+    // would discard it - which on a later retry means running the model again.
+    const current = await prisma.aiJob.findUnique({ where: { id: job.id }, select: { metadata: true } });
+    const metadata = { ...((current?.metadata ?? {}) as Record<string, unknown>) };
+    const outcome: AiJobOutcome = {
+      ...((metadata.outcome ?? {}) as AiJobOutcome),
+      recipeId: recipe.id,
+      recipeName: recipe.name,
+      ingredientCount: ingredients.length,
+    };
+    await prisma.aiJob.update({
+      where: { id: job.id },
+      data: { metadata: { ...metadata, outcome } as unknown as Prisma.InputJsonValue },
+    });
+  } catch (error) {
+    logger.warn("Could not store the quick meal as a recipe", {
+      jobId: job.id,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
 }
 
 /**

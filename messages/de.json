@@ -185,7 +185,7 @@
       "servingsHint": "Wie viele Portionen ergeben alle Mengen in Text, URL oder Foto? Die schnelle Mahlzeit trägt eine Portion ein.",
       "meal": "Mahlzeit",
       "submit": "Speichern und Anreicherung einreihen",
-      "createRecipe": "Als Rezept erstellen",
+      "createRecipe": "Rezept anlegen",
       "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert.",
       "errors": {
         "inputRequired": "Füge Text, eine URL oder ein Bild hinzu.",
@@ -193,7 +193,12 @@
         "imageTooLarge": "Das Bild überschreitet die konfigurierte maximale Größe.",
         "imageEmpty": "Das ausgewählte Bild ist leer.",
         "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert."
-      }
+      },
+      "createRecipeHint": "Legt aus dieser Mahlzeit zusätzlich ein Rezept als Entwurf an. Ein Entwurf lässt sich erst nach dem Bestätigen eintragen.",
+      "addToMeal": "Zur Mahlzeit hinzufügen",
+      "addToMealHint": "Trägt die erkannten Lebensmittel in dein Tagebuch ein. Ohne Häkchen wird nichts eingetragen; der Vorschlag bleibt zur Prüfung stehen.",
+      "servingsUp": "Eine Portion mehr",
+      "servingsDown": "Eine Portion weniger"
     }
   },
   "micronutrients": {
@@ -545,12 +550,13 @@
     "source": {
       "RECIPE": "Aus deinen Zutaten berechnet.",
       "AI_RESEARCH": "Aus bestätigter KI-Recherche erstellt."
-    }
+    },
+    "saveDraft": "Entwurf speichern",
+    "saveDraftHint": "Speichert das Rezept als Entwurf. Ein Entwurf lässt sich weiter bearbeiten, aber erst nach dem Bestätigen eintragen."
   },
   "aiReview": {
     "title": "KI-Anreicherung",
     "intro": "Deine ursprüngliche Eingabe bleibt unverändert. KI-Vorschläge bleiben unbestätigt, bis du sie freigibst.",
-    "back": "Zurück zum Tagebuch",
     "statusQueued": "KI-Anreicherung steht aus",
     "statusRunning": "KI-Anreicherung läuft",
     "statusCompleted": "Bereit zur Prüfung",
@@ -677,7 +683,6 @@
     "sweeps": "Für alle:",
     "noSelectionWarning": "Nichts ausgewählt – es wurde nichts geändert.",
     "operationDone": "{operation}: {count, plural, =0 {kein Auftrag} one {1 Auftrag} other {# Aufträge}} betroffen.",
-    "jobsTruncated": "{shown} von {total} Aufträgen angezeigt. Filtere nach Status, um die übrigen zu sehen.",
     "confirmDestructive": "Ausgewählte Aufträge endgültig löschen? Das kann nicht rückgängig gemacht werden.",
     "op": {
       "requeue": "Neu starten",
@@ -722,7 +727,19 @@
       "MODEL_OUTPUT_TRUNCATED": "Das Modell wurde am Token-Limit gestoppt, bevor es fertig war. Entweder erlaubt das Schema eine zu lange Antwort, oder OLLAMA_MAX_OUTPUT_TOKENS ist zu niedrig.",
       "CONFIG_INVALID": "Eine benötigte Einstellung fehlt oder ist ungültig – die Meldung nennt sie. Prüfe die .env des betroffenen Containers; App und Worker brauchen dieselbe Konfiguration. Ein erneuter Versuch hilft nicht."
     },
-    "enrichmentRemaining": "{count, plural, one {Ein weiteres Lebensmittel wartet} other {# weitere Lebensmittel warten}} – erneut klicken für den nächsten Stapel."
+    "enrichmentRemaining": "{count, plural, one {Ein weiteres Lebensmittel wartet} other {# weitere Lebensmittel warten}} – erneut klicken für den nächsten Stapel.",
+    "resultLogged": "Eingetragen",
+    "resultSkipped": "Ausgelassen",
+    "resultNutrients": "Nährwerte ergänzt",
+    "resultServing": "Portion",
+    "resultServingSet": "Portionsgewicht ergänzt",
+    "resultRecipe": "Rezept",
+    "resultIngredients": "{count, plural, one {# Zutat} other {# Zutaten}}",
+    "resultUnmatched": "Nicht zugeordnet",
+    "resultCandidate": "Vorschlag",
+    "jobsPageStatus": "Seite {page} von {pages} · {total, plural, one {# Auftrag} other {# Aufträge}}",
+    "previousPage": "Zurück",
+    "nextPage": "Weiter"
   },
   "account": {
     "changePasswordTitle": "Neues Passwort wählen",

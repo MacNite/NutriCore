@@ -12,6 +12,8 @@ const { prismaMock, tx } = vi.hoisted(() => {
       findFirst: vi.fn(async () => null),
       create: vi.fn(async () => ({ id: "recipe-food" })),
       update: vi.fn(async () => ({ id: "recipe-food" })),
+      // Saving as a draft takes the recipe's Food away again.
+      deleteMany: vi.fn(),
     },
     recipeIngredient: { deleteMany: vi.fn(), createMany: vi.fn() },
     foodNutrient: { deleteMany: vi.fn(), createMany: vi.fn() },

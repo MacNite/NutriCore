@@ -48,9 +48,6 @@ export default async function SettingsPage() {
               isPregnant: profile?.isPregnant ?? false,
               isBreastfeeding: profile?.isBreastfeeding ?? false,
             }}
-            aiEnabled={profile?.aiEnabled ?? true}
-            researchEnabled={profile?.researchEnabled ?? false}
-            autoApproveAi={profile?.autoApproveAi ?? true}
             overrideKcal={target?.overrideKcal ?? null}
           />
         </div>

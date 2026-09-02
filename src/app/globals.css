@@ -231,6 +231,8 @@ a:hover {
   border: 0;
 }
 
+/* Centred rather than pinned to the corner: at the top left it landed on top
+   of the back arrow, so the two controls covered each other while tabbing. */
 .skip-link {
   position: absolute;
   left: -9999px;
@@ -244,8 +246,9 @@ a:hover {
 }
 
 .skip-link:focus {
-  left: 12px;
+  left: 50%;
   top: 12px;
+  transform: translateX(-50%);
 }
 
 /* --------------------------------------------------------------------- Layout */
@@ -541,6 +544,53 @@ textarea::placeholder {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 14px;
+}
+
+/* A count belongs next to its label, not under it: the field is three
+   characters wide and a full-width row above it wastes a whole line. */
+.servings-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.servings-field .hint {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.servings-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.servings-control input {
+  width: 5.5rem;
+  text-align: center;
+}
+
+/* The stepper buttons replace the native spinner, which is invisible until
+   hover on a desktop browser and absent from the installed PWA. Two sets of
+   arrows in one field would be worse than none, so the native one goes. */
+.servings-control input::-webkit-outer-spin-button,
+.servings-control input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.servings-control input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.servings-step {
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0;
+  font-size: 19px;
+  line-height: 1;
 }
 
 .checkbox {
@@ -1270,6 +1320,41 @@ legend {
   font-size: 12.5px;
   line-height: 1.45;
 }
+
+/* What a finished job produced: label above value, so a long list of nutrient
+   keys wraps under its own heading instead of pushing the column wide. */
+.job-result {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.job-result dt {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.job-result dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Three tracks so the page status stays centred whether or not both arrows
+   are shown - a pager that shifts sideways on the first page reads as a bug. */
+.job-pager {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.job-pager > :first-child { justify-self: start; }
+.job-pager > :last-child { justify-self: end; }
+/* Keeps the grid track and takes the link out of the tab order in one go. */
+.job-pager .is-hidden { visibility: hidden; }
 
 .job-details summary {
   cursor: pointer;

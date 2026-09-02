@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BackButton } from "@/components/back-button";
 import { getTranslations } from "next-intl/server";
 import { env } from "@/lib/env";
 
@@ -10,7 +10,6 @@ export async function generateMetadata() {
 export default async function DataSourcesPage() {
   const t = await getTranslations("dataSources");
   const foods = await getTranslations("foods");
-  const nav = await getTranslations("nav");
   const config = env();
 
   const providers = [
@@ -22,8 +21,10 @@ export default async function DataSourcesPage() {
   return (
     <div className="shell" style={{ maxWidth: 760 }}>
       <main id="main">
+        {/* The same back control as everywhere else. This page carries no app
+            shell, so the button is placed here rather than being inherited. */}
         <p>
-          <Link href="/">← {nav("today")}</Link>
+          <BackButton />
         </p>
 
         <div className="page-head">

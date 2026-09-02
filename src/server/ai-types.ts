@@ -193,6 +193,35 @@ export function decideComponents(
 }
 
 /**
+ * What a finished job produced, recorded on `AiJob.metadata.outcome`.
+ *
+ * A failed job says why in `failureKind`; a successful one used to say nothing
+ * at all, so "COMPLETED" gave no way to tell an enrichment that filled eight
+ * nutrients from one that found nothing. Only small, already-public facts are
+ * kept here - names and counts - because the metadata column is read straight
+ * into the admin table.
+ */
+export interface AiJobOutcome {
+  /** Nutrient keys an enrichment actually wrote, and whether it set a serving. */
+  nutrientKeys?: string[];
+  servingFilled?: boolean;
+  /** A recipe the job created, draft or otherwise. */
+  recipeId?: string;
+  recipeName?: string;
+  /** Ingredients a recipe extraction matched, and the ones it could not. */
+  ingredientCount?: number;
+  unmatched?: string[];
+  /** The dish a research run ended up proposing. */
+  candidateName?: string;
+}
+
+/** Reads the outcome back out of the untyped metadata column. */
+export function jobOutcome(metadata: unknown): AiJobOutcome | null {
+  const outcome = (metadata as { outcome?: unknown } | null)?.outcome;
+  return outcome && typeof outcome === "object" ? (outcome as AiJobOutcome) : null;
+}
+
+/**
  * Queue-management vocabulary for the admin panel. It lives here rather than in
  * `admin-actions.ts` because a `"use server"` module may only export async
  * functions, and both the action and the client panel need these values.

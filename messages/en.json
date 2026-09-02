@@ -185,7 +185,7 @@
       "servingsHint": "How many servings do all quantities in the text, URL, or photo make? Quick meal logs one serving.",
       "meal": "Meal",
       "submit": "Save and queue enrichment",
-      "createRecipe": "Create as recipe",
+      "createRecipe": "Create recipe",
       "unsafeUrl": "That address could not be fetched safely, so nothing was saved.",
       "errors": {
         "inputRequired": "Add text, a URL, or an image.",
@@ -193,7 +193,12 @@
         "imageTooLarge": "The image exceeds the configured maximum size.",
         "imageEmpty": "The selected image is empty.",
         "unsafeUrl": "That address could not be fetched safely, so nothing was saved."
-      }
+      },
+      "createRecipeHint": "Also stores this meal as a draft recipe. A draft can only be logged once it is confirmed.",
+      "addToMeal": "Add to meal",
+      "addToMealHint": "Writes the recognised foods into your diary. Without it nothing is logged and the proposal stays waiting for review.",
+      "servingsUp": "One serving more",
+      "servingsDown": "One serving fewer"
     }
   },
   "micronutrients": {
@@ -545,12 +550,13 @@
     "source": {
       "RECIPE": "Calculated from your ingredients.",
       "AI_RESEARCH": "Created from confirmed AI research."
-    }
+    },
+    "saveDraft": "Save as draft",
+    "saveDraftHint": "Stores the recipe as a draft. A draft can be edited further but can only be logged once it is confirmed."
   },
   "aiReview": {
     "title": "AI enrichment",
     "intro": "Your original input is kept unchanged. AI suggestions stay unconfirmed until you approve them.",
-    "back": "Back to diary",
     "statusQueued": "AI enrichment pending",
     "statusRunning": "AI enrichment in progress",
     "statusCompleted": "Ready for review",
@@ -677,7 +683,6 @@
     "sweeps": "On all:",
     "noSelectionWarning": "Nothing was selected, so nothing changed.",
     "operationDone": "{operation}: {count, plural, =0 {no jobs} one {1 job} other {# jobs}} affected.",
-    "jobsTruncated": "Showing {shown} of {total} jobs. Filter by status to see the rest.",
     "confirmDestructive": "Permanently delete the selected jobs? This cannot be undone.",
     "op": {
       "requeue": "Run again",
@@ -722,7 +727,19 @@
       "MODEL_OUTPUT_TRUNCATED": "The model was stopped at the token limit before it finished. Either the schema permits an answer that is too long, or OLLAMA_MAX_OUTPUT_TOKENS is too low.",
       "CONFIG_INVALID": "A required setting is missing or invalid — the message names it. Check the .env of the affected container; the app and the worker need the same configuration. Another attempt will not help."
     },
-    "enrichmentRemaining": "{count, plural, one {One more food is waiting} other {# more foods are waiting}} – click again for the next batch."
+    "enrichmentRemaining": "{count, plural, one {One more food is waiting} other {# more foods are waiting}} – click again for the next batch.",
+    "resultLogged": "Logged",
+    "resultSkipped": "Skipped",
+    "resultNutrients": "Nutrients filled in",
+    "resultServing": "Serving",
+    "resultServingSet": "Serving weight filled in",
+    "resultRecipe": "Recipe",
+    "resultIngredients": "{count, plural, one {# ingredient} other {# ingredients}}",
+    "resultUnmatched": "Not matched",
+    "resultCandidate": "Proposal",
+    "jobsPageStatus": "Page {page} of {pages} · {total, plural, one {# job} other {# jobs}}",
+    "previousPage": "Previous",
+    "nextPage": "Next"
   },
   "account": {
     "changePasswordTitle": "Choose a new password",

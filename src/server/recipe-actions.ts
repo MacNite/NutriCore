@@ -18,6 +18,8 @@ const recipeSchema = z.object({
   yieldWeightG: z.string().transform((value) => value.trim() === "" ? null : Number(value.replace(",", "."))).refine((value) => value === null || Number.isFinite(value) && value > 0 && value <= 1_000_000),
   instructions: z.string().trim().max(20_000), tags: z.string().transform((value) => [...new Set(value.split(",").map((tag) => tag.trim()).filter(Boolean))].slice(0, 30)),
   ingredients: z.string().transform((value, ctx) => { try { return JSON.parse(value) as unknown; } catch { ctx.addIssue({ code: "custom", message: "invalid" }); return []; } }).pipe(z.array(ingredient).min(1).max(100)),
+  /** Set by the "save as draft" button; the ordinary save submits nothing. */
+  status: z.enum(["ACTIVE", "DRAFT"]).optional(),
 });
 
 function errorState(error: unknown): FormState {
@@ -30,9 +32,9 @@ export async function saveRecipeAction(_state: FormState, formData: FormData): P
   const user = await requireUser();
   const parsed = recipeSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "validation" };
-  const { id, ...input } = parsed.data;
+  const { id, status, ...input } = parsed.data;
   let result;
-  try { result = await saveRecipe(user.id, input, id); } catch (error) { return errorState(error); }
+  try { result = await saveRecipe(user.id, input, id, { status: status ?? "ACTIVE" }); } catch (error) { return errorState(error); }
   revalidatePath("/recipes"); revalidatePath("/foods");
   redirect(`/recipes/${result.recipe.id}`);
 }
