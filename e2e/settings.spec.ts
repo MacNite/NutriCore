@@ -6,6 +6,16 @@ test.beforeEach(async ({ page }) => {
   await completeOnboarding(page);
 });
 
+test("settings are available from the account button but absent from primary navigation", async ({ page }) => {
+  await expect(page.locator(".nav, .bottom-nav").getByText(/^settings$|^einstellungen$/i)).toHaveCount(0);
+
+  const accountButton = page.locator("a.avatar");
+  await expect(accountButton).toHaveAttribute("href", "/settings");
+  await accountButton.click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByRole("heading", { name: /^settings$|^einstellungen$/i })).toBeVisible();
+});
+
 test("the interface can be switched between German and English", async ({ page }) => {
   await page.goto("/settings");
 
