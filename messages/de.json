@@ -13,8 +13,7 @@
     "main": "Hauptnavigation",
     "account": "Konto",
     "dataSources": "Datenquellen",
-    "signOut": "Abmelden",
-    "skipToContent": "Zum Inhalt springen"
+    "signOut": "Abmelden"
   },
   "common": {
     "save": "Speichern",

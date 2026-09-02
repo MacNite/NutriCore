@@ -32,10 +32,6 @@ export function AppShell({ displayName, children }: { displayName: string; child
 
   return (
     <>
-      <a className="skip-link" href="#main">
-        {t("skipToContent")}
-      </a>
-
       <div className="shell">
         <header className="topbar">
           {pathname !== "/" && <BackButton />}
@@ -69,7 +65,7 @@ export function AppShell({ displayName, children }: { displayName: string; child
           </div>
         </header>
 
-        <main id="main" tabIndex={-1}>
+        <main id="main">
           {children}
         </main>
       </div>
