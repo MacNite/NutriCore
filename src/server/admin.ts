@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { hashSessionToken } from "@/lib/auth";
+import { sendInvitationMail } from "@/lib/mail";
 
 export const invitationExpiryMs = () => {
   const hours = Number(process.env.INVITATION_EXPIRY_HOURS ?? 48);
@@ -17,6 +18,18 @@ export async function issueInvitation(input: { email: string; name?: string; rol
     },
   });
   return { invitation, token };
+}
+
+export const invitationUrl = (token: string) =>
+  new URL(`/invite/${token}`, process.env.APP_URL ?? "http://localhost:3000").toString();
+
+export async function deliverInvitation(input: Awaited<ReturnType<typeof issueInvitation>>) {
+  return sendInvitationMail({
+    to: input.invitation.email,
+    name: input.invitation.name,
+    inviteUrl: invitationUrl(input.token),
+    expiresAt: input.invitation.expiresAt,
+  });
 }
 
 export async function redeemableInvitation(token: string) {

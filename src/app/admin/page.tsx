@@ -7,11 +7,12 @@ import { AppShell } from "@/components/app-shell";
 import { CopyField } from "@/components/copy-field";
 import { formatDate } from "@/lib/format";
 import { runDiagnostics } from "@/server/diagnostics";
-import { enqueueFoodEnrichmentAction, inviteUserAction, manageAiJobsAction, resendInvitationAction, setUserActiveAction } from "@/server/admin-actions";
+import { batchInviteUsersAction, enqueueFoodEnrichmentAction, inviteUserAction, manageAiJobsAction, resendInvitationAction, saveMailSettingsAction, setUserActiveAction } from "@/server/admin-actions";
 import { AI_JOB_OPERATIONS, AI_JOB_STATUSES, STUCK_RUNNING_MS, jobOutcome, type AcceptedOutcome, type AiJobStatusName } from "@/server/ai-types";
 import { AI_FAILURE_KINDS } from "@/server/ai-failures";
 import { AiJobsPanel, type JobLabels, type JobRow } from "./ai-jobs-panel";
 import { PrivacyAiPanel } from "@/components/privacy-ai-panel";
+import { getMailConfiguration } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,10 @@ export default async function AdminPage({
 }: {
   searchParams: Promise<{
     token?: string;
+    mail?: string;
+    batchSent?: string;
+    batchFailed?: string;
+    mailSettings?: string;
     enrichmentQueued?: string;
     enrichmentRemaining?: string;
     jobs?: string;
@@ -52,7 +57,7 @@ export default async function AdminPage({
   const t = await getTranslations("admin");
   const tDiagnostics = await getTranslations("diagnostics");
   const locale = current.language;
-  const { token, enrichmentQueued, enrichmentRemaining, jobs: jobsFilterRaw, jobsPage: jobsPageRaw, jobsOp: jobsOpRaw, jobsCount } = await searchParams;
+  const { token, mail, batchSent, batchFailed, mailSettings, enrichmentQueued, enrichmentRemaining, jobs: jobsFilterRaw, jobsPage: jobsPageRaw, jobsOp: jobsOpRaw, jobsCount } = await searchParams;
   // Never feed an unvalidated query value into a translation key.
   const jobsOp = (AI_JOB_OPERATIONS as readonly string[]).includes(jobsOpRaw ?? "")
     ? jobsOpRaw
@@ -74,7 +79,7 @@ export default async function AdminPage({
   const jobsPageCount = Math.max(1, Math.ceil(jobsTotal / JOBS_PER_PAGE));
   const jobsPage = Math.min(Math.max(1, Math.trunc(Number(jobsPageRaw)) || 1), jobsPageCount);
 
-  const [users, jobs, invitations, diagnosticsChecks, ownProfile] = await Promise.all([
+  const [users, jobs, invitations, diagnosticsChecks, ownProfile, mailConfiguration] = await Promise.all([
     prisma.user.findMany({ include: { profile: true }, orderBy: { createdAt: "desc" } }),
     prisma.aiJob.findMany({
       where: jobsFilter ? { status: jobsFilter } : {},
@@ -96,6 +101,7 @@ export default async function AdminPage({
     // The AI consent switches act on the signed-in administrator's own profile,
     // which is where they lived before they moved off the settings page.
     prisma.userProfile.findUnique({ where: { userId: current.id } }),
+    getMailConfiguration(),
   ]);
 
   // What the job was actually asked to do. It lives on a different record for
@@ -281,8 +287,33 @@ export default async function AdminPage({
             {t("invitationLinkHint")}
           </p>
           <CopyField value={invitationLink} label={t("invitationLink")} copyLabel={t("copy")} copiedLabel={t("copied")} />
+          {mail ? <p className={mail === "sent" ? "notice" : "notice notice-warn"}>{t(`mailStatus.${mail}` as "mailStatus.sent")}</p> : null}
         </section>
       ) : null}
+
+      {batchSent !== undefined ? <div className="notice">{t("batchResult", { sent: Number(batchSent), failed: Number(batchFailed ?? 0) })}</div> : null}
+
+      <section className="card" style={{ marginBottom: 20 }}>
+        <h2>{t("smtp.title")}</h2>
+        <p className="muted">{t("smtp.hint")}</p>
+        {mailSettings ? <div className="notice">{t(`smtp.${mailSettings}` as "smtp.saved")}</div> : null}
+        <form action={saveMailSettingsAction}>
+          <div className="checkbox"><input id="smtp-enabled" name="enabled" type="checkbox" defaultChecked={mailConfiguration.enabled} disabled={mailConfiguration.source === "environment"} /><label htmlFor="smtp-enabled">{t("smtp.enabled")}</label></div>
+          <div className="admin-grid">
+            <div className="field"><label htmlFor="smtp-host">{t("smtp.host")}</label><input id="smtp-host" name="host" defaultValue={mailConfiguration.host} required disabled={mailConfiguration.source === "environment"} /></div>
+            <div className="field"><label htmlFor="smtp-port">{t("smtp.port")}</label><input id="smtp-port" name="port" type="number" min="1" max="65535" defaultValue={mailConfiguration.port} required disabled={mailConfiguration.source === "environment"} /></div>
+          </div>
+          <div className="checkbox"><input id="smtp-secure" name="secure" type="checkbox" defaultChecked={mailConfiguration.secure} disabled={mailConfiguration.source === "environment"} /><label htmlFor="smtp-secure">{t("smtp.secure")}</label></div>
+          <div className="admin-grid">
+            <div className="field"><label htmlFor="smtp-user">{t("smtp.username")}</label><input id="smtp-user" name="username" defaultValue={mailConfiguration.username} disabled={mailConfiguration.source === "environment"} /></div>
+            <div className="field"><label htmlFor="smtp-password">{t("smtp.password")}</label><input id="smtp-password" name="password" type="password" placeholder={mailConfiguration.password ? t("smtp.passwordStored") : ""} disabled={mailConfiguration.source === "environment"} autoComplete="new-password" /></div>
+            <div className="field"><label htmlFor="smtp-from-email">{t("smtp.fromEmail")}</label><input id="smtp-from-email" name="fromEmail" type="email" defaultValue={mailConfiguration.fromEmail} required disabled={mailConfiguration.source === "environment"} /></div>
+            <div className="field"><label htmlFor="smtp-from-name">{t("smtp.fromName")}</label><input id="smtp-from-name" name="fromName" defaultValue={mailConfiguration.fromName} disabled={mailConfiguration.source === "environment"} /></div>
+          </div>
+          <p className="hint">{t("smtp.source", { source: t(`smtp.sourceValue.${mailConfiguration.source}` as "smtp.sourceValue.none") })}</p>
+          <button className="btn btn-primary" disabled={mailConfiguration.source === "environment"}>{t("smtp.save")}</button>
+        </form>
+      </section>
 
       <div className="admin-grid">
         <section className="card">
@@ -304,6 +335,16 @@ export default async function AdminPage({
               </select>
             </div>
             <button className="btn btn-primary">{t("sendInvitation")}</button>
+          </form>
+        </section>
+
+        <section className="card">
+          <h2>{t("batchInvite")}</h2>
+          <p className="muted">{t("batchInviteHint")}</p>
+          <form action={batchInviteUsersAction}>
+            <div className="field"><label htmlFor="recipients">{t("recipients")}</label><textarea id="recipients" name="recipients" rows={7} required placeholder={t("batchPlaceholder")} /></div>
+            <div className="field"><label htmlFor="batch-role">{t("role")}</label><select id="batch-role" name="role"><option value="USER">{t("roleUser")}</option><option value="ADMIN">{t("roleAdmin")}</option></select></div>
+            <button className="btn btn-primary">{t("sendBatch")}</button>
           </form>
         </section>
 

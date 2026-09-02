@@ -172,6 +172,21 @@ model UserInvitation {
   @@index([expiresAt])
 }
 
+/// Singleton SMTP configuration (the row with id = "default"). The password
+/// is encrypted with APP_SECRET before it reaches the database.
+model MailSettings {
+  id                String   @id @default("default")
+  enabled           Boolean  @default(false)
+  host              String?
+  port              Int      @default(587)
+  secure            Boolean  @default(false)
+  username          String?
+  passwordEncrypted String?
+  fromEmail         String?
+  fromName          String?
+  updatedAt         DateTime @updatedAt
+}
+
 model MealInput {
   id             String    @id @default(cuid())
   userId         String

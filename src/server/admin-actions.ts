@@ -7,16 +7,16 @@ import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { hashPassword, passwordProblem } from "@/lib/auth";
 import { endSession, requireAdmin, requireUser } from "./session";
-import { issueInvitation, redeemableInvitation } from "./admin";
+import { deliverInvitation, issueInvitation, redeemableInvitation } from "./admin";
+import { encryptMailPassword, getMailConfiguration } from "@/lib/mail";
+import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { ENRICHMENT_BATCH_LIMIT, ENRICHMENT_RETRY_MS, missingNutritionKeys } from "./food-enrichment";
 import { AI_JOB_OPERATIONS, AI_JOB_SELECTION_OPERATIONS, jobPriority, STUCK_RUNNING_MS, type AiJobOperation } from "./ai-types";
 import { discardMealInputImages } from "./meal-image";
 
 /**
- * The token travels back in the redirect so `/admin` can show the link once.
- * NutriCore sends no email, so this is the only place the plaintext token ever
- * exists after issuing; it reaches the admin's own address bar and nowhere
- * else. A lost link is replaced by issuing a new one with "Resend".
+ * The token still travels back so an administrator can copy it when mail is
+ * disabled or delivery fails. SMTP delivery is attempted before redirecting.
  */
 export async function inviteUserAction(formData: FormData) {
   const admin = await requireAdmin();
@@ -29,8 +29,11 @@ export async function inviteUserAction(formData: FormData) {
     .parse(Object.fromEntries(formData));
 
   const { invitation, token } = await issueInvitation({ ...parsed, invitedById: admin.id });
+  let mail = "disabled";
+  try { mail = (await deliverInvitation({ invitation, token })).sent ? "sent" : "disabled"; }
+  catch (error) { mail = "failed"; logger.error("Invitation email failed", { invitationId: invitation.id, error: String(error) }); }
   logger.info("Invitation issued", { invitationId: invitation.id, role: invitation.role, by: admin.id });
-  redirect(`/admin?token=${encodeURIComponent(token)}`);
+  redirect(`/admin?token=${encodeURIComponent(token)}&mail=${mail}`);
 }
 
 export async function resendInvitationAction(formData: FormData) {
@@ -45,8 +48,79 @@ export async function resendInvitationAction(formData: FormData) {
     role: previous.role,
     invitedById: admin.id,
   });
+  let mail = "disabled";
+  try { mail = (await deliverInvitation({ invitation, token })).sent ? "sent" : "disabled"; }
+  catch (error) { mail = "failed"; logger.error("Invitation email failed", { invitationId: invitation.id, error: String(error) }); }
   logger.info("Invitation reissued", { invitationId: invitation.id, replaces: previous.id, by: admin.id });
-  redirect(`/admin?token=${encodeURIComponent(token)}`);
+  redirect(`/admin?token=${encodeURIComponent(token)}&mail=${mail}`);
+}
+
+export async function batchInviteUsersAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const role = z.enum(["USER", "ADMIN"]).catch("USER").parse(String(formData.get("role")));
+  const rows = String(formData.get("recipients") ?? "").split(/\r?\n/).map((row) => row.trim()).filter(Boolean).slice(0, 100);
+  let sent = 0;
+  let failed = 0;
+  for (const row of rows) {
+    const [emailValue, ...nameParts] = row.split(",");
+    const result = z.email().safeParse(emailValue.trim().toLowerCase());
+    if (!result.success) { failed++; continue; }
+    const issued = await issueInvitation({ email: result.data, name: nameParts.join(",").trim() || undefined, role, invitedById: admin.id });
+    try {
+      const delivery = await deliverInvitation(issued);
+      if (delivery.sent) sent++;
+      else {
+        failed++;
+        await prisma.userInvitation.update({ where: { id: issued.invitation.id }, data: { revokedAt: new Date() } });
+      }
+    } catch (error) {
+      failed++;
+      await prisma.userInvitation.update({ where: { id: issued.invitation.id }, data: { revokedAt: new Date() } });
+      logger.error("Batch invitation email failed", { invitationId: issued.invitation.id, error: String(error) });
+    }
+  }
+  redirect(`/admin?batchSent=${sent}&batchFailed=${failed}`);
+}
+
+export async function saveMailSettingsAction(formData: FormData) {
+  await requireAdmin();
+  // When SMTP_HOST is set, environment configuration deliberately wins and the
+  // panel is read-only to avoid presenting values that will not take effect.
+  if (process.env.SMTP_HOST) redirect("/admin?mailSettings=environment");
+  const parsed = z.object({
+    host: z.string().trim().max(255),
+    port: z.coerce.number().int().min(1).max(65535),
+    username: z.string().trim().max(255),
+    fromEmail: z.union([z.literal(""), z.email()]),
+    fromName: z.string().trim().max(100),
+  }).parse(Object.fromEntries(formData));
+  const password = String(formData.get("password") ?? "");
+  const current = await prisma.mailSettings.findUnique({ where: { id: "default" } });
+  await prisma.mailSettings.upsert({
+    where: { id: "default" },
+    create: { id: "default", ...parsed, enabled: formData.has("enabled"), secure: formData.has("secure"), passwordEncrypted: password ? encryptMailPassword(password) : null },
+    update: { ...parsed, enabled: formData.has("enabled"), secure: formData.has("secure"), ...(password ? { passwordEncrypted: encryptMailPassword(password) } : { passwordEncrypted: current?.passwordEncrypted }) },
+  });
+  redirect("/admin?mailSettings=saved");
+}
+
+export async function inviteUserByUserAction(formData: FormData) {
+  const user = await requireUser();
+  const limit = rateLimit(`invite:${user.id}`, RATE_LIMITS.invite.limit, RATE_LIMITS.invite.windowMs);
+  if (!limit.allowed) redirect("/settings?invite=rateLimited");
+  const email = z.string().trim().toLowerCase().pipe(z.email()).parse(String(formData.get("email")));
+  const name = z.string().trim().max(80).optional().parse(String(formData.get("name") ?? "")) || undefined;
+  const config = await getMailConfiguration();
+  if (!config.enabled) redirect("/settings?invite=mailDisabled");
+  const issued = await issueInvitation({ email, name, role: "USER", invitedById: user.id });
+  try {
+    await deliverInvitation(issued);
+  } catch (error) {
+    await prisma.userInvitation.update({ where: { id: issued.invitation.id }, data: { revokedAt: new Date() } });
+    logger.error("User invitation email failed", { invitationId: issued.invitation.id, error: String(error) });
+    redirect("/settings?invite=failed");
+  }
+  redirect("/settings?invite=sent");
 }
 
 export async function setUserActiveAction(formData: FormData) {

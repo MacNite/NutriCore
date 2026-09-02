@@ -574,7 +574,18 @@
     "administration": "Administration",
     "administrationHint": "Invite people, deactivate accounts and watch background AI work.",
     "autoApproveAi": "Log AI meals automatically",
-    "autoApproveAiHint": "A recognised meal goes straight into the diary, without the review screen. Every match stays traceable and estimates stay marked as estimates. Switched off, each meal waits for your approval."
+    "autoApproveAiHint": "A recognised meal goes straight into the diary, without the review screen. Every match stays traceable and estimates stay marked as estimates. Switched off, each meal waits for your approval.",
+    "invite": {
+      "title": "Invite someone",
+      "hint": "Send a single-use NutriCore signup link by email. Invited accounts always receive the User role.",
+      "email": "Email",
+      "name": "Name (optional)",
+      "send": "Send invitation",
+      "sent": "Invitation sent.",
+      "failed": "The email could not be delivered. Please try again later.",
+      "mailDisabled": "Invitations require an administrator to enable SMTP.",
+      "rateLimited": "Too many invitations were requested. Please try again later."
+    }
   },
   "diagnostics": {
     "title": "Diagnostics",
@@ -840,7 +851,7 @@
     "roleAdmin": "Administrator",
     "sendInvitation": "Create invitation",
     "invitationLink": "Invitation link",
-    "invitationLinkHint": "Shown once, right here. Send it to the invited person yourself — NutriCore never sends email.",
+    "invitationLinkHint": "Shown once as a fallback. When SMTP is enabled, NutriCore also emails this link.",
     "copy": "Copy",
     "copied": "Copied",
     "recentInvitations": "Recent invitations",
@@ -951,7 +962,40 @@
     "resultCandidate": "Proposal",
     "jobsPageStatus": "Page {page} of {pages} · {total, plural, one {# job} other {# jobs}}",
     "previousPage": "Previous",
-    "nextPage": "Next"
+    "nextPage": "Next",
+    "batchInvite": "Batch invite users",
+    "batchInviteHint": "One recipient per line, as email or email,name (maximum 100). SMTP must be enabled.",
+    "recipients": "Recipients",
+    "batchPlaceholder": "alex@example.com,Alex\nsam@example.com",
+    "sendBatch": "Send invitations",
+    "batchResult": "Sent {sent} invitations; {failed} could not be sent.",
+    "mailStatus": {
+      "sent": "The invitation email was sent.",
+      "disabled": "SMTP is disabled; share the link manually.",
+      "failed": "Email delivery failed; share the link manually."
+    },
+    "smtp": {
+      "title": "SMTP mailer",
+      "hint": "Configure invitation email delivery here, or set SMTP_HOST and related environment variables. Environment settings take precedence.",
+      "enabled": "Enable email delivery",
+      "host": "SMTP host",
+      "port": "Port",
+      "secure": "Use implicit TLS (usually port 465)",
+      "username": "Username (optional)",
+      "password": "Password (leave blank to keep it)",
+      "passwordStored": "Password is stored",
+      "fromEmail": "Sender email",
+      "fromName": "Sender name",
+      "source": "Active source: {source}",
+      "sourceValue": {
+        "environment": "environment",
+        "administrator": "administrator panel",
+        "none": "not configured"
+      },
+      "save": "Save mail settings",
+      "saved": "Mail settings saved.",
+      "environment": "Environment configuration is active and cannot be changed here."
+    }
   },
   "account": {
     "changePasswordTitle": "Choose a new password",
