@@ -3,10 +3,11 @@
 import { useEffect, useRef } from "react";
 
 /** Shared native dialog with consistent focus restoration and mobile layout. */
-export function AppDialog({ id, title, closeLabel, trigger, triggerClassName = "btn btn-quiet", initialOpen = false, secondaryTrigger, secondaryTriggerLabel, children }: {
+export function AppDialog({ id, title, closeLabel, trigger, triggerClassName = "btn btn-quiet", initialOpen = false, secondaryTrigger, secondaryTriggerLabel, secondaryAutoFocusTarget, children }: {
   id: string; title: string; closeLabel: string; trigger: React.ReactNode;
   triggerClassName?: string; initialOpen?: boolean;
   secondaryTrigger?: React.ReactNode; secondaryTriggerLabel?: string;
+  secondaryAutoFocusTarget?: string;
   children: React.ReactNode;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -15,7 +16,10 @@ export function AppDialog({ id, title, closeLabel, trigger, triggerClassName = "
   return <>
     <button ref={triggerButton} className={triggerClassName} type="button" onClick={() => dialog.current?.showModal()}>{trigger}</button>
     {secondaryTrigger ? (
-      <button className="icon-btn" type="button" onClick={() => dialog.current?.showModal()} aria-label={secondaryTriggerLabel}>
+      <button className="icon-btn" type="button" onClick={() => {
+        dialog.current?.showModal();
+        if (secondaryAutoFocusTarget) requestAnimationFrame(() => dialog.current?.querySelector<HTMLElement>(secondaryAutoFocusTarget)?.focus());
+      }} aria-label={secondaryTriggerLabel}>
         {secondaryTrigger}
       </button>
     ) : null}

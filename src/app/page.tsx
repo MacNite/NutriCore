@@ -22,6 +22,8 @@ import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
 import { shiftDateKey, validDateKey } from "@/lib/date";
 import { ActivityEditor } from "@/components/activity-panel";
 import { getActivityEntries } from "@/server/activities";
+import { FoodSearchField } from "@/components/food-search-field";
+import { researchAvailability } from "@/server/research";
 
 export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string; quickMeal?: string; editMeal?: string; error?: string }> }) {
   const user = await getSessionUser();
@@ -37,6 +39,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const today = formatDateKey(new Date());
   const params = await searchParams;
   const selectedDate = validDateKey(params.date, today);
+  const research = researchAvailability(user);
 
   const [day, target, recent, pending, activities] = await Promise.all([
     getDiaryDay(user.id, selectedDate),
@@ -122,8 +125,9 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                     trigger={<><div className="row-body"><strong>{diaryT(`meals.${meal}`)}</strong><span>{entries.length === 0 ? diaryT("empty") : entries.map((e) => e.label).slice(0, 3).join(" · ")}</span></div><span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span></>}
                     secondaryTrigger={<span aria-hidden="true">＋</span>}
                     secondaryTriggerLabel={diaryT("addTo", { meal: diaryT(`meals.${meal}`) })}
+                    secondaryAutoFocusTarget=".meal-search-input"
                   >
-                    <div className="dialog-toolbar"><strong>{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</strong><Link className="btn btn-primary" href={`/foods?meal=${meal}&date=${selectedDate}&editMeal=${meal}`}><span aria-hidden="true">＋</span> {common("add")}</Link></div>
+                    <div className="dialog-toolbar"><strong>{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</strong><FoodSearchField variant="dropdown" meal={meal} date={selectedDate} editMeal={meal} locale={locale} researchAvailable={research.available} researchUnavailableReason={research.reason} /></div>
                     {entries.length === 0 ? <p className="empty">{diaryT("empty")}</p> : entries.map((entry) => <DiaryEntryRow key={entry.id} entry={{ id: entry.id, label: entry.label, brand: entry.brand, quantity: entry.quantity, unit: entry.unit, kcal: entry.nutrients.energyKcal ?? null, sourceType: entry.sourceType }} date={selectedDate} locale={locale} badge={<SourceBadge source={entry.sourceType} />} />)}
                   </AppDialog>
                 </div>

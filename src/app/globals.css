@@ -1530,3 +1530,15 @@ legend {
 .copy-previous-action { display: flex; justify-content: center; padding: 12px 0 4px; }
 .copy-previous-action .btn { min-height: 44px; box-shadow: 0 2px 8px rgba(10, 30, 20, .08); }
 @media (max-width: 600px) { .app-dialog-head { padding: 16px; } .app-dialog-body { padding: 14px 16px 18px; } }
+
+/* Compact combobox used in meal dialogs. The panel overlays diary rows rather than
+   reflowing them, while its own scrolling keeps it usable on small screens. */
+.dialog-toolbar > .food-search-dropdown { flex: 1; min-width: 0; }
+.food-search-dropdown { position: relative; z-index: 4; }
+.food-search-panel { position: absolute; z-index: 20; top: calc(100% + 5px); right: 0; left: 0; min-width: min(100%, 320px); max-height: min(50dvh, 360px); overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+.food-search-option { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 9px 12px; color: inherit; text-decoration: none; border-bottom: 1px solid var(--line); }
+.food-search-option:hover, .food-search-option[aria-selected="true"] { background: var(--surface-soft); }
+.food-search-message, .food-search-group { margin: 0; padding: 10px 12px; }
+.food-search-group { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.food-search-actions { display: flex; align-items: center; gap: 10px; padding: 10px; flex-wrap: wrap; font-size: 13px; }
+@media (max-width: 600px) { .dialog-toolbar { align-items: center; } .dialog-toolbar > strong { white-space: nowrap; } .food-search-panel { position: absolute; left: min(-90px, 0px); right: 0; } }

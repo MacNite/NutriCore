@@ -8,6 +8,7 @@ const query = z.object({
   q: z.string().trim().max(200),
   meal: z.string().trim().max(20).optional(),
   remote: z.enum(["0", "1"]).optional(),
+  drafts: z.enum(["0", "1"]).optional(),
 });
 
 export async function GET(request: Request) {
@@ -27,6 +28,7 @@ export async function GET(request: Request) {
     q: url.searchParams.get("q") ?? "",
     meal: url.searchParams.get("meal") ?? undefined,
     remote: url.searchParams.get("remote") ?? undefined,
+    drafts: url.searchParams.get("drafts") ?? undefined,
   });
   if (!parsed.success) return NextResponse.json({ error: "validation" }, { status: 400 });
 
@@ -36,6 +38,7 @@ export async function GET(request: Request) {
     locale: user.language,
     meal: parsed.data.meal,
     includeRemote: parsed.data.remote === "1",
+    includeRecipeDrafts: parsed.data.drafts === "1",
   });
 
   return NextResponse.json(outcome, { headers: { "Cache-Control": "no-store" } });

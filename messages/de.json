@@ -271,7 +271,11 @@
       "label": "KI-ergänzt",
       "servingSize": "Portionsgröße",
       "tooltip": "Von KI ergänzt: {details} ({date}). Die ursprüngliche Herkunft bleibt unverändert."
-    }
+    },
+    "drafts": "Entwürfe",
+    "draft": "Entwurf",
+    "ingredientCount": "{count, plural, one {# Zutat} other {# Zutaten}}",
+    "moreResults": "Mehr Ergebnisse und Aktionen"
   },
   "nutrients": {
     "energyKcal": "Energie",
