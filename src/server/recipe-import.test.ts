@@ -3,7 +3,7 @@ import type { z } from "zod";
 
 const { prismaMock, recipeImport, food, recipe, recipeSource } = vi.hoisted(() => {
   const recipeImport = { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() };
-  const food = { findFirst: vi.fn() };
+  const food = { findFirst: vi.fn(), findMany: vi.fn() };
   const recipe = { findFirst: vi.fn() };
   const recipeSource = { create: vi.fn() };
   return { recipeImport, food, recipe, recipeSource, prismaMock: { recipeImport, food, recipe, recipeSource } };
@@ -40,6 +40,7 @@ const weighed = (name: string) => ({ id: `food-${name}`, name, basisUnit: "G", d
 beforeEach(() => {
   vi.clearAllMocks();
   food.findFirst.mockResolvedValue(null);
+  food.findMany.mockResolvedValue([]);
   recipe.findFirst.mockResolvedValue(null);
   recipeImport.update.mockResolvedValue({});
   recipeImport.findUnique.mockResolvedValue({
