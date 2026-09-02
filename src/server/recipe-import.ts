@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { allowedUnits, canonicalUnit, normalizeName, resolveIngredientWeight } from "@/lib/units";
+import { allowedUnits, canonicalUnit, normalizeName, resolveIngredientWeight, servingLabelFor } from "@/lib/units";
 import { asUntrustedExcerpt } from "@/lib/url-guard";
 import { OllamaProvider } from "@/providers/ollama";
 import { fetchMealPage } from "./meal-url";
@@ -145,9 +145,13 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
     visibleFoods = await prisma.food.findMany({
       where: visibleFoodWhere(record.userId),
       select: { id: true, name: true, basisUnit: true, densityGPerMl: true, servings: { select: { label: true, unit: true, amount: true, gramEquivalent: true, mlEquivalent: true } } },
+      // Ordered, so the cap cuts the same foods every time rather than whatever
+      // the planner happened to return - and the user's own foods are the ones
+      // it never cuts, because those are what their recipes actually name.
+      orderBy: [{ ownerId: { sort: "desc", nulls: "last" } }, { name: "asc" }],
       take: 1000,
     });
-    const result = await resolveIngredientLines(structuredLines, visibleFoods, ai);
+    const result = await resolveIngredientLines(structuredLines, visibleFoods, ai, record.sourceUrl ?? undefined);
     resolvedStructured = result.ingredients;
     diagnostics = result.diagnostics;
   }
@@ -159,7 +163,10 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
     const food = item.foodId
       ? visibleFoods.find((candidate) => candidate.id === item.foodId)
       : await prisma.food.findFirst({
-      where: { AND: [visibleFoodWhere(record.userId), { normalizedName: normalizeName(ingredient.name) }] },
+      // The identity name, not the raw parsed one: looking up "kleine zwiebel
+      // fein gehackt" finds nothing, while the "zwiebel" beside it is exactly
+      // what a stored food is named.
+      where: { AND: [visibleFoodWhere(record.userId), { normalizedName: item.normalizedName || normalizeName(ingredient.name) }] },
       select: { id: true, name: true, basisUnit: true, densityGPerMl: true, servings: { select: { label: true, unit: true, amount: true, gramEquivalent: true, mlEquivalent: true } } },
     });
     if (!food) {
@@ -168,9 +175,10 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
     }
 
     const context = foodPortionContext(food);
-    // The source's own spelling first - "Gramm", "grams" - then whatever else
-    // the model wrote, which may still name a portion this food defines.
-    const unit = canonicalUnit(ingredient.unit) ?? ingredient.unit;
+    // The source's own spelling of a metric unit first, then the food's own
+    // spelling of a named portion - "2 Eier" asks for a piece, and the food
+    // calls that "Stück", which is the word its unit dropdown will offer.
+    const unit = canonicalUnit(ingredient.unit) ?? servingLabelFor(ingredient.unit, context) ?? ingredient.unit;
     if (!resolveIngredientWeight(ingredient.amount, unit, context).ok) {
       // A spoon or a piece has no weight for this food, and neither has a
       // millilitre while the food carries no density. Inventing one is exactly
@@ -196,9 +204,12 @@ export async function runRecipeImport(importId: string, deps: { ai?: OllamaProvi
   // Only the deterministic reading can report on the source's own lines. Where
   // the model read the recipe instead, those lines say nothing about what it
   // did or did not manage to extract.
-  const unresolvedLines = resolvedStructured?.filter((item) => item.resolution === "unresolved").map((item) => item.sourceLine) ?? [];
   const stillUnparsed = resolvedStructured?.filter((item) => !item.parsed).map((item) => item.sourceLine) ?? [];
-  const draft: RecipeImportDraft = { ...parsed, servings, ingredients, unmatched, unconverted, unparsedIngredients: stillUnparsed, unresolvedIngredientLines: unresolvedLines, resolutionDiagnostics: diagnostics, recipeId };
+  // What the model was asked to settle, so the reader knows which rows to check
+  // first. `unmatched` and `unconverted` already name everything that failed;
+  // this is the opposite - the ones that succeeded, but not on their own.
+  const aiAssisted = ingredients.filter((item) => item.resolution === "ai-assisted").map((item) => item.name);
+  const draft: RecipeImportDraft = { ...parsed, servings, ingredients, unmatched, unconverted, unparsedIngredients: stillUnparsed, aiAssistedIngredients: aiAssisted, resolutionDiagnostics: diagnostics, recipeId };
   if (diagnostics) logger.info("recipe ingredient resolution completed", { importId, ...diagnostics });
   await prisma.recipeImport.update({
     where: { id: importId },

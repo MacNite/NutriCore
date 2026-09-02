@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import type { BasisUnit } from "@/lib/units";
 import { prisma } from "@/lib/db";
 import { hasAnyNutrient, chooseNutrition } from "@/lib/research";
 import { asUntrustedExcerpt } from "@/lib/url-guard";
@@ -95,26 +96,60 @@ export function rankNutritionSources(name: string, keys: readonly string[], cand
   }).sort((a, b) => b.score - a.score || a.searchIndex - b.searchIndex);
 }
 
-/** Converts only an explicitly gram-addressable basis; millilitres are unsafe. */
-export function normalizeNutritionPer100g(raw: RawNutritionExtraction): Record<string, number> | null {
-  const grams = raw.basisUnit === "g" ? raw.basisAmount : raw.basisUnit === "serving" ? raw.servingSizeG && raw.servingSizeG * raw.basisAmount : undefined;
-  if (!grams || !Number.isFinite(grams) || grams <= 0) return null;
-  return Object.fromEntries(Object.entries(raw.nutrients).map(([key, value]) => [key, value * (100 / grams)]));
+/**
+ * The food the values are being read for. A stored food keeps its nutrients per
+ * 100 of its own basis unit, so a drink stored in millilitres wants a source
+ * stating per 100 ml - which is how every beverage label is written, and which
+ * this used to reject outright, leaving drinks unenrichable.
+ */
+export interface NutritionTarget {
+  basisUnit?: BasisUnit;
+  densityGPerMl?: number | null;
 }
 
-/** Conservative physical bounds, intended to catch blatant extraction errors. */
-export function isPlausibleNutrition(per100g: Record<string, number>): boolean {
-  const entries = Object.entries(per100g);
+/** Converts a stated basis to 100 of the target's own unit, or refuses. */
+export function normalizeNutritionPer100g(
+  raw: RawNutritionExtraction,
+  target: NutritionTarget = {},
+): Record<string, number> | null {
+  const basisUnit = target.basisUnit ?? "G";
+  const density = target.densityGPerMl && target.densityGPerMl > 0 ? target.densityGPerMl : null;
+  // How much of the target's own basis unit the source's numbers describe.
+  // Crossing between mass and volume still needs the food's stated density;
+  // nothing here assumes 1 ml = 1 g.
+  const grams = raw.basisUnit === "g" ? raw.basisAmount
+    : raw.basisUnit === "serving" ? (raw.servingSizeG ? raw.servingSizeG * raw.basisAmount : null)
+    : null;
+  const amount = basisUnit === "G"
+    ? (grams ?? (raw.basisUnit === "ml" && density ? raw.basisAmount * density : null))
+    : raw.basisUnit === "ml" ? raw.basisAmount : (grams !== null && density ? grams / density : null);
+  if (!amount || !Number.isFinite(amount) || amount <= 0) return null;
+  return Object.fromEntries(Object.entries(raw.nutrients).map(([key, value]) => [key, value * (100 / amount)]));
+}
+
+/**
+ * Conservative physical bounds, intended to catch blatant extraction errors.
+ *
+ * A millilitre basis needs headroom: 100 ml of honey is about 142 g, so its
+ * sugars per 100 ml legitimately exceed the 100 g a mass basis caps at.
+ */
+export function isPlausibleNutrition(per100: Record<string, number>, target: NutritionTarget = {}): boolean {
+  const entries = Object.entries(per100);
   if (!entries.length || entries.some(([, value]) => !Number.isFinite(value) || value < 0)) return false;
-  if ((per100g.energyKcal ?? 0) > 1_000) return false;
+  // The densest foods people store by volume sit around 1.45 g/ml.
+  const headroom = target.basisUnit === "ML" ? 1.5 : 1;
+  if ((per100.energyKcal ?? 0) > 1_000 * headroom) return false;
   const massKeys = ["protein", "carbohydrate", "fat", "fiber", "sugar", "saturatedFat", "salt"];
-  if (massKeys.some((key) => (per100g[key] ?? 0) > 100)) return false;
+  if (massKeys.some((key) => (per100[key] ?? 0) > 100 * headroom)) return false;
   // Fibre and salt can overlap declared carbohydrate; use only primary macros.
-  if ((per100g.protein ?? 0) + (per100g.carbohydrate ?? 0) + (per100g.fat ?? 0) > 105) return false;
+  if ((per100.protein ?? 0) + (per100.carbohydrate ?? 0) + (per100.fat ?? 0) > 105 * headroom) return false;
   return true;
 }
 
 const MAX_KEYS_PER_REQUEST = 12;
+
+/** Pages actually retrieved. Only the best two are ever read by the model. */
+const MAX_FETCHED_SOURCES = 3;
 
 export interface ExtractedNutrition {
   /** Only the keys that were asked for, and only values the source carried. */
@@ -141,6 +176,7 @@ export async function extractNutritionForName(
   name: string,
   keys: readonly string[],
   deps: { ai?: OllamaProvider; search?: SearxngClient; fetchSource?: typeof fetchResearchSource } = {},
+  target: NutritionTarget = {},
 ): Promise<ExtractedNutrition | null> {
   const requested = keys.slice(0, MAX_KEYS_PER_REQUEST);
   if (!requested.length) return null;
@@ -148,11 +184,17 @@ export async function extractNutritionForName(
   const sources = await (deps.search ?? new SearxngClient()).search(`${name} nutrition per 100g serving size`);
   if (!sources.length) return null;
 
+  // Ranked twice on purpose. The first pass sees only the title and the search
+  // snippet, which is enough to put an obvious cooking blog last, and it decides
+  // which pages are worth retrieving at all: fetching five to read two spent
+  // three requests on other people's servers for nothing.
+  const shortlist = rankNutritionSources(name, requested, sources.map((source) => ({ ...source, pageText: "" })));
   const fetchSource = deps.fetchSource ?? fetchResearchSource;
-  const fetched = (await Promise.all(sources.slice(0, 5).map(async (source) => {
+  const fetched = (await Promise.all(shortlist.slice(0, MAX_FETCHED_SOURCES).map(async (source) => {
     try { const page = await fetchSource(source.url); return { ...source, url: page.url, pageText: page.excerpt }; }
     catch { return null; }
   }))).filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null);
+  // Ranked again with the page bodies, which is where a per-100-g basis shows.
   const ranked = rankNutritionSources(name, requested, fetched);
   if (!ranked.length) return null;
   const ai = deps.ai ?? new OllamaProvider();
@@ -166,8 +208,8 @@ export async function extractNutritionForName(
         jsonSchema: z.toJSONSchema(extractionSchema),
         repair: repairNutrientExtraction(requested),
       });
-      const per100g = normalizeNutritionPer100g(extracted);
-      if (!per100g || !isPlausibleNutrition(per100g)) continue;
+      const per100g = normalizeNutritionPer100g(extracted, target);
+      if (!per100g || !isPlausibleNutrition(per100g, target)) continue;
       return { per100g, servingSizeG: extracted.servingSizeG, url: page.url, model: capabilities.model, consideredUrls: sources.map((source) => source.url) };
     } catch (error) {
       // One malformed candidate must not prevent trying the next. A provider
@@ -211,7 +253,7 @@ export async function enrichFood(
   const gate = rateLimit(`food-enrichment:${food.id}`, RATE_LIMITS.research.limit, RATE_LIMITS.research.windowMs);
   if (!gate.allowed) throw new Error(`Research rate limit; retry in ${gate.retryAfterSeconds}s`);
 
-  const extracted = await extractNutritionForName(food.name, requested, deps);
+  const extracted = await extractNutritionForName(food.name, requested, deps, { basisUnit: food.basisUnit, densityGPerMl: food.densityGPerMl === null ? null : Number(food.densityGPerMl) });
   if (!extracted) return { filledNutrientKeys: [], servingFilled: false };
 
   // Use the established verification/selection gate; an empty extraction never writes.

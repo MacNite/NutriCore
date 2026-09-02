@@ -25,6 +25,34 @@ const VOLUME_TO_ML: Record<string, number> = { ml: 1, milliliter: 1, millilitre:
 export const normalizeUnit = (unit: string) => unit.trim().toLowerCase().replace(/\.$/, "");
 
 /**
+ * Spellings that all name "one of them", in either language.
+ *
+ * A counted line - "2 Eier" - carries no measure word, so the parser calls the
+ * unit `piece`; the food it belongs to defines its portion as `Stück`. Matching
+ * those by string alone failed every counted German ingredient, and the weight
+ * the food itself states was reported as unusable.
+ */
+const PIECE_WORDS = new Set(["piece", "pieces", "stück", "stücke", "stueck", "stk", "st", "pc", "pcs", "item", "items"]);
+
+/** True when two already-normalised unit spellings name the same portion. */
+const sameUnitWord = (a: string, b: string) => a === b || (PIECE_WORDS.has(a) && PIECE_WORDS.has(b));
+
+/** The serving a unit refers to, matched on the food's own label or unit. */
+function matchServing(unit: string, servings: ServingDefinition[] | undefined) {
+  const key = normalizeUnit(unit);
+  return servings?.find((s) => sameUnitWord(normalizeUnit(s.label), key) || sameUnitWord(normalizeUnit(s.unit), key));
+}
+
+/**
+ * The food's own spelling of a named portion, for a unit that means the same
+ * thing. Storing `piece` where the food says `Stück` would leave the recipe
+ * form with a value its own dropdown does not offer.
+ */
+export function servingLabelFor(unit: string, context: PortionContext): string | null {
+  return matchServing(unit, context.servings)?.label ?? null;
+}
+
+/**
  * Resolves a user-entered quantity to the food's canonical basis unit.
  *
  * Volume and mass are only ever converted through an explicitly stored density.
@@ -52,7 +80,7 @@ export function resolvePortion(amount: number, unit: string, context: PortionCon
 
   // Named portions ("piece", "slice", "Scheibe", ...) must carry a resolved
   // gram or millilitre quantity; they are never guessed.
-  const serving = context.servings?.find((s) => normalizeUnit(s.label) === key || normalizeUnit(s.unit) === key);
+  const serving = matchServing(unit, context.servings);
   if (!serving) return { ok: false, reason: "unknown-unit" };
 
   const perServingG = serving.gramEquivalent ?? null;

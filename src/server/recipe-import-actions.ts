@@ -36,8 +36,12 @@ export interface RecipeImportDraft {
   unconverted?: string[];
   /** Structured source lines that had no explicit deterministic quantity. */
   unparsedIngredients?: string[];
-  /** Original source text for every line still requiring recipe review. */
-  unresolvedIngredientLines?: string[];
+  /**
+   * Ingredients that were matched with the model's help rather than by the
+   * deterministic rules alone. These are the rows worth checking first: the
+   * quantity is the source's, but the food is a judgement call.
+   */
+  aiAssistedIngredients?: string[];
   /** Aggregate diagnostics only; no page body or image data is retained here. */
   resolutionDiagnostics?: {
     ingredientCount: number;

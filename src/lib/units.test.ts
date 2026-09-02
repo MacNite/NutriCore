@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowedUnits, canonicalUnit, normalizeName, parseServingSize, resolveIngredientWeight, resolvePortion } from "./units";
+import { allowedUnits, canonicalUnit, normalizeName, parseServingSize, resolveIngredientWeight, resolvePortion, servingLabelFor } from "./units";
 
 const gramFood = { basisUnit: "G" as const };
 const mlFood = { basisUnit: "ML" as const };
@@ -123,5 +123,27 @@ describe("the units a food can be measured in", () => {
     for (const food of foods) {
       for (const unit of allowedUnits(food)) expect(resolveIngredientWeight(1, unit, food).ok).toBe(true);
     }
+  });
+});
+
+describe("a counted portion, in either language", () => {
+  const egg = {
+    basisUnit: "G" as const,
+    densityGPerMl: null,
+    servings: [{ label: "Stück", unit: "Stück", amount: 1, gramEquivalent: 58, mlEquivalent: null }],
+  };
+
+  it("weighs a piece against the food's own Stück", () => {
+    // A counted line carries no measure word, so the parser calls it "piece"
+    // while the food says "Stück". Matching on the string alone failed every
+    // counted German ingredient and reported the food's own weight as unusable.
+    expect(resolveIngredientWeight(2, "piece", egg)).toMatchObject({ ok: true, weightG: 116 });
+    expect(resolveIngredientWeight(2, "Stk", egg)).toMatchObject({ ok: true, weightG: 116 });
+    expect(servingLabelFor("piece", egg)).toBe("Stück");
+  });
+
+  it("still refuses a portion the food does not define", () => {
+    expect(resolveIngredientWeight(2, "Scheibe", egg).ok).toBe(false);
+    expect(servingLabelFor("Scheibe", egg)).toBeNull();
   });
 });

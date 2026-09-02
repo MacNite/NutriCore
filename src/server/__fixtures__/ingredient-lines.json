@@ -32,6 +32,11 @@
   { "input": "100 g cheese; grated", "expected": { "status": "resolved", "amount": 100, "nameIncludes": "cheese" } },
   { "input": "1 small onion", "expected": { "status": "ambiguous", "amount": 1, "nameIncludes": "onion" } },
   { "input": "2 gehäufte EL Mehl", "expected": { "status": "ambiguous", "amount": 2, "nameIncludes": "mehl" } },
+  { "input": "1 Dose gehackte Tomaten (400 g)", "expected": { "status": "resolved", "amount": 400, "unit": "g", "nameIncludes": "gehackte tomaten" } },
+  { "input": "2 Dosen Tomaten (400 g)", "expected": { "status": "resolved", "amount": 800, "unit": "g" } },
+  { "input": "1 Packung Feta (200g)", "expected": { "status": "resolved", "amount": 200, "unit": "g" } },
+  { "input": "Öl zum Braten", "expected": { "status": "unquantified", "mustNotInventAmount": true, "nameIncludes": "ol" } },
+  { "input": "Petersilie zum Garnieren", "expected": { "status": "unquantified", "nameIncludes": "petersilie" } },
   { "input": "Pfeffer", "expected": { "status": "unquantified", "mustNotInventAmount": true } },
   { "input": "", "expected": { "status": "failed", "mustNotInventAmount": true } }
 ]
