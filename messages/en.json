@@ -271,7 +271,11 @@
       "label": "AI augmented",
       "servingSize": "serving size",
       "tooltip": "AI added: {details} ({date}). Original provenance remains unchanged."
-    }
+    },
+    "drafts": "Drafts",
+    "draft": "Draft",
+    "ingredientCount": "{count, plural, one {# ingredient} other {# ingredients}}",
+    "moreResults": "More results and actions"
   },
   "nutrients": {
     "energyKcal": "Energy",

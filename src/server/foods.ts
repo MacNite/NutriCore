@@ -124,10 +124,18 @@ export interface SearchOptions {
   meal?: string;
   limit?: number;
   includeRemote?: boolean;
+  includeRecipeDrafts?: boolean;
+}
+
+export interface RecipeDraftResult {
+  id: string;
+  name: string;
+  ingredientCount: number;
 }
 
 export interface SearchOutcome {
   results: FoodResult[];
+  recipeDrafts: RecipeDraftResult[];
   barcode: string | null;
   remoteAttempted: boolean;
   providerError: { provider: string; reason: ProviderFailureReason; retryAfterSeconds?: number } | null;
@@ -163,10 +171,18 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
   const barcode = isBarcode(query) ? query : null;
   const normalized = normalizeName(query);
 
-  const [favorites, usage, localFoods] = await Promise.all([
+  const [favorites, usage, localFoods, recipeDrafts] = await Promise.all([
     prisma.favorite.findMany({ where: { userId }, select: { foodId: true } }),
     prisma.foodUsageStats.findMany({ where: { userId }, select: { foodId: true, count: true, lastUsedAt: true, usualMeals: true } }),
     query.length === 0 ? findRecentCandidates(userId, options.meal, limit) : findLocalCandidates(userId, normalized, barcode, limit),
+    options.includeRecipeDrafts && query.length > 0
+      ? prisma.recipe.findMany({
+          where: { ownerId: userId, status: "DRAFT", name: { contains: query, mode: "insensitive" } },
+          orderBy: { updatedAt: "desc" },
+          take: 5,
+          select: { id: true, name: true, _count: { select: { ingredients: true } } },
+        })
+      : Promise.resolve([]),
   ]);
 
   const favoriteIds = new Set(favorites.map((f) => f.foodId));
@@ -243,6 +259,7 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
   const results = scored.slice(0, limit);
   return {
     results,
+    recipeDrafts: recipeDrafts.map((recipe) => ({ id: recipe.id, name: recipe.name, ingredientCount: recipe._count.ingredients })),
     barcode,
     remoteAttempted,
     providerError,
@@ -252,18 +269,23 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
 }
 
 async function findLocalCandidates(userId: string, normalized: string, barcode: string | null, limit: number) {
+  // Both conditions are held in an AND: the text match is itself an OR, and
+  // spreading it beside the visibility OR would silently replace it and expose
+  // every other user's private foods.
   const where: Prisma.FoodWhereInput = {
-    ...visibleFoodWhere(userId),
-    ...(barcode
-      ? { barcode }
-      : {
-          OR: [
-            { normalizedName: { contains: normalized } },
-            { name: { contains: normalized, mode: "insensitive" } },
-            { brand: { contains: normalized, mode: "insensitive" } },
-            { aliases: { some: { name: { contains: normalized, mode: "insensitive" } } } },
-          ],
-        }),
+    AND: [
+      visibleFoodWhere(userId),
+      barcode
+        ? { barcode }
+        : {
+            OR: [
+              { normalizedName: { contains: normalized } },
+              { name: { contains: normalized, mode: "insensitive" } },
+              { brand: { contains: normalized, mode: "insensitive" } },
+              { aliases: { some: { name: { contains: normalized, mode: "insensitive" } } } },
+            ],
+          },
+    ],
   };
 
   return prisma.food.findMany({ where, include: INCLUDE, take: Math.max(limit * 4, 60) });
