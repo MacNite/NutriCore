@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/start-standalone.mjs",
     "worker": "tsx src/worker.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
