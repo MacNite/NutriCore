@@ -10,6 +10,7 @@ describe("meal URL extraction", () => {
       "@type": "Recipe", name: "Soup", recipeYield: "2 servings", recipeIngredient: ["2 carrots, chopped", "500 ml stock"], nutrition: { calories: "999 kcal" },
     })}</script><main>wrong visible ingredients</main>`, "https://example.org/soup");
     expect(page).toMatchObject({ recipeFound: true, title: "Soup" });
+    expect(page.structuredRecipe).toEqual(expect.objectContaining({ name: "Soup", yieldText: "2 servings", ingredientLines: ["2 carrots, chopped", "500 ml stock"] }));
     expect(page.excerpt).toContain("2 carrots, chopped");
     expect(page.excerpt).not.toContain("999 kcal");
   });
@@ -30,6 +31,7 @@ describe("meal URL extraction", () => {
     expect(extractMealPage(html, "https://example.org/soup").excerpt).not.toContain("Chop the carrots.");
 
     const forRecipe = extractMealPage(html, "https://example.org/soup", { includeInstructions: true });
+    expect(forRecipe.structuredRecipe).toMatchObject({ name: "Soup", description: "A warming soup.", instructions: "1. Chop the carrots.\n2. Simmer for 20 minutes." });
     expect(forRecipe.excerpt).toContain("A warming soup.");
     expect(forRecipe.excerpt).toContain("1. Chop the carrots.");
     expect(forRecipe.excerpt).toContain("2. Simmer for 20 minutes.");

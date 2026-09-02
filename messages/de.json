@@ -674,6 +674,7 @@
       "savedAsDraft": "Als Entwurf unter deinen Rezepten gespeichert. Speichern bestätigt diesen Entwurf.",
       "openDraft": "Entwurf ansehen",
       "unmatched": "Diese Zutaten wurden nicht in deinen Lebensmitteln gefunden und müssen manuell ergänzt werden: {names}",
+      "unparsed": "Diese Zutaten aus der Quelle konnten wegen einer fehlenden eindeutigen Menge nicht automatisch verarbeitet werden: {names}",
       "errors": {
         "inputRequired": "Füge Text, einen Link oder ein Bild hinzu.",
         "imageInvalid": "Verwende ein JPEG-, PNG- oder WebP-Bild.",

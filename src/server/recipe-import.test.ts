@@ -59,6 +59,19 @@ beforeEach(() => {
 });
 
 describe("recipe import from a URL", () => {
+  it("uses structured facts deterministically, preserves unresolved lines, and keeps user servings", async () => {
+    vi.mocked(fetchMealPage).mockResolvedValue({
+      url: "https://example.org/auflauf", title: "Source name", excerpt: "fallback", recipeFound: true,
+      structuredRecipe: { name: "Source name", description: "Source description", instructions: "1. Mix.", ingredientLines: ["200 g Mehl", "2 Eier", "1,5 EL Olivenöl", "½ TL Salz", "Salz und Pfeffer nach Geschmack"] },
+    });
+    food.findFirst.mockResolvedValue(null);
+    const ai = modelAnswering({});
+    const draft = await runRecipeImport("import-1", { ai: asProvider(ai) });
+    expect(ai.complete).not.toHaveBeenCalled();
+    expect(draft).toMatchObject({ name: "Source name", description: "Source description", instructions: "1. Mix.", servings: 4 });
+    expect(draft.unmatched).toEqual(["Mehl", "Eier", "Olivenöl", "Salz"]);
+    expect(draft.unparsedIngredients).toEqual(["Salz und Pfeffer nach Geschmack"]);
+  });
   it("reads the page through the same extractor Quick meal uses", async () => {
     food.findFirst.mockResolvedValue(weighed("Mehl"));
     const ai = modelAnswering({ name: "Auflauf", ingredients: [{ name: "Mehl", amount: 200, unit: "g" }] });

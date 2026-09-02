@@ -1,7 +1,15 @@
 import { asUntrustedExcerpt, sanitizeHtml } from "@/lib/url-guard";
 import { fetchResearchSource } from "./research";
 
-export type MealPage = { url: string; title: string; excerpt: string; recipeFound: boolean };
+export type StructuredRecipe = {
+  name?: string;
+  description?: string;
+  yieldText?: string;
+  ingredientLines: string[];
+  instructions?: string;
+};
+
+export type MealPage = { url: string; title: string; excerpt: string; recipeFound: boolean; structuredRecipe?: StructuredRecipe };
 
 /**
  * `includeInstructions` adds the recipe's description and preparation steps to
@@ -47,15 +55,26 @@ export function extractMealPage(html: string, url: string, options: MealPageOpti
   }
   const recipe = recipes.find((item) => Array.isArray(item.recipeIngredient) && item.recipeIngredient.length);
   if (recipe) {
-    const ingredients = (recipe.recipeIngredient as unknown[]).filter((item): item is string => typeof item === "string").slice(0, 80);
-    const context = [recipe.name && `Recipe: ${String(recipe.name)}`, recipe.recipeYield && `Yield: ${String(recipe.recipeYield)}`].filter(Boolean);
-    if (options.includeInstructions && typeof recipe.description === "string" && recipe.description.trim()) {
-      context.push(`Description: ${recipe.description}`);
+    const clean = (value: unknown, max = 20_000) => typeof value === "string" ? sanitizeHtml(value, max).trim() : undefined;
+    const ingredients = (recipe.recipeIngredient as unknown[])
+      .map((item) => clean(item, 300))
+      .filter((item): item is string => Boolean(item))
+      .slice(0, 80);
+    const name = clean(recipe.name, 200);
+    const description = clean(recipe.description, 2_000);
+    const rawYield = Array.isArray(recipe.recipeYield) ? recipe.recipeYield.join(", ") : recipe.recipeYield;
+    const yieldText = clean(rawYield, 200);
+    const flattenedSteps = instructionSteps(recipe.recipeInstructions).map((step) => clean(step, 2_000)).filter((step): step is string => Boolean(step)).slice(0, 60);
+    const instructions = flattenedSteps.length ? flattenedSteps.map((step, index) => `${index + 1}. ${step}`).join("\n") : undefined;
+    const structuredRecipe: StructuredRecipe = { name, description, yieldText, ingredientLines: ingredients, instructions };
+    const context = [name && `Recipe: ${name}`, yieldText && `Yield: ${yieldText}`].filter(Boolean);
+    if (options.includeInstructions && description) {
+      context.push(`Description: ${description}`);
     }
-    const steps = options.includeInstructions ? instructionSteps(recipe.recipeInstructions).slice(0, 60) : [];
+    const steps = options.includeInstructions ? flattenedSteps : [];
     const body = [...context, "Ingredients:", ...ingredients.map((item) => `- ${item}`)];
     if (steps.length) body.push("Instructions:", ...steps.map((step, index) => `${index + 1}. ${step}`));
-    return { url, title: String(recipe.name ?? new URL(url).hostname).slice(0, 300), excerpt: decodeEntities(body.join("\n")), recipeFound: true };
+    return { url, title: name ?? new URL(url).hostname, excerpt: decodeEntities(body.join("\n")), recipeFound: true, structuredRecipe };
   }
 
   // Navigation and promotional chrome are removed before the generic sanitizer.

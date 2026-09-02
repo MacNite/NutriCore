@@ -34,6 +34,8 @@ export interface RecipeImportDraft {
    * invent. Optional: drafts written before this existed do not carry it.
    */
   unconverted?: string[];
+  /** Structured source lines that had no explicit deterministic quantity. */
+  unparsedIngredients?: string[];
   /** The draft recipe stored under the user's recipes, once the worker made one. */
   recipeId?: string;
 }
