@@ -31,15 +31,15 @@ vi.mock("./meal-url", () => ({
 }));
 vi.mock("./recipe-import", () => ({ runRecipeImport: vi.fn(), discardRecipeImportImage: vi.fn() }));
 vi.mock("./food-enrichment", () => ({ enrichFood: vi.fn(), missingNutritionKeys: vi.fn(() => []) }));
-vi.mock("./ai-approval", () => ({ autoApproveProposal: vi.fn() }));
+vi.mock("./ai-approval", () => ({ autoApproveProposal: vi.fn(), storeQuickMealRecipe: vi.fn() }));
 vi.mock("./meal-image", () => ({ discardMealInputImage: vi.fn() }));
 
-import { claimNextJob, findConservativeDuplicate, mealParseSchema, processNextAiJob, quickMealRecipeName, reclaimStaleJobs, scaleMealComponentsToServing } from "./ai-jobs";
-import { decideComponents, jobPriority, STUCK_RUNNING_MS } from "./ai-types";
+import { claimNextJob, findConservativeDuplicate, mealParseSchema, processNextAiJob, reclaimStaleJobs, scaleMealComponentsToServing } from "./ai-jobs";
+import { decideComponents, jobPriority, quickMealRecipeName, STUCK_RUNNING_MS } from "./ai-types";
 import { failResearchJob, runResearchJob } from "./research";
 import { runRecipeImport } from "./recipe-import";
 import { resolveComponent } from "./component-resolver";
-import { autoApproveProposal } from "./ai-approval";
+import { autoApproveProposal, storeQuickMealRecipe } from "./ai-approval";
 import { fetchMealPage, mealPagePrompt } from "./meal-url";
 
 /** An AI provider whose generation always fails, to drive the retry paths. */
@@ -292,6 +292,43 @@ describe("applying a proposal without the review screen", () => {
 
     await processNextAiJob({ ai: workingAi() as never });
     expect(autoApproveProposal).toHaveBeenCalledWith("proposal-1");
+  });
+
+  /**
+   * The recipe used to be written here, from whatever the resolver had matched
+   * on its own - before anyone had reviewed anything. Approving is where the
+   * foods are actually decided, so that is where the recipe is built now.
+   */
+  it("leaves the recipe to the approval that knows which foods were chosen", async () => {
+    const job = queueJob();
+    job.metadata = { addToMeal: true, createRecipe: true } as never;
+    vi.mocked(resolveComponent).mockResolvedValue({ candidates: [], selectedFoodId: "food-1", grams: 60, gramsSource: "PORTION" });
+    vi.mocked(autoApproveProposal).mockResolvedValue({ logged: ["Brot"], skipped: [], acceptedAt: "now" });
+
+    await processNextAiJob({ ai: workingAi() as never });
+
+    expect(autoApproveProposal).toHaveBeenCalledWith("proposal-1");
+    expect(storeQuickMealRecipe).not.toHaveBeenCalled();
+  });
+
+  /**
+   * "Keep a recipe but do not log it" never reaches an approval, so the resolver's
+   * own matches are all there is - and the recipe still has to be written.
+   */
+  it("still keeps a recipe for a meal the submitter asked not to log", async () => {
+    const job = queueJob();
+    job.metadata = { addToMeal: false, createRecipe: true } as never;
+    vi.mocked(resolveComponent).mockResolvedValue({ candidates: [], selectedFoodId: "food-1", grams: 60, gramsSource: "PORTION" });
+
+    await processNextAiJob({ ai: workingAi() as never });
+
+    expect(autoApproveProposal).not.toHaveBeenCalled();
+    expect(storeQuickMealRecipe).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "job-1" }),
+      // The model named no dish, so the submitted sentence names the recipe.
+      "two eggs",
+      [{ foodId: "food-1", amount: 60, unit: "g" }],
+    );
   });
 
   it("leaves it pending when the user wants to approve each one", async () => {

@@ -803,6 +803,8 @@
     "addManually": "Search foods",
     "modelEstimate": "AI estimate",
     "loggedAsEstimate": "No database match – logged as an estimate from the model's own numbers: {names}. These values are not sourced; check them if they matter.",
+    "recipeKept": "Kept as a draft recipe: {name}. Open and confirm it to use it.",
+    "recipeSkipped": "No recipe was kept: no ingredient could be matched to a food.",
     "skipComponent": "Do not log",
     "skipReason": {
       "DECLINED": "not selected for logging",

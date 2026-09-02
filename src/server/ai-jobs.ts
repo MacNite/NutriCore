@@ -11,11 +11,10 @@ import { failResearchJob, runResearchJob } from "./research";
 import { fetchMealPage, mealPagePrompt } from "./meal-url";
 import { enrichFood } from "./food-enrichment";
 import { discardRecipeImportImage, runRecipeImport } from "./recipe-import";
-import { saveRecipe } from "./recipes";
 import { describeFailure } from "./ai-failures";
-import { autoApproveProposal } from "./ai-approval";
+import { autoApproveProposal, storeQuickMealRecipe } from "./ai-approval";
 import { repairMealParse } from "./ai-repair";
-import { componentGrams, jobPriority, STUCK_RUNNING_MS, type AiJobOutcome, type ProposedComponent } from "./ai-types";
+import { componentGrams, jobPriority, quickMealRecipeName, STUCK_RUNNING_MS, type AiJobOutcome, type ProposedComponent } from "./ai-types";
 import { resolveComponent, type ResolverContext } from "./component-resolver";
 import { discardMealInputImage } from "./meal-image";
 
@@ -421,9 +420,10 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     // to the diary then, and the proposal is left pending rather than rejected:
     // the extraction is still worth having, and a change of mind is one click
     // away on the review screen instead of a whole second submission.
+    let applied: Awaited<ReturnType<typeof autoApproveProposal>> = null;
     if (cached.addToMeal !== false && owner?.profile?.autoApproveAi !== false) {
       try {
-        await autoApproveProposal(savedProposal.id);
+        applied = await autoApproveProposal(savedProposal.id);
       } catch (error) {
         logger.warn("Applying the proposal failed after the job completed", {
           jobId: job.id,
@@ -432,88 +432,24 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       }
     }
 
-    if (cached.createRecipe) await storeQuickMealRecipe(job, quickMealRecipeName(parsed.name, job.mealInput.text), components);
+    // An applied proposal has already kept the recipe, from what it logged. This
+    // is the other case - "keep a recipe but do not log it", and a proposal left
+    // for review - where the only foods available are the ones the resolver
+    // matched itself. Approving later replaces this with what was chosen.
+    if (cached.createRecipe && !applied) {
+      const ingredients = components.flatMap((component) => {
+        const foodId = component.canonicalFoodId;
+        const grams = componentGrams(component, foodId);
+        return foodId && grams ? [{ foodId, amount: grams, unit: "g" }] : [];
+      });
+      await storeQuickMealRecipe(job, quickMealRecipeName(parsed.name, job.mealInput.text), ingredients);
+    }
 
     await queueFoodEnrichments(job.userId, components.flatMap((component) => component.canonicalFoodId ? [component.canonicalFoodId] : []));
   } catch (error) {
     await recordFailure(job, error);
   }
   return true;
-}
-
-/**
- * What a quick meal's recipe is called.
- *
- * The extraction names the dish the way the recipe import does, so a photo or a
- * "2 Scheiben Brot mit Butter und Marmelade" produces a recipe called
- * "Butterbrot mit Marmelade" rather than the sentence itself - or, for an input
- * that was only an image, nothing at all. The typed text stays the fallback for
- * an extraction that named no dish, a cached one from before the model was
- * asked for a name included, and the constant is the last resort.
- */
-export function quickMealRecipeName(generated: string | undefined, text: string) {
-  return generated?.trim().slice(0, 200) || text.trim().slice(0, 120) || "Quick meal";
-}
-
-/**
- * Stores a quick meal as a draft recipe, when the submitter asked for one.
- *
- * A draft, never an active recipe: these ingredients are a model's reading of a
- * sentence, and a draft is exactly the state the app already has for "extracted
- * but not reviewed" - it is listed and editable but gets no Food entry, so
- * nothing here can be logged before someone has confirmed it.
- *
- * Only components that resolved to a real food with a weight can go in; a
- * component that matched nothing has no nutrition anyone is entitled to invent.
- * Runs after the job is already COMPLETED, so it must not throw: recordFailure
- * would put the whole extraction back in the queue for the sake of a follow-up.
- */
-async function storeQuickMealRecipe(
-  job: { id: string; userId: string },
-  name: string,
-  components: ProposedComponent[],
-) {
-  try {
-    const ingredients = components.flatMap((component) => {
-      const foodId = component.canonicalFoodId;
-      const grams = componentGrams(component, foodId);
-      return foodId && grams ? [{ foodId, amount: grams, unit: "g" }] : [];
-    });
-    if (!ingredients.length) {
-      logger.info("Quick meal recipe skipped: nothing resolved to a food", { jobId: job.id });
-      return;
-    }
-
-    // The components were already scaled to one portion by the extraction, so
-    // the recipe this builds is that one portion.
-    const { recipe } = await saveRecipe(
-      job.userId,
-      { name, description: "", servings: 1, instructions: "", tags: [], ingredients },
-      undefined,
-      { status: "DRAFT", sourceType: "AI_RESEARCH" },
-    );
-
-    // Read back rather than reused from the claim: the extraction was cached
-    // into metadata after this job was claimed, and writing the stale copy here
-    // would discard it - which on a later retry means running the model again.
-    const current = await prisma.aiJob.findUnique({ where: { id: job.id }, select: { metadata: true } });
-    const metadata = { ...((current?.metadata ?? {}) as Record<string, unknown>) };
-    const outcome: AiJobOutcome = {
-      ...((metadata.outcome ?? {}) as AiJobOutcome),
-      recipeId: recipe.id,
-      recipeName: recipe.name,
-      ingredientCount: ingredients.length,
-    };
-    await prisma.aiJob.update({
-      where: { id: job.id },
-      data: { metadata: { ...metadata, outcome } as unknown as Prisma.InputJsonValue },
-    });
-  } catch (error) {
-    logger.warn("Could not store the quick meal as a recipe", {
-      jobId: job.id,
-      reason: error instanceof Error ? error.message : "unknown",
-    });
-  }
 }
 
 /**

@@ -78,6 +78,30 @@ export interface ProposedComponent {
   sources?: Array<{ title: string; url: string }>;
 }
 
+/**
+ * What the quick-meal form asked for, read off `AiJob.metadata`.
+ *
+ * Both default to the behaviour that predates the checkboxes: a submission is
+ * logged unless it said otherwise, and keeps a recipe only if it said so.
+ */
+export function quickMealOptions(metadata: unknown) {
+  const value = (metadata ?? {}) as { addToMeal?: unknown; createRecipe?: unknown };
+  return { addToMeal: value.addToMeal !== false, createRecipe: value.createRecipe === true };
+}
+
+/**
+ * What a quick meal's recipe is called.
+ *
+ * The extraction names the dish the way the recipe import does, so a photo or a
+ * "2 Scheiben Brot mit Butter und Marmelade" produces a recipe called
+ * "Butterbrot mit Marmelade" rather than the sentence itself - or, for an input
+ * that was only an image, nothing at all. The typed text stays the fallback for
+ * a model that named nothing.
+ */
+export function quickMealRecipeName(generated: string | undefined, text: string) {
+  return generated?.trim().slice(0, 200) || text.trim().slice(0, 120) || "Quick meal";
+}
+
 /** What approving a proposal actually did, recorded on `AiProposal.accepted`. */
 export interface AcceptedOutcome {
   logged: string[];
@@ -86,6 +110,14 @@ export interface AcceptedOutcome {
   skipped: string[];
   /** Present on new outcomes; `skipped` remains for backwards compatibility. */
   skippedDetails?: SkippedComponent[];
+  /**
+   * The recipe the submitter asked to keep, built from what this approval
+   * actually logged. Absent when none was asked for; `recipeSkipped` says that
+   * one was asked for and nothing resolved to a food to put in it.
+   */
+  recipeId?: string;
+  recipeName?: string;
+  recipeSkipped?: boolean;
   acceptedAt: string;
 }
 
