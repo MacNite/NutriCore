@@ -117,14 +117,17 @@ function repairMealUnit(
 
 export function repairMealParse(value: unknown): unknown {
   if (!isRecord(value)) return value;
-  return {
+  // The dish name is optional, so one the model did not give - or gave as an
+  // empty string - stays absent and the caller falls back to the typed text.
+  return compact({
+    name: textOrAbsent(value.name, 200),
     components: asArray(value.components)
       .map(repairComponent)
       .filter((component) => component !== undefined)
       .slice(0, 40),
     confidence: confidenceBand(value.confidence),
     warnings: stringList(value.warnings, 10, 200),
-  };
+  });
 }
 
 /**

@@ -34,7 +34,7 @@ vi.mock("./food-enrichment", () => ({ enrichFood: vi.fn(), missingNutritionKeys:
 vi.mock("./ai-approval", () => ({ autoApproveProposal: vi.fn() }));
 vi.mock("./meal-image", () => ({ discardMealInputImage: vi.fn() }));
 
-import { claimNextJob, findConservativeDuplicate, mealParseSchema, processNextAiJob, reclaimStaleJobs, scaleMealComponentsToServing } from "./ai-jobs";
+import { claimNextJob, findConservativeDuplicate, mealParseSchema, processNextAiJob, quickMealRecipeName, reclaimStaleJobs, scaleMealComponentsToServing } from "./ai-jobs";
 import { decideComponents, jobPriority, STUCK_RUNNING_MS } from "./ai-types";
 import { failResearchJob, runResearchJob } from "./research";
 import { runRecipeImport } from "./recipe-import";
@@ -377,5 +377,32 @@ describe("what an approved proposal may log", () => {
     const withoutNumbers = { name: "Marmelade", estimatedGrams: 20, canonicalFoodId: null, estimated: true };
     expect(decideComponents([withoutNumbers], () => "estimate").loggable).toHaveLength(0);
     expect(decideComponents([withoutNumbers], () => "estimate").skipped).toEqual(["Marmelade"]);
+  });
+});
+
+describe("what a quick meal's recipe is called", () => {
+  it("uses the dish name the extraction produced, not the sentence that was typed", () => {
+    expect(quickMealRecipeName("Butterbrot mit Marmelade", "2 Scheiben Brot mit Butter und Marmelade")).toBe(
+      "Butterbrot mit Marmelade",
+    );
+  });
+
+  it("names a photo-only meal, which had no text to fall back to", () => {
+    expect(quickMealRecipeName("Gemüsepfanne", "")).toBe("Gemüsepfanne");
+  });
+
+  it("keeps the typed text when the extraction named no dish", () => {
+    // Which is also what a cached extraction from before the model was asked
+    // for a name arrives as.
+    expect(quickMealRecipeName(undefined, "Reste vom Buffet")).toBe("Reste vom Buffet");
+    expect(quickMealRecipeName("   ", "Reste vom Buffet")).toBe("Reste vom Buffet");
+  });
+
+  it("falls back to a constant when there is neither", () => {
+    expect(quickMealRecipeName(undefined, "  ")).toBe("Quick meal");
+  });
+
+  it("keeps a name the recipe can actually be saved with", () => {
+    expect(quickMealRecipeName("x".repeat(400), "")).toHaveLength(200);
   });
 });

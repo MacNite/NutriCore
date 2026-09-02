@@ -54,6 +54,20 @@ describe("repairing a meal parse", () => {
     expect(skipped).toEqual(["Rührei", "Vollkornbrot", "Butter"]);
   });
 
+  it("keeps the dish name the model gave the whole meal", () => {
+    const result = mealParseSchema.parse(
+      repairMealParse({ ...modelAnswer, name: "  Rührei mit Brot  " }),
+    );
+    expect(result.name).toBe("Rührei mit Brot");
+  });
+
+  it("leaves the dish name absent when the model gave none", () => {
+    // The schema allows that, and the quick meal then falls back to the text
+    // the user typed rather than to a name nobody stated.
+    expect(mealParseSchema.parse(repairMealParse({ ...modelAnswer, name: "   " })).name).toBeUndefined();
+    expect(mealParseSchema.parse(repairMealParse(modelAnswer)).name).toBeUndefined();
+  });
+
   it("keeps the weights it can use", () => {
     const result = mealParseSchema.parse(
       repairMealParse({

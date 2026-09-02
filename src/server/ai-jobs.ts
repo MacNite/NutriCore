@@ -20,6 +20,13 @@ import { resolveComponent, type ResolverContext } from "./component-resolver";
 import { discardMealInputImage } from "./meal-image";
 
 export const mealParseSchema = z.object({
+  /**
+   * A short dish name for the whole input, the way the recipe import asks for
+   * one. Only ever used when the submitter asked to keep the quick meal as a
+   * recipe, and optional even then: a plate of unrelated leftovers is not a
+   * dish, and a meal that is only logged never needs a name at all.
+   */
+  name: z.string().min(1).max(200).optional(),
   components: z
     .array(
       z.object({
@@ -47,6 +54,7 @@ export const mealParseSchema = z.object({
 
 const SYSTEM = [
   "Extract meal or recipe components as structured JSON.",
+  "Give name as a short dish name for the whole input, in the language of the input, such as 'Butterbrot mit Marmelade': never a sentence, an amount, an instruction, or a list of every component. Omit name when the input is not one dish.",
   "Prefer naming a component precisely over guessing its nutrition.",
   "For every count or household portion such as slice, piece, spoon, handful, or serving, provide estimatedGrams as the TOTAL weight of that component unless the input already states grams or millilitres.",
   "Keep unit to the unit word only: use quantity 2, unit 'Scheiben', estimatedGrams 100; never put text such as '(approx. 50g)' inside unit.",
@@ -424,13 +432,27 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       }
     }
 
-    if (cached.createRecipe) await storeQuickMealRecipe(job, job.mealInput.text, components);
+    if (cached.createRecipe) await storeQuickMealRecipe(job, quickMealRecipeName(parsed.name, job.mealInput.text), components);
 
     await queueFoodEnrichments(job.userId, components.flatMap((component) => component.canonicalFoodId ? [component.canonicalFoodId] : []));
   } catch (error) {
     await recordFailure(job, error);
   }
   return true;
+}
+
+/**
+ * What a quick meal's recipe is called.
+ *
+ * The extraction names the dish the way the recipe import does, so a photo or a
+ * "2 Scheiben Brot mit Butter und Marmelade" produces a recipe called
+ * "Butterbrot mit Marmelade" rather than the sentence itself - or, for an input
+ * that was only an image, nothing at all. The typed text stays the fallback for
+ * an extraction that named no dish, a cached one from before the model was
+ * asked for a name included, and the constant is the last resort.
+ */
+export function quickMealRecipeName(generated: string | undefined, text: string) {
+  return generated?.trim().slice(0, 200) || text.trim().slice(0, 120) || "Quick meal";
 }
 
 /**
@@ -448,7 +470,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
  */
 async function storeQuickMealRecipe(
   job: { id: string; userId: string },
-  text: string,
+  name: string,
   components: ProposedComponent[],
 ) {
   try {
@@ -464,7 +486,6 @@ async function storeQuickMealRecipe(
 
     // The components were already scaled to one portion by the extraction, so
     // the recipe this builds is that one portion.
-    const name = text.trim().slice(0, 120) || "Quick meal";
     const { recipe } = await saveRecipe(
       job.userId,
       { name, description: "", servings: 1, instructions: "", tags: [], ingredients },
