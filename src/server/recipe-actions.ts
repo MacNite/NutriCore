@@ -6,9 +6,7 @@ import { z } from "zod";
 import { requireUser } from "./session";
 import { confirmRecipe, deleteRecipe, saveRecipe } from "./recipes";
 import { prisma } from "@/lib/db";
-import { resolveAiModel } from "@/lib/env";
-import { NotFoundError, PortionError } from "./diary";
-import { jobPriority } from "./ai-types";
+import { addDiaryEntry, NotFoundError, PortionError } from "./diary";
 import type { FormState } from "./profile-actions";
 
 const ingredient = z.object({ foodId: z.string().min(1), amount: z.number().positive().max(100_000), unit: z.string().trim().min(1).max(40) });
@@ -44,11 +42,38 @@ export async function logRecipeAction(_state: FormState, formData: FormData): Pr
   const user = await requireUser();
   const parsed = logSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "validation" };
-  const recipe = await prisma.recipe.findFirst({ where: { id: parsed.data.recipeId, ownerId: user.id } });
-  if (!recipe) return { error: "notFound" };
-  const input = await prisma.mealInput.create({ data: { userId: user.id, text: recipe.name, meal: parsed.data.meal, diaryDate: new Date(`${parsed.data.date}T00:00:00.000Z`) } });
-  await prisma.aiJob.create({ data: { userId: user.id, entityType: "RECIPE_LOG", entityId: input.id, mealInputId: input.id, model: resolveAiModel(), priority: jobPriority("RECIPE_LOG"), metadata: { recipeId: recipe.id, servings: parsed.data.quantity } } });
-  redirect(`/ai-review/${input.id}?queued=1`);
+
+  // An active recipe has one synthetic Food row. Log that row through the
+  // ordinary food path so the diary contains one recipe item (and records its
+  // usage for search ranking), rather than sending its ingredients through AI
+  // review and expanding them into separate entries.
+  const food = await prisma.food.findFirst({
+    where: {
+      ownerId: user.id,
+      sourceType: "RECIPE",
+      externalProvider: "NUTRICORE_RECIPE",
+      externalId: parsed.data.recipeId,
+    },
+    select: { id: true },
+  });
+  if (!food) return { error: "notFound" };
+
+  try {
+    await addDiaryEntry({
+      userId: user.id,
+      foodId: food.id,
+      quantity: parsed.data.quantity,
+      unit: "serving",
+      meal: parsed.data.meal,
+      date: parsed.data.date,
+    });
+  } catch (error) {
+    return errorState(error);
+  }
+
+  revalidatePath("/");
+  revalidatePath("/foods");
+  redirect(`/?date=${parsed.data.date}`);
 }
 
 /**

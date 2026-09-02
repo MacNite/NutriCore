@@ -97,6 +97,26 @@ describe("food search visibility", () => {
     expect(where.AND[0]).toEqual({ OR: [{ ownerId: null }, { ownerId: "owner-1" }] });
     expect(where.AND[1]).toEqual({ barcode: "4000000000001" });
   });
+
+  it("returns an active recipe as a searchable food item", async () => {
+    prismaMock.food.findMany.mockResolvedValue([{
+      ...foodRow,
+      id: "recipe-food-1",
+      ownerId: "owner-1",
+      name: "Apfelkuchen",
+      normalizedName: "apfelkuchen",
+      foodType: "RECIPE",
+      sourceType: "RECIPE",
+      externalProvider: "NUTRICORE_RECIPE",
+      externalId: "recipe-1",
+    }]);
+
+    const outcome = await searchFoods({ userId: "owner-1", query: "Apfel", locale: "de" });
+
+    expect(outcome.results).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "recipe-food-1", name: "Apfelkuchen", sourceType: "RECIPE", recipeId: "recipe-1" }),
+    ]));
+  });
 });
 
 describe("remote food search cache", () => {
