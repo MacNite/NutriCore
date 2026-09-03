@@ -503,6 +503,29 @@ docker compose exec -T db pg_restore -U nutricore -d nutricore --clean --if-exis
 Back up before every upgrade, test restores periodically, and keep a copy off
 the server. A bind-mounted backup on the same pool is not a backup.
 
+### A migration that failed
+
+Prisma records a migration that failed and then refuses to apply any later one,
+which shows up as `Error: P3009` in the app **and** the worker log, both of them
+restarting for ever:
+
+```
+migrate found failed migrations in the target database, new migrations will not
+be applied. The <name> migration started at <time> failed
+```
+
+Each migration is applied to PostgreSQL inside a transaction, so a failed one
+left nothing of itself behind. The start-up script therefore marks it rolled
+back and applies it again, once, which recovers the stack by itself as soon as
+an image carrying the corrected migration is pulled. Should the second attempt
+fail too, start-up stops with the database error that caused it - fix the
+migration rather than the record of it. The same recovery by hand:
+
+```sh
+docker compose run --rm --entrypoint sh app -c \
+  'node ./node_modules/prisma/build/index.js migrate resolve --rolled-back <name>'
+```
+
 ## Development
 
 ```sh
@@ -532,6 +555,12 @@ Integration tests run against a real PostgreSQL database and assert that one
 user cannot read or delete another user's foods, diary entries or weight
 history, and that account deletion removes every personal record. Set
 `TEST_DATABASE_URL` to enable them; they skip cleanly without it.
+
+One of them replays the whole migration history into a scratch database seeded
+with the rows a running installation holds - including rows written by versions
+that have since been replaced. Applying migrations to an empty database, which
+is all a plain `migrate deploy` in CI does, cannot catch a data migration that
+only fails on real data.
 
 End-to-end tests cover registration, onboarding, the transparent target,
 sign-in failure, creating and logging a food, editing a portion, unknown values
