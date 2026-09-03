@@ -61,4 +61,7 @@ export const RATE_LIMITS = {
   research: scaled(10, 60 * 60 * 1000),
   export: scaled(5, 60 * 60 * 1000),
   invite: scaled(10, 60 * 60 * 1000),
+  /* A scan carries two images and queues CPU work, so it is limited more
+     tightly than a search and more loosely than anything a person waits on. */
+  bodyScan: scaled(12, 60 * 60 * 1000),
 };

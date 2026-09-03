@@ -447,13 +447,17 @@
       "MANUAL": "Manual",
       "BIA": "BIA",
       "ESTIMATE": "Estimate",
-      "DERIVED": "Derived"
+      "DERIVED": "Derived",
+      "OTHER_DEVICE": "Device",
+      "OPTICAL_SCAN": "Scan"
     },
     "sourceFull": {
       "MANUAL": "Measured by hand with a tape measure",
       "BIA": "Bioelectrical impedance, from a smart scale or body analyser",
       "ESTIMATE": "Estimated from a formula, not measured",
-      "DERIVED": "Calculated from other measured values"
+      "DERIVED": "Calculated from other measured values",
+      "OTHER_DEVICE": "Recorded by another measuring device",
+      "OPTICAL_SCAN": "Estimated from a body scan photo, not measured"
     },
     "summary": {
       "microHead": "Key figures",
@@ -554,6 +558,81 @@
       "intro": "No body measurements yet. A check-in records what you measured with a tape and, if you have one, what a smart scale reported.",
       "records": "Weight goes to your weight log, so the weight chart below stays the single record of it.",
       "needsSecond": "This is your first session, so there is nothing to compare it with yet. Record a second check-in to see changes."
+    }
+  },
+  "bodyScan": {
+    "capture": {
+      "open": "Body scan",
+      "title": "Body scan",
+      "intro": "Two photos - one from the front, one from the side - are turned into estimated circumferences. The photos are deleted as soon as they have been read.",
+      "notAMeasurement": "This estimates your measurements from the outline of your body. It is not a measurement and not a medical result. Nothing about body fat, muscle or body water can be read from a photo.",
+      "conditions": "Before you start",
+      "tips": {
+        "background": "Stand against a plain, uncluttered wall in even light.",
+        "clothing": "Wear close-fitting clothes. Loose clothing is measured instead of you.",
+        "framing": "Get your whole body in frame, from the top of your head to your feet, with room on both sides.",
+        "pose": "Stand upright, feet together, arms slightly away from your body so they do not touch it.",
+        "repeat": "Use the same spot, distance and clothing every time. Consistency matters more for tracking progress than any single scan."
+      },
+      "views": "Your two photos",
+      "date": "Date",
+      "height": "Height",
+      "heightHint": "Taken from your profile. It is the only thing that sets the scale, so correct it there if it is wrong.",
+      "front": "Front view",
+      "side": "Side view",
+      "consentLegend": "Consent",
+      "consent": "I agree to these two photos being processed on this server to estimate my measurements.",
+      "retention": "The photos are stored only until they have been processed, at most ten minutes, and are then deleted. They are never shown again and never sent anywhere else.",
+      "submit": "Start scan"
+    },
+    "review": {
+      "title": "Scan result",
+      "for": "Scan from {date}",
+      "backToProgress": "Back to progress",
+      "working": "Processing your scan. Your photos are deleted as soon as it finishes.",
+      "intro": "Pick the values you want to keep. Nothing is recorded until you do, and you can correct any value before accepting it.",
+      "notAMeasurement": "These are estimates from the outline of your body, with the range each one could plausibly fall in. Treat a change over several scans as more meaningful than any single number.",
+      "tableCaption": "Estimated circumferences, with the range and your current recorded value",
+      "accept": "Keep",
+      "estimate": "Estimate",
+      "range": "Range",
+      "current": "Recorded",
+      "rangeValue": "{lower} to {upper}",
+      "willWrite": "The values you ticked will be saved to this day's check-in. Anything you left unticked is discarded.",
+      "willDiscard": "Nothing is ticked, so this scan will be discarded without recording anything.",
+      "submit": "Save selected values",
+      "submitEmpty": "Discard this scan",
+      "saved": "Saved to your check-in.",
+      "discarded": "Scan discarded. Nothing was recorded.",
+      "done": "This scan has already been reviewed.",
+      "alreadyReviewed": "This scan has already been reviewed.",
+      "pairedNote": "A photo cannot tell your left side from your right, so a thigh or calf estimate is recorded for both sides. Upper arms are not estimated: a front view crosses the arms and the torso at once, and nothing in an outline says where one stops - measure those by tape.",
+      "processor": "Estimated by {provider} {model}, version {version}. Recorded with the result, so a later version can be told apart on your charts.",
+      "rejected": "The scan could not be used",
+      "rejectedIntro": "Nothing was estimated, because the photos could not be read reliably:",
+      "failed": "The scan failed",
+      "failedBody": "Something went wrong while processing the photos. They have been deleted; please try again.",
+      "expiredBody": "The photos were not processed in time and have been deleted. Please try again.",
+      "tryAgain": "Try another scan",
+      "region": "Measurement"
+    },
+    "quality": {
+      "front-empty": "Nothing could be told apart from the background in the front view.",
+      "side-empty": "Nothing could be told apart from the background in the side view.",
+      "cut-off-top": "The top of your head is outside the frame.",
+      "cut-off-bottom": "Your feet are outside the frame.",
+      "too-small": "You are too far away. Fill more of the frame.",
+      "off-centre": "You are touching the edge of the frame. Step towards the middle.",
+      "background-busy": "Your outline could not be separated from the background. Use a plainer wall and more even light.",
+      "height-mismatch": "The two photos were taken from different distances. Use the same spot for both.",
+      "arms-touching": "Your arms are against your body, so they cannot be told apart from your torso. Hold them slightly away."
+    },
+    "errors": {
+      "heightRequired": "Add your height to your profile first. It is the only thing that sets the scale for a scan.",
+      "bothViewsRequired": "Both a front and a side photo are needed.",
+      "consentRequired": "Please agree before the photos are processed.",
+      "imageTooLarge": "One of the photos is too large.",
+      "imageInvalid": "One of the files is not a usable JPEG, PNG or WebP image."
     }
   },
   "settings": {

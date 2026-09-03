@@ -5,6 +5,8 @@ import { logger } from "./lib/logger";
 import { flag, researchEnabled, resolveAiBaseUrl, resolveAiModel } from "./lib/env";
 import { ollamaMaxOutputTokens, ollamaTimeoutMs } from "./providers/ollama";
 import { cleanupExpiredMealImages } from "./server/meal-image";
+import { cleanupExpiredRecipeImportImages } from "./server/recipe-import";
+import { cleanupExpiredScanImages } from "./server/body-scan";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -34,6 +36,35 @@ async function beat() {
 }
 
 const RECLAIM_EVERY_MS = 5 * 60 * 1000;
+
+/**
+ * Uploaded images are swept on their own, faster cadence than stale jobs are
+ * reclaimed. Their retention window is the window a database dump can catch one
+ * in, so the sweep interval is part of the privacy promise rather than a
+ * housekeeping detail, and it should stay well under the shortest TTL.
+ */
+const SWEEP_EVERY_MS = 60 * 1000;
+
+/**
+ * Clears every kind of upload whose deadline has passed.
+ *
+ * A sweep failure must not stop the queue: these are all deletions that will be
+ * retried a minute later, and a worker that exits over one leaves the images it
+ * was trying to remove exactly where they are.
+ */
+async function sweepExpiredImages() {
+  try {
+    await Promise.all([
+      cleanupExpiredMealImages(),
+      cleanupExpiredRecipeImportImages(),
+      cleanupExpiredScanImages(),
+    ]);
+  } catch (error) {
+    logger.warn("Could not sweep expired images", {
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+}
 
 let running = true;
 
@@ -76,18 +107,24 @@ async function main() {
   // conditional on QUEUED. Reclaim on startup, then periodically for the case
   // where a second worker died while this one kept going.
   await reclaimStaleJobs();
-  await cleanupExpiredMealImages();
+  await sweepExpiredImages();
   let sinceReclaim = 0;
+  let lastSweep = Date.now();
 
   while (running) {
     const processed = await processNextAiJob();
     await beat();
+    /* The sweep is time-based rather than counted in polls, so draining a busy
+       queue back to back cannot postpone it indefinitely. */
+    if (Date.now() - lastSweep >= SWEEP_EVERY_MS) {
+      lastSweep = Date.now();
+      await sweepExpiredImages();
+    }
     if (processed) continue; // Drain a busy queue back to back.
     if (!running) break;
     if (++sinceReclaim * pollMs() >= RECLAIM_EVERY_MS) {
       sinceReclaim = 0;
       await reclaimStaleJobs();
-      await cleanupExpiredMealImages();
     }
     await delay(pollMs());
   }

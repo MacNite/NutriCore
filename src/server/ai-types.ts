@@ -245,6 +245,9 @@ export interface AiJobOutcome {
   unmatched?: string[];
   /** The dish a research run ended up proposing. */
   candidateName?: string;
+  /** Whether a body scan's capture passed its quality checks, and what it produced. */
+  scanAccepted?: boolean;
+  estimateCount?: number;
 }
 
 /** Reads the outcome back out of the untyped metadata column. */

@@ -49,7 +49,32 @@ const SYSTEM = [
  * indefinitely.
  */
 export async function discardRecipeImportImage(importId: string) {
-  await prisma.recipeImport.updateMany({ where: { id: importId }, data: { imageData: null, imageMime: null } });
+  await prisma.recipeImport.updateMany({
+    where: { id: importId },
+    data: { imageData: null, imageMime: null, imageExpiresAt: null },
+  });
+}
+
+/**
+ * How long an uploaded photo may wait for a worker before the sweeper clears
+ * it. The bytes live in the database, so the window a `pg_dump` can catch one
+ * in is the window this constant sets.
+ */
+export const RECIPE_IMPORT_IMAGE_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Worker maintenance for imports abandoned without a runnable job.
+ *
+ * Before this existed an import whose job never ran kept its photo for ever:
+ * the success and failure paths both cleared it, and nothing covered the path
+ * where neither happened.
+ */
+export async function cleanupExpiredRecipeImportImages(now = new Date()) {
+  const result = await prisma.recipeImport.updateMany({
+    where: { imageData: { not: null }, imageExpiresAt: { lte: now } },
+    data: { imageData: null, imageMime: null, imageExpiresAt: null },
+  });
+  return result.count;
 }
 
 /**

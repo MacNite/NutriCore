@@ -8,6 +8,7 @@ import { requireUser } from "./session";
 import { aiAvailable } from "./ai-availability";
 import { jobPriority } from "./ai-types";
 import { imageUploadMaxBytes } from "@/lib/image-upload-limit";
+import { RECIPE_IMPORT_IMAGE_TTL_MS } from "./recipe-import";
 
 const MAX_IMAGE_BYTES = imageUploadMaxBytes();
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -96,6 +97,7 @@ export async function queueRecipeImportAction(formData: FormData) {
       servings,
       imageMime: hasImage ? image.type : null,
       imageData: hasImage ? Buffer.from(await image.arrayBuffer()) : null,
+      imageExpiresAt: hasImage ? new Date(Date.now() + RECIPE_IMPORT_IMAGE_TTL_MS) : null,
     },
   });
   await prisma.aiJob.create({

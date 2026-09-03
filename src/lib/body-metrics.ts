@@ -10,13 +10,22 @@ import type { Locale } from "@/i18n/locales";
 
 /**
  * Where a value came from. Shown as a text badge, never as colour alone.
- * MANUAL, BIA and OTHER_DEVICE are recorded; ESTIMATE and DERIVED are produced
- * here and never stored.
+ * MANUAL, BIA, OTHER_DEVICE and OPTICAL_SCAN are recorded; ESTIMATE and DERIVED
+ * are produced here and never stored.
  */
-export type MeasurementSource = "MANUAL" | "BIA" | "OTHER_DEVICE" | "ESTIMATE" | "DERIVED";
+export type MeasurementSource = "MANUAL" | "BIA" | "OTHER_DEVICE" | "OPTICAL_SCAN" | "ESTIMATE" | "DERIVED";
 
 /** The three a person can actually choose when entering composition values. */
 export type RecordedSource = Extract<MeasurementSource, "MANUAL" | "BIA" | "OTHER_DEVICE">;
+
+/**
+ * Per-value provenance, keyed by `BodyMeasurement` field name.
+ *
+ * A field with no entry was entered by hand, which is what every session
+ * recorded before scanning existed was - so an absent map means MANUAL and no
+ * historical row needs rewriting.
+ */
+export type ValueSources = Partial<Record<string, MeasurementSource>>;
 
 /**
  * One measuring-tape session. Every value is optional: a session where only the
@@ -42,6 +51,8 @@ export interface BodyMeasurement {
   bodyWaterPct: number | null;
   boneKg: number | null;
   compositionSource: RecordedSource | null;
+  /** Where each individual value came from, where it was not entered by hand. */
+  valueSources?: ValueSources;
 }
 
 export interface BodyProfile {
@@ -140,8 +151,24 @@ export function metricSource(measurement: BodyMeasurement, key: BodyMetricKey): 
     if (key === "boneKg") return "DERIVED";
     return measurement.compositionSource ?? def.source;
   }
+  /* A circumference carries its own provenance, because one session can mix a
+     scanned waist with a hand-measured chest. A paired metric is averaged from
+     two columns, so it only claims a source both sides agree on. */
+  const recorded = PROVENANCE_FIELDS[key]?.map((field) => measurement.valueSources?.[field]);
+  if (recorded?.length && recorded.every((source) => source && source === recorded[0])) return recorded[0]!;
   return def?.source ?? "MANUAL";
 }
+
+/** Which stored columns back each displayed circumference. */
+const PROVENANCE_FIELDS: Partial<Record<BodyMetricKey, readonly string[]>> = {
+  neckCm: ["neckCm"],
+  chestCm: ["chestCm"],
+  waistCm: ["waistCm"],
+  hipCm: ["hipCm"],
+  upperArmCm: ["upperArmLeftCm", "upperArmRightCm"],
+  thighCm: ["thighLeftCm", "thighRightCm"],
+  calfCm: ["calfLeftCm", "calfRightCm"],
+};
 
 /** A session with nothing in it, used where there is no reference to compare against. */
 export const emptyMeasurement = (date: string): BodyMeasurement => ({

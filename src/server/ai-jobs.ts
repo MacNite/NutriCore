@@ -17,6 +17,7 @@ import { repairMealParse } from "./ai-repair";
 import { componentGrams, jobPriority, quickMealRecipeName, STUCK_RUNNING_MS, type AiJobOutcome, type ProposedComponent } from "./ai-types";
 import { resolveComponent, type ResolverContext } from "./component-resolver";
 import { discardMealInputImage } from "./meal-image";
+import { discardScanImages, runBodyScan } from "./body-scan";
 
 export const mealParseSchema = z.object({
   /**
@@ -194,6 +195,16 @@ async function recordFailure(
   // Nothing will read that upload again, and it can be several megabytes.
   if (job.entityType === "RECIPE_IMPORT") await discardRecipeImportImage(job.entityId);
   if (job.entityType === "MEAL_INPUT") await discardMealInputImage(job.entityId);
+  // Two near-unclothed photographs are the most sensitive bytes this app holds,
+  // and a failed scan will never read them again. The scan is marked FAILED in
+  // the same breath so the review page says so instead of waiting for ever.
+  if (job.entityType === "BODY_SCAN") {
+    await discardScanImages(job.entityId);
+    await prisma.bodyScan.updateMany({
+      where: { id: job.entityId, state: { in: ["QUEUED", "PROCESSING"] } },
+      data: { state: "FAILED", failureKind: kind },
+    });
+  }
 }
 
 /**
@@ -270,6 +281,17 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
         recipeName: draft.name,
         ingredientCount: draft.ingredients.length,
         unmatched: draft.unmatched,
+      })));
+      return true;
+    }
+    if (job.entityType === "BODY_SCAN") {
+      // Runs in the worker like every other AI feature, though nothing here is
+      // a model: the work is CPU-bound image geometry that takes about a
+      // second, and a page interaction is still the wrong place for it.
+      const result = await runBodyScan(job.entityId);
+      await completeJob(job, await describeOutcome(job.id, () => ({
+        scanAccepted: result.accepted,
+        estimateCount: result.count,
       })));
       return true;
     }

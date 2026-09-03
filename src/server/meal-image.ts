@@ -1,44 +1,32 @@
 import { prisma } from "@/lib/db";
 import { imageUploadMaxBytes } from "@/lib/image-upload-limit";
+import { IMAGE_UPLOAD_TYPES, validateImageUpload, type ImageUploadError } from "./image-upload";
 
 export const MEAL_IMAGE_MAX_BYTES = imageUploadMaxBytes();
-export const MEAL_IMAGE_TTL_MS = 24 * 60 * 60 * 1000;
-export const MEAL_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
-export type MealImageError = "imageInvalid" | "imageTooLarge" | "imageEmpty";
+/**
+ * How long an uploaded photo may sit in the database waiting for a worker.
+ *
+ * Deliberately short. The bytes live on the row because this deployment has no
+ * object storage, which means a `pg_dump` taken while one is present contains
+ * it - so the window a backup can catch is the window that matters, not the
+ * convenience of a generous timeout. Fifteen minutes is far longer than the
+ * queue ever takes and short enough that the exposure is nearly always nil.
+ * A job that outlives it has already failed for other reasons.
+ */
+export const MEAL_IMAGE_TTL_MS = 15 * 60 * 1000;
+export const MEAL_IMAGE_TYPES = IMAGE_UPLOAD_TYPES;
+
+export type MealImageError = ImageUploadError;
 export type ValidMealImage = { mime: (typeof MEAL_IMAGE_TYPES)[number]; data: Buffer; expiresAt: Date };
 
 export const hasMealInput = (text: string, sourceUrl: string, image: ValidMealImage | null) =>
   Boolean(text.trim() || sourceUrl.trim() || image);
 
-// A browser submits an unselected file input as a zero-byte part carrying no
-// filename, and the name that survives decoding depends on the transport: React's
-// busboy decoding of a server action turns the missing filename into the literal
-// string "undefined", a plain multipart POST keeps "", and appending a nameless
-// Blob yields "blob". None of them is a file a user picked.
-const UNSELECTED_FILE_NAMES = new Set(["", "undefined", "blob"]);
-
-const detectedMime = (data: Uint8Array): ValidMealImage["mime"] | null => {
-  if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return "image/jpeg";
-  if (data.length >= 8 && Buffer.from(data.subarray(0, 8)).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return "image/png";
-  if (data.length >= 12 && Buffer.from(data.subarray(0, 4)).toString("ascii") === "RIFF" && Buffer.from(data.subarray(8, 12)).toString("ascii") === "WEBP") return "image/webp";
-  return null;
-};
-
 /** Validates bytes, not the attacker-controlled filename or browser MIME alone. */
 export async function validateMealImage(value: FormDataEntryValue | null): Promise<ValidMealImage | null> {
-  if (!(value instanceof File)) return null;
-  // Absence, not a user-selected zero-byte image. A genuinely selected empty
-  // file still carries its own filename and remains an actionable validation
-  // error.
-  if (value.size === 0 && UNSELECTED_FILE_NAMES.has(value.name)) return null;
-  if (value.size === 0) throw new Error("imageEmpty" satisfies MealImageError);
-  if (value.size > MEAL_IMAGE_MAX_BYTES) throw new Error("imageTooLarge" satisfies MealImageError);
-  if (!MEAL_IMAGE_TYPES.includes(value.type as ValidMealImage["mime"])) throw new Error("imageInvalid" satisfies MealImageError);
-  const data = Buffer.from(await value.arrayBuffer());
-  const mime = detectedMime(data);
-  if (!mime || mime !== value.type) throw new Error("imageInvalid" satisfies MealImageError);
-  return { mime, data, expiresAt: new Date(Date.now() + MEAL_IMAGE_TTL_MS) };
+  const image = await validateImageUpload(value, MEAL_IMAGE_MAX_BYTES);
+  return image && { ...image, expiresAt: new Date(Date.now() + MEAL_IMAGE_TTL_MS) };
 }
 
 /** Central terminal/success cleanup. Keeping this idempotent makes every caller safe. */
@@ -54,7 +42,7 @@ export async function discardMealInputImages(inputIds: string[]) {
   });
 }
 
-/** Worker maintenance for uploads abandoned without a runnable job (24-hour TTL). */
+/** Worker maintenance for uploads abandoned without a runnable job. */
 export async function cleanupExpiredMealImages(now = new Date()) {
   const result = await prisma.mealInput.updateMany({
     where: { imageData: { not: null }, imageExpiresAt: { lte: now } },
