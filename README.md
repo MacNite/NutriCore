@@ -606,9 +606,11 @@ the capture conditions, the privacy design and what would have to be measured
 before any accuracy claim.
 
 Scanning needs a height in the user's profile, which is the only thing that sets
-the scale. Live camera capture additionally needs an HTTPS origin; on a
-plain-HTTP LAN deployment the file picker is used instead and everything else
-works the same.
+the scale. Each of the two views is captured through two buttons - one asks the
+phone for its camera, the other always opens the device's file picker - so a
+photo taken earlier can be used without the camera taking over. Live camera
+capture additionally needs an HTTPS origin; on a plain-HTTP LAN deployment both
+buttons open the file picker and everything else works the same.
 
 ## Security considerations
 

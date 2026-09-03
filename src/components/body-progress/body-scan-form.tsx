@@ -1,19 +1,88 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
+import { useActionState, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AppDialog } from "@/components/app-dialog";
 import { startBodyScanAction } from "@/server/body-scan-actions";
 import type { FormState } from "@/server/profile-actions";
 
 /**
- * Capture for a two-view body scan.
+ * One view of the scan: a single file input, reached through two named buttons.
  *
- * `capture="environment"` asks a phone for its camera and falls back to the
- * file picker everywhere else - which is not only a nicety. Live camera capture
- * needs a secure context, and NutriCore deliberately supports plain-HTTP LAN
- * deployments, so on those the picker is the only thing that can work. Nothing
- * here depends on which one the browser chose.
+ * A file input carrying `capture` sends a phone straight to the camera, with no
+ * way back to the photos already on the device - so a single control cannot
+ * offer both. The input therefore carries no `capture` in the markup, and the
+ * attribute is set or removed on the click that opens it. Which button was
+ * pressed is the only thing that decides, and the file that arrives is the same
+ * either way.
+ *
+ * `capture` is honoured on phones and ignored elsewhere, where both buttons
+ * open the ordinary picker. That is also the fallback on the plain-HTTP LAN
+ * deployments NutriCore supports: live camera capture needs a secure context,
+ * and there the picker is the only thing that can work.
+ */
+function ScanImageField({
+  id,
+  name,
+  label,
+  onSelect,
+}: {
+  id: string;
+  name: string;
+  label: string;
+  onSelect: (selected: boolean) => void;
+}) {
+  const t = useTranslations("bodyScan");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+
+  const open = (fromCamera: boolean) => {
+    const input = inputRef.current;
+    if (!input) return;
+    if (fromCamera) input.setAttribute("capture", "environment");
+    else input.removeAttribute("capture");
+    input.click();
+  };
+
+  return (
+    <div className="field">
+      <span className="label" id={`${id}-label`}>
+        {label}
+      </span>
+      <div className="scan-source">
+        <button type="button" className="btn" onClick={() => open(true)} aria-label={t("capture.cameraFor", { view: label })}>
+          <span aria-hidden="true">◉</span> {t("capture.camera")}
+        </button>
+        <button type="button" className="btn" onClick={() => open(false)} aria-label={t("capture.fileFor", { view: label })}>
+          <span aria-hidden="true">▤</span> {t("capture.file")}
+        </button>
+      </div>
+      {/* Hidden, not absent: it still carries the field name, so the form posts
+          exactly what it posted before the buttons existed. */}
+      <input
+        ref={inputRef}
+        id={id}
+        name={name}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        aria-labelledby={`${id}-label`}
+        onChange={(event) => {
+          const file = event.target.files?.[0] ?? null;
+          setFileName(file?.name ?? null);
+          onSelect(file !== null);
+        }}
+      />
+      <span className="hint scan-source-file" aria-live="polite">
+        {fileName ?? t("capture.noFile")}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Capture for a two-view body scan.
  *
  * The instructions are not decoration. This estimator reads a silhouette
  * against a plain background, and a capture that ignores them fails a quality
@@ -26,6 +95,10 @@ export function BodyScanForm({ today, heightCm }: { today: string; heightCm: num
   const errors = useTranslations("errors");
   const id = useId();
   const [consented, setConsented] = useState(false);
+  /* The inputs are hidden, so `required` on them would block submission with a
+     validation bubble nobody can see. The button carries that job instead, and
+     the action still refuses a scan that reaches it with a view missing. */
+  const [views, setViews] = useState({ front: false, side: false });
   const [state, action, pending] = useActionState<FormState, FormData>(startBodyScanAction, {});
 
   const message = (() => {
@@ -96,7 +169,7 @@ export function BodyScanForm({ today, heightCm }: { today: string; heightCm: num
 
             <fieldset className="body-checkin-section">
               <legend>{t("capture.views")}</legend>
-              <div className="body-checkin-grid">
+              <div className="body-checkin-grid" style={{ marginBottom: 12 }}>
                 <div className="field">
                   <label htmlFor={`${id}-date`}>{t("capture.date")}</label>
                   <input id={`${id}-date`} name="date" type="date" max={today} defaultValue={today} required />
@@ -106,29 +179,19 @@ export function BodyScanForm({ today, heightCm }: { today: string; heightCm: num
                   <input id={`${id}-height`} type="text" value={`${heightCm} cm`} readOnly disabled />
                   <span className="hint">{t("capture.heightHint")}</span>
                 </div>
-                <div className="field">
-                  <label htmlFor={`${id}-front`}>{t("capture.front")}</label>
-                  <input
-                    id={`${id}-front`}
-                    name="front"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    capture="environment"
-                    required
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor={`${id}-side`}>{t("capture.side")}</label>
-                  <input
-                    id={`${id}-side`}
-                    name="side"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    capture="environment"
-                    required
-                  />
-                </div>
               </div>
+              <ScanImageField
+                id={`${id}-front`}
+                name="front"
+                label={t("capture.front")}
+                onSelect={(selected) => setViews((current) => ({ ...current, front: selected }))}
+              />
+              <ScanImageField
+                id={`${id}-side`}
+                name="side"
+                label={t("capture.side")}
+                onSelect={(selected) => setViews((current) => ({ ...current, side: selected }))}
+              />
             </fieldset>
 
             <fieldset className="body-checkin-section">
@@ -149,7 +212,11 @@ export function BodyScanForm({ today, heightCm }: { today: string; heightCm: num
               </div>
             </fieldset>
 
-            <button type="submit" className="btn btn-primary btn-block" disabled={pending || !consented}>
+            <button
+              type="submit"
+              className="btn btn-primary btn-block"
+              disabled={pending || !consented || !views.front || !views.side}
+            >
               {pending ? common("loading") : t("capture.submit")}
             </button>
           </>
