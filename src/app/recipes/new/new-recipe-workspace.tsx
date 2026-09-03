@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { CompletionRedirect } from "@/components/completion-redirect";
-import { queueRecipeImportAction, type RecipeImportDraft, type RecipeImportError } from "@/server/recipe-import-actions";
+import { queueRecipeImportAction, type RecipeImportDraft, type RecipeImportError } from "@/server/ai-ingestion-actions";
 import { RecipeForm } from "../recipe-form";
 
 /**

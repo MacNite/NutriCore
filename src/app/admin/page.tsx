@@ -87,7 +87,7 @@ export default async function AdminPage({
         // `accepted` is what an approved proposal actually wrote to the diary,
         // which is the outcome of a meal job.
         proposal: { select: { approvalStatus: true, accepted: true } },
-        mealInput: { select: { text: true, sourceUrl: true } },
+        ingestionInput: { select: { text: true, sourceUrl: true } },
         // Newest first. Ordering by `attempt` would interleave the numbers of a
         // job that was manually run again, because a rerun resets the counter.
         attempts: { orderBy: { createdAt: "desc" }, take: 10 },
@@ -109,29 +109,18 @@ export default async function AdminPage({
   // failure, so it is fetched for the rows on this page rather than guessed at.
   // The same lookups name the entity: an opaque cuid says nothing about which
   // food or recipe a row is, which is what the id column used to be on its own.
-  const [researchInputs, recipeImportInputs, enrichedFoods, importedRecipes] = await Promise.all([
+  const [researchInputs, enrichedFoods] = await Promise.all([
     prisma.researchJob.findMany({
       where: { id: { in: entityIds(jobs, "RESEARCH") } },
       select: { id: true, query: true },
-    }),
-    prisma.recipeImport.findMany({
-      where: { id: { in: entityIds(jobs, "RECIPE_IMPORT") } },
-      select: { id: true, text: true, sourceUrl: true },
     }),
     prisma.food.findMany({
       where: { id: { in: entityIds(jobs, "FOOD_ENRICHMENT") } },
       select: { id: true, name: true },
     }),
-    // The draft an import wrote, which is what a RECIPE_IMPORT job is "about".
-    prisma.recipe.findMany({
-      where: { importId: { in: entityIds(jobs, "RECIPE_IMPORT") } },
-      select: { importId: true, name: true },
-    }),
   ]);
   const researchById = new Map(researchInputs.map((row) => [row.id, row]));
-  const recipeImportById = new Map(recipeImportInputs.map((row) => [row.id, row]));
   const foodNameById = new Map(enrichedFoods.map((row) => [row.id, row.name]));
-  const recipeNameByImportId = new Map(importedRecipes.flatMap((row) => (row.importId ? [[row.importId, row.name] as const] : [])));
 
   /** Truncated so one long meal description cannot take over the column. */
   const shorten = (value: string | null | undefined, max = 80) =>
@@ -143,19 +132,15 @@ export default async function AdminPage({
    */
   const entityName = (job: (typeof jobs)[number]) => {
     if (job.entityType === "FOOD_ENRICHMENT") return shorten(foodNameById.get(job.entityId));
-    if (job.entityType === "RECIPE_IMPORT")
-      return shorten(recipeNameByImportId.get(job.entityId) ?? recipeImportById.get(job.entityId)?.text);
     if (job.entityType === "RESEARCH") return shorten(researchById.get(job.entityId)?.query);
-    return shorten(job.mealInput?.text);
+    return shorten(job.ingestionInput?.text);
   };
 
   const jobInput = (job: (typeof jobs)[number]) => {
-    if (job.mealInput?.text) return { text: job.mealInput.text, sourceUrl: job.mealInput.sourceUrl };
+    if (job.ingestionInput?.text) return { text: job.ingestionInput.text, sourceUrl: job.ingestionInput.sourceUrl };
     const research = researchById.get(job.entityId);
     if (research) return { text: research.query, sourceUrl: null };
-    const recipeImport = recipeImportById.get(job.entityId);
-    if (recipeImport) return { text: recipeImport.text, sourceUrl: recipeImport.sourceUrl };
-    return { text: null, sourceUrl: job.mealInput?.sourceUrl ?? null };
+    return { text: null, sourceUrl: job.ingestionInput?.sourceUrl ?? null };
   };
 
   /**

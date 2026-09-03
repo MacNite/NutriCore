@@ -85,7 +85,8 @@ export async function confirmRecipeAction(_state: FormState, formData: FormData)
   const user = await requireUser();
   const parsed = z.object({ id: z.string().min(1) }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "validation" };
-  try { await confirmRecipe(user.id, parsed.data.id); } catch (error) { return errorState(error); }
+  const selections = [...formData.entries()].filter(([key]) => key.startsWith("component-")).sort(([a], [b]) => Number(a.slice(10)) - Number(b.slice(10))).map(([, value]) => String(value));
+  try { await confirmRecipe(user.id, parsed.data.id, selections); } catch (error) { return errorState(error); }
   revalidatePath("/recipes"); revalidatePath("/foods"); revalidatePath(`/recipes/${parsed.data.id}`);
   redirect(`/recipes/${parsed.data.id}`);
 }

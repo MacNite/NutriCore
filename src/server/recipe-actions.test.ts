@@ -14,7 +14,7 @@ vi.mock("./session", () => ({ requireUser: vi.fn(async () => ({ id: "user-1" }))
 vi.mock("@/lib/db", () => ({
   prisma: {
     food: { findFirst: foodFindFirst },
-    mealInput: { create: mealInputCreate },
+    ingestionInput: { create: mealInputCreate },
     aiJob: { create: aiJobCreate },
   },
 }));

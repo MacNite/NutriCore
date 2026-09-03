@@ -8,7 +8,7 @@ vi.mock("@/lib/db", () => ({ prisma: {} }));
 import { researchResultSchema } from "@/lib/research";
 import { mealParseSchema } from "./ai-jobs";
 import { decideComponents, type ProposedComponent } from "./ai-types";
-import { extractedRecipeSchema } from "./recipe-import";
+import { extractedRecipeSchema } from "./ai-ingestion";
 import {
   confidenceBand,
   ingredientFromText,

@@ -145,22 +145,21 @@ model User {
   active             Boolean  @default(true)
   mustChangePassword Boolean  @default(false)
 
-  profile          UserProfile?
-  sessions         Session[]
-  targets          NutritionTarget[]
-  weights          WeightEntry[]
-  bodyMeasurements BodyMeasurement[]
-  foods            Food[]
-  recipes          Recipe[]
-  diaryDays        DiaryDay[]
-  favorites        Favorite[]
-  usage            FoodUsageStats[]
-  research         ResearchJob[]
-  invitationsSent  UserInvitation[]  @relation("InvitationSender")
-  aiJobs           AiJob[]
-  mealInputs       MealInput[]
-  recipeImports    RecipeImport[]
-  activityEntries  ActivityEntry[]
+  profile           UserProfile?
+  sessions          Session[]
+  targets           NutritionTarget[]
+  weights           WeightEntry[]
+  bodyMeasurements  BodyMeasurement[]
+  foods             Food[]
+  recipes           Recipe[]
+  diaryDays         DiaryDay[]
+  favorites         Favorite[]
+  usage             FoodUsageStats[]
+  research          ResearchJob[]
+  invitationsSent   UserInvitation[]   @relation("InvitationSender")
+  aiJobs            AiJob[]
+  aiIngestionInputs AiIngestionInput[]
+  activityEntries   ActivityEntry[]
 }
 
 model UserInvitation {
@@ -195,97 +194,69 @@ model MailSettings {
   updatedAt         DateTime @updatedAt
 }
 
-model MealInput {
-  id             String    @id @default(cuid())
-  userId         String
-  text           String
-  sourceUrl      String?
+model AiIngestionInput {
+  id              String    @id @default(cuid())
+  userId          String
+  intent          String
+  text            String
+  sourceUrl       String?
   /**
    * Transient worker handoff; cleared after extraction or terminal cleanup.
    */
-  imageMime      String?
-  imageData      Bytes?
-  imageExpiresAt DateTime?
-  meal           MealType
-  diaryDate      DateTime  @db.Date
+  imageMime       String?
+  imageData       Bytes?
+  imageExpiresAt  DateTime?
+  meal            MealType?
+  diaryDate       DateTime? @db.Date
   /**
    * Number of portions described by the submitted text, URL, or photo.
    */
-  servings       Decimal   @default(1) @db.Decimal(8, 2)
-  createdAt      DateTime  @default(now())
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  aiJobs         AiJob[]
+  servings        Decimal   @default(1) @db.Decimal(8, 2)
+  logAfterConfirm Boolean   @default(false)
+  draft           Json?
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiJobs          AiJob[]
+  recipes         Recipe[]
 
   @@index([userId, createdAt])
   @@index([imageExpiresAt])
 }
 
-/**
- * One "create a recipe from a URL, an image or free text" request.
- * It exists because the extraction moved into the worker: the input has to
- * outlive the request that submitted it, and the resulting draft has to be
- * somewhere the page can pick it up afterwards. Doing it inline held a page
- * interaction open for the whole model call, which on a local model is minutes.
- */
-model RecipeImport {
-  id        String   @id @default(cuid())
-  userId    String
-  text      String?
-  sourceUrl String?
-  /**
-   * User-supplied yield; authoritative when the source is ambiguous.
-   */
-  servings  Decimal  @default(1) @db.Decimal(8, 2)
-  /**
-   * Transient: cleared as soon as the worker has read it. Never re-served.
-   */
-  imageMime String?
-  imageData Bytes?
-  /**
-   * The extracted recipe plus the ingredient names nothing matched.
-   */
-  draft     Json?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recipes   Recipe[]
-
-  @@index([userId, createdAt])
-}
-
 model AiJob {
-  id           String         @id @default(cuid())
-  userId       String
-  entityType   String
-  entityId     String
-  mealInputId  String?
-  status       AiJobStatus    @default(QUEUED)
+  id               String            @id @default(cuid())
+  userId           String
+  entityType       String
+  entityId         String
+  ingestionInputId String?
+  status           AiJobStatus       @default(QUEUED)
   /**
    * Higher runs first. A "Backfill missing nutrition" sweep can queue hundreds
    * of jobs at once, and a strictly chronological queue put every quick meal
    * behind all of them - hours of waiting for a request the user is watching.
    */
-  priority     Int            @default(10)
-  retryCount   Int            @default(0)
-  maxRetries   Int            @default(2)
-  model        String?
-  errorMessage String?
-  metadata     Json?
-  createdAt    DateTime       @default(now())
-  startedAt    DateTime?
-  completedAt  DateTime?
-  failedAt     DateTime?
+  priority         Int               @default(10)
+  retryCount       Int               @default(0)
+  maxRetries       Int               @default(2)
+  model            String?
+  errorMessage     String?
+  metadata         Json?
+  createdAt        DateTime          @default(now())
+  startedAt        DateTime?
+  completedAt      DateTime?
+  failedAt         DateTime?
   /**
    * Machine-readable cause of the last failure; see `AiFailureKind`.
    */
-  failureKind  String?
+  failureKind      String?
   /**
    * Longest useful diagnostic detail, e.g. the underlying fetch/undici cause.
    */
-  errorDetail  String?
-  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  mealInput    MealInput?     @relation(fields: [mealInputId], references: [id], onDelete: Cascade)
-  proposal     AiProposal?
-  attempts     AiJobAttempt[]
+  errorDetail      String?
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingestionInput   AiIngestionInput? @relation(fields: [ingestionInputId], references: [id], onDelete: Cascade)
+  proposal         AiProposal?
+  attempts         AiJobAttempt[]
 
   @@index([status, priority, createdAt])
   @@index([userId, createdAt])
@@ -613,7 +584,7 @@ model Recipe {
   updatedAt       DateTime     @updatedAt
 
   owner        User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  import       RecipeImport?      @relation(fields: [importId], references: [id], onDelete: SetNull)
+  import       AiIngestionInput?  @relation(fields: [importId], references: [id], onDelete: SetNull)
   ingredients  RecipeIngredient[]
   diaryEntries DiaryEntry[]
   sources      RecipeSource[]

@@ -186,7 +186,7 @@ export async function manageAiJobsAction(formData: FormData) {
 
   let affected = 0;
   const discardFor = async (where: Prisma.AiJobWhereInput) => {
-    const jobs = await prisma.aiJob.findMany({ where: { ...where, entityType: "MEAL_INPUT" }, select: { entityId: true } });
+    const jobs = await prisma.aiJob.findMany({ where: { ...where, entityType: "AI_INGESTION" }, select: { entityId: true } });
     await discardMealInputImages(jobs.map((job) => job.entityId));
   };
   switch (operation) {

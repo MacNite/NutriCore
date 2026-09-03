@@ -1,7 +1,6 @@
 import type { MealType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { diaryDate } from "./diary";
-import { quickMealOptions } from "./ai-types";
 
 /**
  * Placeholders for AI runs that are still going.
@@ -57,8 +56,8 @@ export async function mealPlaceholders(userId: string, date: string): Promise<Ai
     where: {
       userId,
       status: { in: [...IN_FLIGHT] },
-      entityType: "MEAL_INPUT",
-      mealInput: { diaryDate: diaryDate(date) },
+      entityType: "AI_INGESTION",
+      ingestionInput: { intent: "MEAL", diaryDate: diaryDate(date) },
     },
     orderBy: { createdAt: "asc" },
     select: {
@@ -66,18 +65,18 @@ export async function mealPlaceholders(userId: string, date: string): Promise<Ai
       status: true,
       entityId: true,
       metadata: true,
-      mealInput: { select: { text: true, sourceUrl: true, meal: true } },
+      ingestionInput: { select: { text: true, sourceUrl: true, meal: true } },
     },
   });
 
   return jobs.flatMap((job) => {
-    if (!job.mealInput || !quickMealOptions(job.metadata).addToMeal) return [];
+    if (!job.ingestionInput) return [];
     return [{
       id: job.id,
       status: job.status as AiPlaceholderStatus,
       href: `/ai-review/${job.entityId}`,
-      source: sourceLabel(job.mealInput.text, job.mealInput.sourceUrl),
-      meal: job.mealInput.meal,
+      source: sourceLabel(job.ingestionInput.text, job.ingestionInput.sourceUrl),
+      meal: job.ingestionInput.meal ?? undefined,
     }];
   });
 }
@@ -91,34 +90,22 @@ export async function recipePlaceholders(userId: string): Promise<AiPlaceholder[
     where: {
       userId,
       status: { in: [...IN_FLIGHT] },
-      entityType: { in: ["MEAL_INPUT", "RECIPE_IMPORT"] },
+      entityType: "AI_INGESTION",
+      ingestionInput: { intent: "RECIPE" },
     },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
       status: true,
-      entityType: true,
       entityId: true,
       metadata: true,
-      mealInput: { select: { text: true, sourceUrl: true } },
+      ingestionInput: { select: { text: true, sourceUrl: true, intent: true } },
     },
   });
 
-  const imports = jobs.filter((job) => job.entityType === "RECIPE_IMPORT");
-  // Scoped to the owner as well as to the ids: the job is this user's, and the
-  // import it names has to be too before any of its text is shown back.
-  const inputs = imports.length
-    ? await prisma.recipeImport.findMany({
-        where: { id: { in: imports.map((job) => job.entityId) }, userId },
-        select: { id: true, text: true, sourceUrl: true },
-      })
-    : [];
-  const byId = new Map(inputs.map((input) => [input.id, input]));
-
   return jobs.flatMap((job) => {
-    if (job.entityType === "RECIPE_IMPORT") {
-      const input = byId.get(job.entityId);
-      if (!input) return [];
+    if (job.ingestionInput?.intent === "RECIPE") {
+      const input = job.ingestionInput;
       return [{
         id: job.id,
         status: job.status as AiPlaceholderStatus,
@@ -128,12 +115,6 @@ export async function recipePlaceholders(userId: string): Promise<AiPlaceholder[
         source: sourceLabel(input.text, input.sourceUrl),
       }];
     }
-    if (!job.mealInput || !quickMealOptions(job.metadata).createRecipe) return [];
-    return [{
-      id: job.id,
-      status: job.status as AiPlaceholderStatus,
-      href: `/ai-review/${job.entityId}`,
-      source: sourceLabel(job.mealInput.text, job.mealInput.sourceUrl),
-    }];
+    return [];
   });
 }

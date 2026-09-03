@@ -79,6 +79,10 @@ describe("how many grams a component logs", () => {
     expect(resolveGrams({ quantity: 400, unit: "Scheiben" }, bread)).toEqual({ grams: null, source: "NONE" });
   });
 
+  it("never uses a model-estimated weight when recipe resolution forbids estimates", () => {
+    expect(resolveGrams({ estimatedGrams: 60 }, null, false)).toEqual({ grams: null, source: "NONE" });
+  });
+
   it("uses servingSize when the food carries no serving rows", () => {
     const component = { quantity: 2, unit: "Portion" };
     const yoghurt = food({ servingSize: 150, servingUnit: "Portion" });

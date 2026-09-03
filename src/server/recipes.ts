@@ -134,23 +134,46 @@ export async function saveRecipe(userId: string, input: RecipeInput, recipeId?: 
  * the user is looking at. It throws exactly where a manual save would - an
  * unresolvable unit is reported, never quietly dropped.
  */
-export async function confirmRecipe(userId: string, id: string) {
+export async function confirmRecipe(userId: string, id: string, selections: string[] = []) {
   const recipe = await prisma.recipe.findFirst({
     where: { id, ownerId: userId },
-    include: { ingredients: { orderBy: { position: "asc" }, select: { foodId: true, amount: true, unit: true } } },
+    include: { import: { select: { draft: true, logAfterConfirm: true, meal: true, diaryDate: true } }, ingredients: { orderBy: { position: "asc" }, select: { foodId: true, amount: true, unit: true } } },
   });
   if (!recipe) throw new NotFoundError("recipe");
-  if (!recipe.ingredients.length) throw new PortionError("invalid-amount");
+  const extracted = recipe.import?.draft as { components?: Array<{ quantity?: number; unit?: string; candidates?: Array<{ foodId: string; grams: number | null }> }> } | null;
+  let chosenIngredients = recipe.ingredients.map((item) => ({ foodId: item.foodId, amount: Number(item.amount), unit: item.unit }));
+  if (extracted?.components && selections.length) {
+    chosenIngredients = [];
+    for (let index = 0; index < extracted.components.length; index++) {
+      const foodId = selections[index];
+      if (!foodId) continue;
+      const component = extracted.components[index];
+      const food = await prisma.food.findFirst({ where: { id: foodId, ...visibleFoodWhere(userId) }, include: { servings: true } });
+      if (!food) continue;
+      const context = foodPortionContext(food);
+      const unit = component.unit ?? "";
+      if (component.quantity && unit && resolveIngredientWeight(component.quantity, unit, context).ok) chosenIngredients.push({ foodId, amount: component.quantity, unit });
+      else {
+        const grams = component.candidates?.find((candidate) => candidate.foodId === foodId)?.grams;
+        if (grams) chosenIngredients.push({ foodId, amount: grams, unit: "g" });
+      }
+    }
+  }
+  if (!chosenIngredients.length) throw new PortionError("invalid-amount");
 
-  return saveRecipe(userId, {
+  const saved = await saveRecipe(userId, {
     name: recipe.name,
     description: recipe.description ?? "",
     servings: Number(recipe.servings),
     yieldWeightG: recipe.yieldWeightG ? Number(recipe.yieldWeightG) : null,
     instructions: recipe.instructions ?? "",
     tags: recipe.tags,
-    ingredients: recipe.ingredients.map((item) => ({ foodId: item.foodId, amount: Number(item.amount), unit: item.unit })),
+    ingredients: chosenIngredients,
   }, recipe.id, { status: "ACTIVE" });
+  if (recipe.import?.logAfterConfirm && recipe.import.meal && recipe.import.diaryDate) {
+    await logRecipe(userId, recipe.id, 1, recipe.import.meal, recipe.import.diaryDate.toISOString().slice(0, 10));
+  }
+  return saved;
 }
 
 export async function getRecipe(userId: string, id: string) {
