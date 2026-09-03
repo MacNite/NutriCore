@@ -76,7 +76,7 @@ export function PendingProposals({
                 <input type="hidden" name="returnTo" value={returnTo} />
                 <button className="btn btn-quiet">{labels.reject}</button>
               </form>
-              <Link className="btn btn-quiet" href={`/ai-review/${proposal.mealInputId}`}>
+              <Link className="btn btn-quiet" href={`/ai-review/${proposal.ingestionInputId}`}>
                 {labels.review}
               </Link>
             </div>

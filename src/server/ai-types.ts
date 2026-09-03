@@ -89,17 +89,21 @@ export function quickMealOptions(metadata: unknown) {
   return { addToMeal: value.addToMeal !== false, createRecipe: value.createRecipe === true };
 }
 
-/**
- * What a quick meal's recipe is called.
- *
- * The extraction names the dish the way the recipe import does, so a photo or a
- * "2 Scheiben Brot mit Butter und Marmelade" produces a recipe called
- * "Butterbrot mit Marmelade" rather than the sentence itself - or, for an input
- * that was only an image, nothing at all. The typed text stays the fallback for
- * a model that named nothing.
- */
-export function quickMealRecipeName(generated: string | undefined, text: string) {
-  return generated?.trim().slice(0, 200) || text.trim().slice(0, 120) || "Quick meal";
+export type AiIngestionIntent = "MEAL" | "RECIPE";
+
+export function ingestionOptions(addToMeal: boolean, createRecipe: boolean): { intent: AiIngestionIntent; logAfterConfirm: boolean } {
+  return createRecipe ? { intent: "RECIPE", logAfterConfirm: addToMeal } : { intent: "MEAL", logAfterConfirm: false };
+}
+
+export function ingestionIntent(input: { intent?: unknown } | null | undefined, metadata?: unknown): AiIngestionIntent {
+  if (input?.intent === "RECIPE" || input?.intent === "MEAL") return input.intent;
+  return quickMealOptions(metadata).createRecipe ? "RECIPE" : "MEAL";
+}
+
+export function scaleMealComponentsForIntent<T extends { components: Array<{ quantity?: number; estimatedGrams?: number }> }>(parsed: T, servings: number, intent: AiIngestionIntent): T {
+  if (!Number.isFinite(servings) || servings <= 0) throw new RangeError("Servings must be positive");
+  if (intent === "RECIPE" || servings === 1) return parsed;
+  return { ...parsed, components: parsed.components.map((component) => ({ ...component, quantity: component.quantity === undefined ? undefined : component.quantity / servings, estimatedGrams: component.estimatedGrams === undefined ? undefined : component.estimatedGrams / servings })) };
 }
 
 /** What approving a proposal actually did, recorded on `AiProposal.accepted`. */
@@ -293,15 +297,14 @@ export function aiJobDestination(job: {
    * outcome can.
    */
   recipeId?: string | null;
+  intent?: AiIngestionIntent;
 }): AiCompletionDestination | null {
   const recipeId = job.recipeId || jobOutcome(job.metadata)?.recipeId;
   const preview = (id: string): AiCompletionDestination => ({ kind: "RECIPE_PREVIEW", recipeId: id, href: `/recipes/${id}` });
 
-  if (job.entityType === "RECIPE_IMPORT") return recipeId ? preview(recipeId) : null;
-  if (job.entityType !== "MEAL_INPUT") return null;
-
-  const { addToMeal, createRecipe } = quickMealOptions(job.metadata);
-  if (createRecipe && !addToMeal && recipeId) return preview(recipeId);
+  const intent = job.intent ?? (job.entityType === "RECIPE_IMPORT" ? "RECIPE" : job.entityType === "MEAL_INPUT" ? ingestionIntent(null, job.metadata) : null);
+  if (intent === "RECIPE") return recipeId ? preview(recipeId) : null;
+  if (intent !== "MEAL") return null;
   return { kind: "MEAL_REVIEW", href: `/ai-review/${job.entityId}` };
 }
 

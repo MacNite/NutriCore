@@ -10,11 +10,11 @@ import { logger } from "@/lib/logger";
 import { failResearchJob, runResearchJob } from "./research";
 import { fetchMealPage, mealPagePrompt } from "./meal-url";
 import { enrichFood } from "./food-enrichment";
-import { discardRecipeImportImage, runRecipeImport } from "./recipe-import";
+import { runRecipeImport } from "./ai-ingestion";
 import { describeFailure } from "./ai-failures";
-import { autoApproveProposal, storeQuickMealRecipe } from "./ai-approval";
+import { autoApproveProposal } from "./ai-approval";
 import { repairMealParse } from "./ai-repair";
-import { componentGrams, jobPriority, quickMealRecipeName, STUCK_RUNNING_MS, type AiJobOutcome, type ProposedComponent } from "./ai-types";
+import { jobPriority, scaleMealComponentsForIntent, STUCK_RUNNING_MS, type AiJobOutcome, type ProposedComponent } from "./ai-types";
 import { resolveComponent, type ResolverContext } from "./component-resolver";
 import { discardMealInputImage } from "./meal-image";
 import { discardScanImages, runBodyScan } from "./body-scan";
@@ -69,16 +69,7 @@ const PRINCIPLE = "LLM interprets; sources provide facts; code calculates; human
 
 /** Converts quantities for a complete source recipe into the single portion logged by Quick meal. */
 export function scaleMealComponentsToServing(parsed: z.infer<typeof mealParseSchema>, servings: number) {
-  if (!Number.isFinite(servings) || servings <= 0) throw new RangeError("Servings must be positive");
-  if (servings === 1) return parsed;
-  return {
-    ...parsed,
-    components: parsed.components.map((component) => ({
-      ...component,
-      quantity: component.quantity === undefined ? undefined : component.quantity / servings,
-      estimatedGrams: component.estimatedGrams === undefined ? undefined : component.estimatedGrams / servings,
-    })),
-  };
+  return scaleMealComponentsForIntent(parsed, servings, "MEAL");
 }
 
 /**
@@ -115,7 +106,7 @@ export async function claimNextJob() {
     where: { id: candidate.id, status: "QUEUED" },
     data: { status: "RUNNING", startedAt: new Date() },
   });
-  return claimed.count ? prisma.aiJob.findUnique({ where: { id: candidate.id }, include: { mealInput: true } }) : null;
+  return claimed.count ? prisma.aiJob.findUnique({ where: { id: candidate.id }, include: { ingestionInput: true } }) : null;
 }
 
 /**
@@ -193,8 +184,7 @@ async function recordFailure(
   // might have succeeded could never run.
   if (job.entityType === "RESEARCH") await failResearchJob(job.entityId);
   // Nothing will read that upload again, and it can be several megabytes.
-  if (job.entityType === "RECIPE_IMPORT") await discardRecipeImportImage(job.entityId);
-  if (job.entityType === "MEAL_INPUT") await discardMealInputImage(job.entityId);
+  if (job.entityType === "AI_INGESTION") await discardMealInputImage(job.entityId);
   // Two near-unclothed photographs are the most sensitive bytes this app holds,
   // and a failed scan will never read them again. The scan is marked FAILED in
   // the same breath so the review page says so instead of waiting for ever.
@@ -274,7 +264,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       })));
       return true;
     }
-    if (job.entityType === "RECIPE_IMPORT") {
+    if (job.entityType === "AI_INGESTION" && job.ingestionInput?.intent === "RECIPE") {
       const draft = await runRecipeImport(job.entityId, deps);
       await completeJob(job, await describeOutcome(job.id, () => ({
         recipeId: draft.recipeId,
@@ -305,7 +295,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       return true;
     }
     if (job.entityType === "RECIPE_LOG") {
-      if (!job.mealInput) throw new Error("Recipe log has no diary target");
+      if (!job.ingestionInput) throw new Error("Recipe log has no diary target");
       const metadata = (job.metadata ?? {}) as { recipeId?: string; servings?: number };
       const recipe = await prisma.recipe.findFirst({
         where: { id: metadata.recipeId, ownerId: job.userId },
@@ -330,7 +320,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       await queueFoodEnrichments(job.userId, components.map((c) => c.canonicalFoodId));
       return true;
     }
-    if (job.entityType !== "MEAL_INPUT" || !job.mealInput) throw new Error("Unsupported AI job entity");
+    if (job.entityType !== "AI_INGESTION" || !job.ingestionInput || job.ingestionInput.intent !== "MEAL") throw new Error("Unsupported AI job entity");
     const ai = deps.ai ?? new OllamaProvider();
     const cached = (job.metadata ?? {}) as {
       extraction?: z.infer<typeof mealParseSchema>;
@@ -339,18 +329,19 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       /** What the quick-meal form asked for; both default to the old behaviour. */
       addToMeal?: boolean;
       createRecipe?: boolean;
+      manualReview?: boolean;
     };
     const capabilities = await ai.capabilities();
 
-    let prompt = job.mealInput.text;
-    if (job.mealInput.sourceUrl) {
-      const source = await fetchMealPage(job.mealInput.sourceUrl);
+    let prompt = job.ingestionInput.text;
+    if (job.ingestionInput.sourceUrl) {
+      const source = await fetchMealPage(job.ingestionInput.sourceUrl);
       if (!source.excerpt.trim()) throw new Error("source-no-ingredients");
-      prompt = mealPagePrompt(source, job.mealInput.text);
+      prompt = mealPagePrompt(source, job.ingestionInput.text);
     }
 
-    const images = job.mealInput.imageData ? [Buffer.from(job.mealInput.imageData).toString("base64")] : undefined;
-    const kinds = [job.mealInput.text && "text", job.mealInput.sourceUrl && "url", images && "image"].filter(Boolean);
+    const images = job.ingestionInput.imageData ? [Buffer.from(job.ingestionInput.imageData).toString("base64")] : undefined;
+    const kinds = [job.ingestionInput.text && "text", job.ingestionInput.sourceUrl && "url", images && "image"].filter(Boolean);
     const inputKind = kinds.join("+") || "text";
     const extracted = cached.extraction ? mealParseSchema.parse(cached.extraction) : await ai.complete({
       system: SYSTEM,
@@ -363,7 +354,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       // rest of the meal instead of discarding all of it over one value.
       repair: repairMealParse,
     });
-    const parsed = scaleMealComponentsToServing(extracted, Number(job.mealInput.servings ?? 1));
+    const parsed = scaleMealComponentsToServing(extracted, Number(job.ingestionInput.servings ?? 1));
 
     // The normalized components are sufficient for a retry. Persisting them in
     // the explicit queue payload lets us delete private image bytes immediately
@@ -372,8 +363,8 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       await prisma.$transaction([
         // Spread, not replace: the submitter's options live here too, and a
         // retry that lost them would log a meal the user asked not to log.
-        prisma.aiJob.update({ where: { id: job.id }, data: { metadata: { ...cached, extraction: extracted, inputKind, sourceUrl: job.mealInput.sourceUrl ?? undefined } } }),
-        prisma.mealInput.update({ where: { id: job.mealInput.id }, data: { imageData: null, imageMime: null, imageExpiresAt: null } }),
+        prisma.aiJob.update({ where: { id: job.id }, data: { metadata: { ...cached, extraction: extracted, inputKind, sourceUrl: job.ingestionInput.sourceUrl ?? undefined } } }),
+        prisma.aiIngestionInput.update({ where: { id: job.ingestionInput.id }, data: { imageData: null, imageMime: null, imageExpiresAt: null } }),
       ]);
     }
 
@@ -391,6 +382,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       // must not depend on the whole configuration - APP_SECRET included - being
       // present in a process that signs no sessions.
       webSourcesAllowed: researchEnabled() && Boolean(owner?.profile?.researchEnabled),
+      allowModelEstimates: true,
       deps,
     };
 
@@ -415,7 +407,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       });
     }
 
-    const provenance = { model: capabilities.model, processedAt: new Date().toISOString(), principle: PRINCIPLE, inputKind: cached.inputKind ?? inputKind, ...(job.mealInput.sourceUrl ? { sourceUrl: job.mealInput.sourceUrl } : {}) };
+    const provenance = { model: capabilities.model, processedAt: new Date().toISOString(), principle: PRINCIPLE, inputKind: cached.inputKind ?? inputKind, ...(job.ingestionInput.sourceUrl ? { sourceUrl: job.ingestionInput.sourceUrl } : {}) };
     // `ProposedComponent` is an interface, so it carries no index signature and
     // Prisma's `InputJsonValue` will not take it directly. The shape is JSON by
     // construction - the review page reads it back through the same interface.
@@ -442,10 +434,9 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
     // to the diary then, and the proposal is left pending rather than rejected:
     // the extraction is still worth having, and a change of mind is one click
     // away on the review screen instead of a whole second submission.
-    let applied: Awaited<ReturnType<typeof autoApproveProposal>> = null;
-    if (cached.addToMeal !== false && owner?.profile?.autoApproveAi !== false) {
+    if (!cached.manualReview && cached.addToMeal !== false && owner?.profile?.autoApproveAi !== false) {
       try {
-        applied = await autoApproveProposal(savedProposal.id);
+        await autoApproveProposal(savedProposal.id);
       } catch (error) {
         logger.warn("Applying the proposal failed after the job completed", {
           jobId: job.id,
@@ -454,18 +445,6 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       }
     }
 
-    // An applied proposal has already kept the recipe, from what it logged. This
-    // is the other case - "keep a recipe but do not log it", and a proposal left
-    // for review - where the only foods available are the ones the resolver
-    // matched itself. Approving later replaces this with what was chosen.
-    if (cached.createRecipe && !applied) {
-      const ingredients = components.flatMap((component) => {
-        const foodId = component.canonicalFoodId;
-        const grams = componentGrams(component, foodId);
-        return foodId && grams ? [{ foodId, amount: grams, unit: "g" }] : [];
-      });
-      await storeQuickMealRecipe(job, quickMealRecipeName(parsed.name, job.mealInput.text), ingredients);
-    }
 
     await queueFoodEnrichments(job.userId, components.flatMap((component) => component.canonicalFoodId ? [component.canonicalFoodId] : []));
   } catch (error) {

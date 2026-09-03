@@ -4,8 +4,8 @@ import { logger } from "@/lib/logger";
 import { resolveAiModel } from "@/lib/env";
 import { normalizeName } from "@/lib/units";
 import { addDiaryEntry, formatDateKey } from "./diary";
-import { deleteRecipe, saveRecipe } from "./recipes";
-import { decideComponents, jobOutcome, quickMealOptions, quickMealRecipeName, type AcceptedOutcome, type AiJobOutcome, type ProposedComponent } from "./ai-types";
+import { deleteRecipe } from "./recipes";
+import { decideComponents, jobOutcome, type AcceptedOutcome, type AiJobOutcome, type ProposedComponent } from "./ai-types";
 
 /**
  * Applies an approved proposal to the diary.
@@ -49,84 +49,6 @@ async function createEstimatedFood(
       },
     },
   });
-}
-
-/** The dish name the extraction settled on, kept on the job so approval can reuse it. */
-function extractedName(metadata: unknown) {
-  const name = (metadata as { extraction?: { name?: unknown } } | null)?.extraction?.name;
-  return typeof name === "string" ? name : undefined;
-}
-
-/**
- * Stores a quick meal as a draft recipe, when the submitter asked for one.
- *
- * A draft, never an active recipe: these ingredients are a model's reading of a
- * sentence, and a draft is exactly the state the app already has for "extracted
- * but not reviewed" - it is listed and editable but gets no Food entry, so
- * nothing here can be logged before someone has confirmed it.
- *
- * Called twice for the same job in the ordinary case: once by the worker, from
- * whatever the resolver matched on its own, and again when the proposal is
- * approved, from what was actually logged. So it updates the recipe it wrote
- * last time rather than adding a second one - and a recipe the user has already
- * confirmed is left exactly as they confirmed it.
- *
- * Runs after the job is already COMPLETED, so it must not throw: recordFailure
- * would put the whole extraction back in the queue for the sake of a follow-up.
- */
-export async function storeQuickMealRecipe(
-  job: { id: string; userId: string; metadata: Prisma.JsonValue | null },
-  name: string,
-  ingredients: Array<{ foodId: string; amount: number; unit: string }>,
-): Promise<{ recipeId: string; recipeName: string } | { recipeSkipped: true } | null> {
-  try {
-    if (!ingredients.length) {
-      // Said out loud rather than only logged: the submitter ticked a box and is
-      // owed an answer about why the list they went looking in stayed empty.
-      logger.info("Quick meal recipe skipped: nothing resolved to a food", { jobId: job.id });
-      return { recipeSkipped: true };
-    }
-
-    const existingId = jobOutcome(job.metadata)?.recipeId;
-    const existing = existingId
-      ? await prisma.recipe.findFirst({ where: { id: existingId, ownerId: job.userId }, select: { id: true, status: true } })
-      : null;
-    // Already accepted by the user; neither a later approval nor a retry of this
-    // job may undo that.
-    if (existing?.status === "ACTIVE") return { recipeId: existing.id, recipeName: name };
-
-    // The components were already scaled to one portion by the extraction, so
-    // the recipe this builds is that one portion.
-    const { recipe } = await saveRecipe(
-      job.userId,
-      { name, description: "", servings: 1, instructions: "", tags: [], ingredients },
-      existing?.id,
-      { status: "DRAFT", sourceType: "AI_RESEARCH" },
-    );
-
-    // Read back rather than reused from the claim: the extraction was cached
-    // into metadata after this job was claimed, and writing the stale copy here
-    // would discard it - which on a later retry means running the model again.
-    const current = await prisma.aiJob.findUnique({ where: { id: job.id }, select: { metadata: true } });
-    const metadata = { ...((current?.metadata ?? {}) as Record<string, unknown>) };
-    const outcome: AiJobOutcome = {
-      ...((metadata.outcome ?? {}) as AiJobOutcome),
-      recipeId: recipe.id,
-      recipeName: recipe.name,
-      ingredientCount: ingredients.length,
-    };
-    await prisma.aiJob.update({
-      where: { id: job.id },
-      data: { metadata: { ...metadata, outcome } as unknown as Prisma.InputJsonValue },
-    });
-    return { recipeId: recipe.id, recipeName: recipe.name };
-  } catch (error) {
-    logger.warn("Could not store the quick meal as a recipe", {
-      jobId: job.id,
-      reason: error instanceof Error ? error.message : "unknown",
-    });
-    return null;
-  }
 }
 
 /**
@@ -202,12 +124,12 @@ export async function applyProposal(
 ): Promise<AcceptedOutcome> {
   const proposal = await prisma.aiProposal.findUnique({
     where: { id: proposalId },
-    include: { job: { include: { mealInput: true, user: { select: { id: true, profile: { select: { language: true } } } } } } },
+    include: { job: { include: { ingestionInput: true, user: { select: { id: true, profile: { select: { language: true } } } } } } },
   });
   if (!proposal || proposal.approvalStatus !== "PENDING") throw new ProposalNotPendingError();
 
-  const mealInput = proposal.job.mealInput;
-  if (!mealInput) throw new Error("Proposal has no meal to log against");
+  const mealInput = proposal.job.ingestionInput;
+  if (!mealInput || mealInput.intent !== "MEAL" || !mealInput.meal || !mealInput.diaryDate) throw new Error("Proposal has no meal to log against");
 
   const user = { id: proposal.job.userId, language: proposal.job.user.profile?.language ?? ("de" as const) };
   const components = (proposal.proposed as { components?: ProposedComponent[] }).components ?? [];
@@ -241,21 +163,9 @@ export async function applyProposal(
     }
   }
 
-  // Built here rather than in the worker, from the decisions this approval made.
-  // The worker only ever knew what the resolver had matched on its own, so a
-  // meal whose foods the reviewer chose produced no recipe at all - and a
-  // partly matched one produced a recipe missing whatever the reviewer fixed.
-  const kept = quickMealOptions(proposal.job.metadata).createRecipe
-    ? await storeQuickMealRecipe(
-        proposal.job,
-        quickMealRecipeName(extractedName(proposal.job.metadata), mealInput.text ?? ""),
-        recipeIngredients,
-      )
-    : null;
 
   const outcome: AcceptedOutcome = {
     logged, estimated, skipped, skippedDetails,
-    ...(kept ?? {}),
     acceptedAt: new Date().toISOString(),
   };
   await prisma.aiProposal.update({

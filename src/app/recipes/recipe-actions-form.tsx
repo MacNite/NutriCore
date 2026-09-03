@@ -3,6 +3,7 @@ import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import { confirmRecipeAction, deleteRecipeAction, logRecipeAction } from "@/server/recipe-actions";
 import type { FormState } from "@/server/profile-actions";
+import type { ReactNode } from "react";
 
 export function LogRecipeForm({ id, date, portionWeightG }: { id: string; date: string; portionWeightG: number }) {
   const t = useTranslations("recipes"); const diary = useTranslations("diary"); const common = useTranslations("common");
@@ -14,10 +15,10 @@ export function LogRecipeForm({ id, date, portionWeightG }: { id: string; date: 
  * here as the same translated messages the recipe form shows, because this is
  * the button that first asks the database to calculate anything from it.
  */
-export function ConfirmRecipeForm({ id }: { id: string }) {
+export function ConfirmRecipeForm({ id, children }: { id: string; children?: ReactNode }) {
   const t = useTranslations("recipes"); const common = useTranslations("common"); const errors = useTranslations("errors");
   const [state, action, pending] = useActionState<FormState, FormData>(confirmRecipeAction, {});
-  return <form action={action}><input type="hidden" name="id" value={id} />{state.error ? <div className="notice notice-error" role="alert"><span>{state.error.startsWith("portion.") ? errors(state.error as "portion.unknown-unit") : errors(state.error as "validation")}</span></div> : null}<button className="btn btn-primary btn-block" disabled={pending}>{pending ? common("loading") : t("confirmDraft")}</button></form>;
+  return <form action={action}><input type="hidden" name="id" value={id} />{children}{state.error ? <div className="notice notice-error" role="alert"><span>{state.error.startsWith("portion.") ? errors(state.error as "portion.unknown-unit") : errors(state.error as "validation")}</span></div> : null}<button className="btn btn-primary btn-block" disabled={pending}>{pending ? common("loading") : t("confirmDraft")}</button></form>;
 }
 
 export function DeleteRecipeForm({ id }: { id: string }) {

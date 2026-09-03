@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { updateMany } = vi.hoisted(() => ({ updateMany: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: { mealInput: { updateMany } } }));
+vi.mock("@/lib/db", () => ({ prisma: { aiIngestionInput: { updateMany } } }));
 
 import { cleanupExpiredMealImages, discardMealInputImage, hasMealInput, MEAL_IMAGE_MAX_BYTES, validateMealImage } from "./meal-image";
 

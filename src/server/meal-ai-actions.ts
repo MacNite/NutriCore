@@ -4,13 +4,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { resolveAiModel } from "@/lib/env";
 import { requireUser } from "./session";
 import { checkUrl } from "@/lib/url-guard";
 import { validDateKey } from "@/lib/date";
 import { applyProposal, discardQuickMealRecipe } from "./ai-approval";
 import { aiAvailable } from "./ai-availability";
-import { jobPriority } from "./ai-types";
+import { ingestionOptions } from "./ai-types";
+import { queueAiIngestion } from "./ai-ingestion-queue";
 import { hasMealInput, validateMealImage, type MealImageError } from "./meal-image";
 
 export type MealInputError = MealImageError | "inputRequired" | "unsafeUrl" | "aiDisabled";
@@ -59,34 +59,8 @@ export async function queueMealInputAction(formData: FormData) {
     }
   }
 
-  const input = await prisma.mealInput.create({
-    data: {
-      userId: user.id,
-      text: parsed.text,
-      sourceUrl: parsed.sourceUrl || null,
-      meal: parsed.meal,
-      diaryDate: new Date(`${date}T00:00:00.000Z`),
-      servings: parsed.servings,
-      imageMime: image?.mime ?? null,
-      imageData: image?.data ?? null,
-      imageExpiresAt: image?.expiresAt ?? null,
-    },
-  });
-  await prisma.aiJob.create({
-    data: {
-      userId: user.id,
-      entityType: "MEAL_INPUT",
-      entityId: input.id,
-      mealInputId: input.id,
-      model: resolveAiModel(),
-      // A meal the user is watching for goes ahead of background enrichment.
-      priority: jobPriority("MEAL_INPUT"),
-      // What the submitter asked for, read by the worker once the extraction
-      // is done. It lives on the job because the choice belongs to this one
-      // submission, not to the meal input or to the user's settings.
-      metadata: { addToMeal: parsed.addToMeal === "on", createRecipe: parsed.createRecipe === "on" },
-    },
-  });
+  const options = ingestionOptions(parsed.addToMeal === "on", parsed.createRecipe === "on");
+  const input = await queueAiIngestion({ userId: user.id, intent: options.intent, text: parsed.text, sourceUrl: parsed.sourceUrl || null, meal: parsed.meal, diaryDate: new Date(`${date}T00:00:00.000Z`), servings: parsed.servings, logAfterConfirm: options.logAfterConfirm, imageMime: image?.mime ?? null, imageData: image?.data ?? null, imageExpiresAt: image?.expiresAt ?? null, manualReview: !parsed.addToMeal && !parsed.createRecipe });
   redirect(`/ai-review/${input.id}?queued=1`);
 }
 

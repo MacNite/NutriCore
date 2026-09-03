@@ -5,7 +5,6 @@ import { logger } from "./lib/logger";
 import { flag, researchEnabled, resolveAiBaseUrl, resolveAiModel } from "./lib/env";
 import { ollamaMaxOutputTokens, ollamaTimeoutMs } from "./providers/ollama";
 import { cleanupExpiredMealImages } from "./server/meal-image";
-import { cleanupExpiredRecipeImportImages } from "./server/recipe-import";
 import { cleanupExpiredScanImages } from "./server/body-scan";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -48,17 +47,17 @@ const SWEEP_EVERY_MS = 60 * 1000;
 /**
  * Clears every kind of upload whose deadline has passed.
  *
+ * Both ingestion paths write to one table now, so one sweeper covers the quick
+ * meal and the recipe import; body scans keep their own because they expire on
+ * a shorter deadline and their state machine has to be moved on as well.
+ *
  * A sweep failure must not stop the queue: these are all deletions that will be
  * retried a minute later, and a worker that exits over one leaves the images it
  * was trying to remove exactly where they are.
  */
 async function sweepExpiredImages() {
   try {
-    await Promise.all([
-      cleanupExpiredMealImages(),
-      cleanupExpiredRecipeImportImages(),
-      cleanupExpiredScanImages(),
-    ]);
+    await Promise.all([cleanupExpiredMealImages(), cleanupExpiredScanImages()]);
   } catch (error) {
     logger.warn("Could not sweep expired images", {
       reason: error instanceof Error ? error.message : "unknown",

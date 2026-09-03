@@ -141,9 +141,14 @@ test("personal data can be exported as JSON and CSV", async ({ page }) => {
   expect(json.status()).toBe(200);
   const payload = await json.json();
   expect(payload.format).toBe("nutricore.export");
-  expect(payload.formatVersion).toBe(1);
+  expect(payload.formatVersion).toBe(2);
+  // Version 2 carries the body timeline, which version 1 omitted entirely.
+  expect(payload).toHaveProperty("bodyMeasurements");
+  expect(payload).toHaveProperty("bodyScans");
   // The export must never carry credentials.
   expect(JSON.stringify(payload)).not.toContain("passwordHash");
+  // Nor the captured images, which are deleted minutes after a scan runs.
+  expect(JSON.stringify(payload)).not.toContain("frontData");
 
   const csv = await page.request.get("/api/export/diary.csv");
   expect(csv.status()).toBe(200);

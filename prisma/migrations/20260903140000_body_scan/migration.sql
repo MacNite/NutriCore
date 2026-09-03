@@ -84,13 +84,3 @@ ALTER TABLE "BodyScan" ADD CONSTRAINT "BodyScan_userId_fkey" FOREIGN KEY ("userI
 
 -- AddForeignKey
 ALTER TABLE "BodyScanEstimate" ADD CONSTRAINT "BodyScanEstimate_scanId_fkey" FOREIGN KEY ("scanId") REFERENCES "BodyScan"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AlterTable
--- A recipe import abandoned before its job ran kept its photo indefinitely:
--- the column had no deadline and nothing swept it. Existing rows are left null,
--- which the sweeper reads as "no deadline set" and leaves alone; the worker
--- clears them on the path it always did.
-ALTER TABLE "RecipeImport" ADD COLUMN     "imageExpiresAt" TIMESTAMP(3);
-
--- CreateIndex
-CREATE INDEX "RecipeImport_imageExpiresAt_idx" ON "RecipeImport"("imageExpiresAt");

@@ -58,16 +58,16 @@ test("a finished recipe import opens the recipe it produced", async ({ page }) =
   await completeOnboarding(page);
   const account = await accountOf(user.username);
 
-  const record = await prisma.recipeImport.create({ data: { userId: account.id, text: "Pfannkuchen", servings: 2 } });
+  const record = await prisma.aiIngestionInput.create({ data: { userId: account.id, intent: "RECIPE", text: "Pfannkuchen", servings: 2 } });
   const job = await prisma.aiJob.create({
-    data: { userId: account.id, entityType: "RECIPE_IMPORT", entityId: record.id, status: "RUNNING", startedAt: new Date() },
+    data: { userId: account.id, entityType: "AI_INGESTION", entityId: record.id, status: "RUNNING", startedAt: new Date() },
   });
 
   await page.goto(`/recipes/new?import=${record.id}`);
   await expect(page.getByText(/eingereiht|queued/i)).toBeVisible();
 
   const recipe = await draftRecipe(account.id, "Pfannkuchen", record.id);
-  await prisma.recipeImport.update({
+  await prisma.aiIngestionInput.update({
     where: { id: record.id },
     data: { draft: { name: "Pfannkuchen", description: "", servings: 2, instructions: "", ingredients: [], unmatched: [], recipeId: recipe.id } },
   });
@@ -85,15 +85,15 @@ test("a quick meal that asked only for a recipe opens it instead of staying in t
   await completeOnboarding(page);
   const account = await accountOf(user.username);
 
-  const input = await prisma.mealInput.create({
-    data: { userId: account.id, text: "Ofengemüse", meal: "DINNER", diaryDate: new Date("2026-09-03T00:00:00.000Z"), servings: 1 },
+  const input = await prisma.aiIngestionInput.create({
+    data: { userId: account.id, intent: "RECIPE", text: "Ofengemüse", meal: "DINNER", diaryDate: new Date("2026-09-03T00:00:00.000Z"), servings: 1 },
   });
   const job = await prisma.aiJob.create({
     data: {
       userId: account.id,
-      entityType: "MEAL_INPUT",
+      entityType: "AI_INGESTION",
       entityId: input.id,
-      mealInputId: input.id,
+      ingestionInputId: input.id,
       status: "RUNNING",
       startedAt: new Date(),
       // Asked for a recipe and explicitly not a diary entry.
@@ -127,16 +127,16 @@ test("opening a finished run later stays on its review, which is the only way ba
   await completeOnboarding(page);
   const account = await accountOf(user.username);
 
-  const input = await prisma.mealInput.create({
-    data: { userId: account.id, text: "Ofengemüse", meal: "DINNER", diaryDate: new Date("2026-09-03T00:00:00.000Z"), servings: 1 },
+  const input = await prisma.aiIngestionInput.create({
+    data: { userId: account.id, intent: "RECIPE", text: "Ofengemüse", meal: "DINNER", diaryDate: new Date("2026-09-03T00:00:00.000Z"), servings: 1 },
   });
   const recipe = await draftRecipe(account.id, "Ofengemüse spät");
   const job = await prisma.aiJob.create({
     data: {
       userId: account.id,
-      entityType: "MEAL_INPUT",
+      entityType: "AI_INGESTION",
       entityId: input.id,
-      mealInputId: input.id,
+      ingestionInputId: input.id,
       status: "COMPLETED",
       completedAt: new Date(),
       metadata: { addToMeal: false, createRecipe: true, outcome: { recipeId: recipe.id, recipeName: recipe.name } },

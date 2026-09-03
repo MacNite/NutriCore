@@ -1,14 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
-import { resolveAiModel } from "@/lib/env";
 import { checkUrl } from "@/lib/url-guard";
 import { requireUser } from "./session";
 import { aiAvailable } from "./ai-availability";
-import { jobPriority } from "./ai-types";
+import { queueAiIngestion } from "./ai-ingestion-queue";
 import { imageUploadMaxBytes } from "@/lib/image-upload-limit";
-import { RECIPE_IMPORT_IMAGE_TTL_MS } from "./recipe-import";
+import type { ComponentCandidate, ProposedComponent } from "./ai-types";
+import { MEAL_IMAGE_TTL_MS } from "./meal-image";
 
 const MAX_IMAGE_BYTES = imageUploadMaxBytes();
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -27,7 +26,9 @@ export interface RecipeImportDraft {
   servings: number;
   instructions: string;
   /** `units` is what this food can be measured in, for the form's dropdown. */
-  ingredients: Array<{ foodId: string; name: string; amount: number; unit: string; units?: string[]; sourceLine?: string; resolution?: "deterministic" | "ai-assisted" | "unresolved" }>;
+  ingredients: Array<{ foodId: string; name: string; amount: number; unit: string; units?: string[]; sourceLine?: string; resolution?: "deterministic" | "ai-assisted" | "unresolved"; candidates?: ComponentCandidate[] }>;
+  components?: ProposedComponent[];
+  warnings?: string[];
   unmatched: string[];
   /**
    * Ingredients whose food was found but whose source unit cannot be converted
@@ -89,26 +90,10 @@ export async function queueRecipeImportAction(formData: FormData) {
   // surfacing later as an unexplained worker failure.
   if (sourceUrl && !(await checkUrl(sourceUrl)).ok) back("unsafeUrl");
 
-  const record = await prisma.recipeImport.create({
-    data: {
-      userId: user.id,
-      text: text || null,
-      sourceUrl: sourceUrl || null,
-      servings,
-      imageMime: hasImage ? image.type : null,
-      imageData: hasImage ? Buffer.from(await image.arrayBuffer()) : null,
-      imageExpiresAt: hasImage ? new Date(Date.now() + RECIPE_IMPORT_IMAGE_TTL_MS) : null,
-    },
-  });
-  await prisma.aiJob.create({
-    data: {
-      userId: user.id,
-      entityType: "RECIPE_IMPORT",
-      entityId: record.id,
-      priority: jobPriority("RECIPE_IMPORT"),
-      model: resolveAiModel(),
-    },
-  });
-
+  /* The same deadline the quick-meal path uses, rather than a second literal
+     that can drift from it: both write to one table now, and one sweeper
+     enforces it. Minutes, not a day - the window an image can be caught in a
+     database dump is the window that matters. */
+  const record = await queueAiIngestion({ userId: user.id, intent: "RECIPE", text, sourceUrl: sourceUrl || null, servings, imageMime: hasImage ? image.type : null, imageData: hasImage ? Buffer.from(await image.arrayBuffer()) : null, imageExpiresAt: hasImage ? new Date(Date.now() + MEAL_IMAGE_TTL_MS) : null });
   redirect(`/recipes/new?import=${record.id}`);
 }

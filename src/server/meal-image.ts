@@ -36,7 +36,7 @@ export async function discardMealInputImage(inputId: string) {
 
 export async function discardMealInputImages(inputIds: string[]) {
   if (!inputIds.length) return;
-  await prisma.mealInput.updateMany({
+  await prisma.aiIngestionInput.updateMany({
     where: { id: { in: inputIds } },
     data: { imageData: null, imageMime: null, imageExpiresAt: null },
   });
@@ -44,7 +44,7 @@ export async function discardMealInputImages(inputIds: string[]) {
 
 /** Worker maintenance for uploads abandoned without a runnable job. */
 export async function cleanupExpiredMealImages(now = new Date()) {
-  const result = await prisma.mealInput.updateMany({
+  const result = await prisma.aiIngestionInput.updateMany({
     where: { imageData: { not: null }, imageExpiresAt: { lte: now } },
     data: { imageData: null, imageMime: null, imageExpiresAt: null },
   });

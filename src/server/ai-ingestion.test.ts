@@ -1,0 +1,158 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { prismaMock, ingestionInput, food, recipe, recipeSource, user, resolveComponent } = vi.hoisted(() => {
+  const ingestionInput = { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() };
+  const food = { findUnique: vi.fn() };
+  const recipe = { findFirst: vi.fn() };
+  const recipeSource = { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() };
+  const user = { findUnique: vi.fn() };
+  return {
+    ingestionInput, food, recipe, recipeSource, user,
+    resolveComponent: vi.fn(),
+    prismaMock: { aiIngestionInput: ingestionInput, food, recipe, recipeSource, user },
+  };
+});
+
+vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/env", () => ({ researchEnabled: () => false }));
+vi.mock("@/providers/ollama", () => ({ OllamaProvider: class {} }));
+vi.mock("./component-resolver", () => ({ resolveComponent }));
+vi.mock("./meal-url", () => ({ fetchMealPage: vi.fn(async () => ({ url: "https://example.test/r", title: "Pfannkuchen", excerpt: "Zutaten:\n- 200 g Mehl", recipeFound: true })) }));
+vi.mock("./recipes", () => ({ saveRecipe: vi.fn(async () => ({ recipe: { id: "recipe-1", name: "Pfannkuchen" }, food: null })) }));
+
+import { runRecipeImport } from "./ai-ingestion";
+import { saveRecipe } from "./recipes";
+import { fetchMealPage } from "./meal-url";
+
+/** A gram-based food with no named portions: "200 g" converts, "Scheiben" cannot. */
+const flour = { id: "food-flour", name: "Mehl", basisAmount: 100, basisUnit: "G", densityGPerMl: null, servings: [] };
+
+const extraction = {
+  name: "Pfannkuchen",
+  description: "Dünne Pfannkuchen aus der Pfanne.",
+  servings: 4,
+  instructions: "1. Mehl abwiegen.\n2. Backen.",
+  components: [{ name: "Mehl", quantity: 200, unit: "g" }],
+  confidence: "high" as const,
+  warnings: [],
+};
+
+const ai = { complete: vi.fn() };
+
+const input = (overrides: Record<string, unknown> = {}) => ({
+  id: "input-1", userId: "user-1", intent: "RECIPE", text: "Pfannkuchen", sourceUrl: null,
+  servings: 4, imageData: null, imageMime: null, ...overrides,
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  ai.complete.mockResolvedValue(extraction);
+  ingestionInput.findUnique.mockResolvedValue(input());
+  user.findUnique.mockResolvedValue({ profile: { language: "de", researchEnabled: false } });
+  food.findUnique.mockResolvedValue(flour);
+  recipe.findFirst.mockResolvedValue(null);
+  recipeSource.findFirst.mockResolvedValue(null);
+  resolveComponent.mockResolvedValue({ selectedFoodId: "food-flour", candidates: [{ foodId: "food-flour", grams: 200 }], grams: 200, gramsSource: "UNIT" });
+});
+
+const run = () => runRecipeImport("input-1", { ai } as never);
+
+describe("extracting a recipe", () => {
+  it("keeps the whole recipe, not the one portion a quick meal logs", async () => {
+    // The yield the submitter entered is the recipe's own, and the amounts
+    // belong to all of it. Scaling here is what made the quick meal's recipe a
+    // single portion of something the user never cooked one portion of.
+    const draft = await run();
+
+    expect(draft.servings).toBe(4);
+    expect(vi.mocked(saveRecipe).mock.calls[0][1]).toMatchObject({
+      name: "Pfannkuchen",
+      description: "Dünne Pfannkuchen aus der Pfanne.",
+      instructions: "1. Mehl abwiegen.\n2. Backen.",
+      servings: 4,
+    });
+  });
+
+  it("never lets the model supply nutrition for a recipe", async () => {
+    // A recipe's numbers always trace to a source. The quick meal may fall back
+    // to the model's own per-100g figures; a recipe may not.
+    await run();
+
+    expect(resolveComponent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ allowModelEstimates: false }));
+  });
+
+  it("asks the page for its preparation steps, which a meal run does not need", async () => {
+    ingestionInput.findUnique.mockResolvedValue(input({ sourceUrl: "https://example.test/r" }));
+
+    await run();
+
+    expect(vi.mocked(fetchMealPage)).toHaveBeenCalledWith("https://example.test/r", undefined, { includeInstructions: true });
+  });
+
+  it("keeps the source it was read from, so the recipe can be checked against it", async () => {
+    ingestionInput.findUnique.mockResolvedValue(input({ sourceUrl: "https://example.test/r" }));
+
+    await run();
+
+    expect(recipeSource.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ recipeId: "recipe-1", url: "https://example.test/r" }),
+    }));
+  });
+
+  it("stores no source for text or a photo, which have none", async () => {
+    await run();
+
+    expect(recipeSource.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("turning components into ingredients", () => {
+  it("keeps the source's own amount and unit where the food can be measured in it", async () => {
+    // "200 g Mehl", not "200 g" of a gram figure the resolver happened to reach.
+    const draft = await run();
+
+    expect(draft.ingredients).toEqual([expect.objectContaining({ foodId: "food-flour", amount: 200, unit: "g" })]);
+  });
+
+  it("falls back to the resolved weight for a portion word the food does not name", async () => {
+    // "2 Scheiben" of a flour that defines no slice: the weight is the only
+    // thing here that is a fact, so the ingredient is stored in grams.
+    ai.complete.mockResolvedValue({ ...extraction, components: [{ name: "Brot", quantity: 2, unit: "Scheiben" }] });
+    resolveComponent.mockResolvedValue({ selectedFoodId: "food-flour", candidates: [{ foodId: "food-flour", grams: 60 }], grams: 60, gramsSource: "MODEL" });
+
+    const draft = await run();
+
+    expect(draft.ingredients).toEqual([expect.objectContaining({ amount: 60, unit: "g" })]);
+  });
+
+  it("reports an ingredient nothing matched instead of inventing one", async () => {
+    resolveComponent.mockResolvedValue({ selectedFoodId: null, candidates: [], grams: null, gramsSource: "NONE" });
+
+    const draft = await run();
+
+    expect(draft.ingredients).toEqual([]);
+    expect(draft.unmatched).toEqual(["Mehl"]);
+  });
+
+  it("offers the candidates it found, so the draft review has something to choose from", async () => {
+    const draft = await run();
+
+    expect(draft.components?.[0].candidates).toEqual([{ foodId: "food-flour", grams: 200 }]);
+  });
+});
+
+describe("storing the draft", () => {
+  it("leaves a recipe the user already confirmed exactly as they confirmed it", async () => {
+    recipe.findFirst.mockResolvedValue({ id: "recipe-1", status: "ACTIVE" });
+
+    await run();
+
+    expect(vi.mocked(saveRecipe)).not.toHaveBeenCalled();
+  });
+
+  it("refuses an input that is not a recipe run", async () => {
+    ingestionInput.findUnique.mockResolvedValue(input({ intent: "MEAL" }));
+
+    await expect(run()).rejects.toThrow();
+  });
+});

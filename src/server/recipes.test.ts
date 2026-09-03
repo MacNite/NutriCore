@@ -25,6 +25,9 @@ const { prismaMock, tx } = vi.hoisted(() => {
     prismaMock: {
       $transaction: vi.fn(async (run: (client: typeof tx) => unknown) => run(tx)),
       recipe: { findFirst: vi.fn() },
+      food: { findFirst: vi.fn() },
+      diaryDay: { upsert: vi.fn(async () => ({ id: "day-1" })) },
+      diaryEntry: { create: vi.fn() },
     },
   };
 });
@@ -46,7 +49,30 @@ beforeEach(() => {
   vi.clearAllMocks();
   tx.food.findMany.mockResolvedValue([flour]);
   tx.food.findFirst.mockResolvedValue(null);
+  prismaMock.diaryDay.upsert.mockResolvedValue({ id: "day-1" });
 });
+
+/** A second gram-based food, so a mixed-up choice is visible in the result. */
+const butter = {
+  id: "food-butter", name: "Butter", basisAmount: 100, basisUnit: "G", densityGPerMl: null,
+  nutrients: [{ nutrientKey: "energyKcal", value: 740 }], servings: [], sources: [],
+};
+
+/**
+ * A draft as the AI ingestion leaves one: the first component matched nothing,
+ * so its row offers no radio group at all and submits no choice.
+ */
+const draftWithUnmatchedFirst = {
+  id: "recipe-1", name: "Butterbrot", description: null, servings: 2, yieldWeightG: null, instructions: null, tags: [], sources: [],
+  ingredients: [{ foodId: "food-flour", amount: 200, unit: "g", normalizedGrams: 200, normalizedMl: null, food: flour }],
+  import: {
+    logAfterConfirm: false, meal: null, diaryDate: null,
+    draft: { components: [
+      { name: "Brot", quantity: 2, unit: "Scheiben", candidates: [] },
+      { name: "Butter", quantity: 20, unit: "g", candidates: [{ foodId: "food-butter", grams: 20 }] },
+    ] },
+  },
+};
 
 describe("saving a recipe", () => {
   it("gives a confirmed recipe the Food entry that makes it loggable", async () => {
@@ -95,5 +121,68 @@ describe("confirming a draft", () => {
     });
 
     await expect(confirmRecipe("user-1", "recipe-1")).rejects.toThrow(new PortionError("invalid-amount"));
+  });
+});
+
+describe("the choices a reader makes on a draft", () => {
+  it("stays with the component it was made for when an earlier row offered none", async () => {
+    // The radio groups are keyed by index and an unmatched component submits
+    // nothing. Collecting the entries into a list instead of reading them by
+    // key shifted every later choice up: the butter's food was confirmed as the
+    // bread, and the last ingredient was dropped.
+    prismaMock.recipe.findFirst.mockResolvedValue(draftWithUnmatchedFirst);
+    prismaMock.food.findFirst.mockResolvedValue(butter);
+    tx.food.findMany.mockResolvedValue([butter]);
+
+    await confirmRecipe("user-1", "recipe-1", new Map([[1, "food-butter"]]));
+
+    expect(prismaMock.food.findFirst).toHaveBeenCalledTimes(1);
+    expect(tx.recipeIngredient.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ foodId: "food-butter", amount: 20, unit: "g" })],
+    });
+  });
+
+  it("leaves out a component the reader declined", async () => {
+    prismaMock.recipe.findFirst.mockResolvedValue(draftWithUnmatchedFirst);
+    prismaMock.food.findFirst.mockResolvedValue(butter);
+
+    // An empty value is the "leave it out" option, not a missing answer.
+    await expect(confirmRecipe("user-1", "recipe-1", new Map([[1, ""]]))).rejects.toThrow(new PortionError("invalid-amount"));
+  });
+
+  it("keeps what the resolver matched when the reader chose nothing at all", async () => {
+    prismaMock.recipe.findFirst.mockResolvedValue(draftWithUnmatchedFirst);
+
+    await confirmRecipe("user-1", "recipe-1");
+
+    expect(prismaMock.food.findFirst).not.toHaveBeenCalled();
+    expect(tx.recipeIngredient.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ foodId: "food-flour", amount: 200 })],
+    });
+  });
+});
+
+describe("a recipe the submitter also asked to log", () => {
+  const loggable = (logAfterConfirm: boolean) => ({
+    ...draftWithUnmatchedFirst,
+    import: { ...draftWithUnmatchedFirst.import, logAfterConfirm, meal: "DINNER", diaryDate: new Date("2026-09-03T00:00:00.000Z") },
+  });
+
+  it("writes exactly one portion of it, once it is confirmed and not before", async () => {
+    prismaMock.recipe.findFirst.mockResolvedValue(loggable(true));
+
+    await confirmRecipe("user-1", "recipe-1");
+
+    expect(prismaMock.diaryEntry.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ recipeId: "recipe-1", meal: "DINNER", quantity: 1, unit: "serving" }),
+    }));
+  });
+
+  it("writes nothing when only a recipe was asked for", async () => {
+    prismaMock.recipe.findFirst.mockResolvedValue(loggable(false));
+
+    await confirmRecipe("user-1", "recipe-1");
+
+    expect(prismaMock.diaryEntry.create).not.toHaveBeenCalled();
   });
 });
