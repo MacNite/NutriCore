@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 import { BODY_METRICS, emptyMeasurement, type BodyMeasurement } from "./body-metrics";
 import {
   BODY_FIGURES,
+  BODY_LANDMARKS,
   BODY_REGIONS,
+  BODY_SHAPE_STYLES,
   BODY_TYPES,
   BODY_VIEW,
+  MEASURE_ROW_GAP,
+  MEASURE_VIEW,
+  bodyMeasureRows,
   DEFAULT_APPEARANCE,
   DIAMOND,
   axisRatio,
@@ -274,5 +279,123 @@ describe("metrics behind the panel switches", () => {
   it("leaves nothing at all once both are off, which is what removes the section", () => {
     expect(panelMetrics({ composition: false, shape: false })).toEqual([]);
     expect(anyPanel({ composition: false, shape: false })).toBe(false);
+  });
+});
+
+/**
+ * The proportions are the one part of the drawing that is answerable to
+ * something outside it, so they are asserted against the published table rather
+ * than against whatever the curves happen to look like.
+ */
+describe("canonical proportions", () => {
+  it("puts every landmark where anthropometry puts it", () => {
+    const expected: Record<string, number> = {
+      chin: 0.13,
+      shoulder: 0.183,
+      chest: 0.28,
+      waist: 0.38,
+      hip: 0.478,
+      crotch: 0.515,
+      knee: 0.715,
+      ankle: 0.955,
+    };
+    for (const [landmark, fraction] of Object.entries(expected)) {
+      expect(BODY_LANDMARKS[landmark as keyof typeof BODY_LANDMARKS]).toBeCloseTo(fraction, 3);
+    }
+  });
+
+  it("reads top to bottom, with the crotch at the middle of the body", () => {
+    const fractions = Object.values(BODY_LANDMARKS);
+    for (let index = 0; index < fractions.length - 1; index += 1) {
+      expect(fractions[index]).toBeLessThan(fractions[index + 1]);
+    }
+    /* Half of standing height is the classical midpoint, and the reason the old
+       figure read as long-bodied: its crotch sat at 0.62. */
+    expect(BODY_LANDMARKS.crotch).toBeGreaterThan(0.5);
+    expect(BODY_LANDMARKS.crotch).toBeLessThan(0.53);
+  });
+
+  it("is between seven and eight heads tall", () => {
+    expect(1 / BODY_LANDMARKS.chin).toBeGreaterThan(7);
+    expect(1 / BODY_LANDMARKS.chin).toBeLessThan(8);
+  });
+
+  it("gives the legs close to half the standing height", () => {
+    expect(1 - BODY_LANDMARKS.crotch).toBeGreaterThan(0.45);
+  });
+});
+
+describe("the two shape styles", () => {
+  it("holds the arms further out for the measure figure", () => {
+    const span = (style: (typeof BODY_SHAPE_STYLES)[number]) => {
+      const xs = pointsOf(buildBodyOutline(input, appearance, style).silhouette).map((point) => point.x);
+      return Math.max(...xs) - Math.min(...xs);
+    };
+    expect(span("MEASURE")).toBeGreaterThan(span("SILHOUETTE"));
+  });
+
+  it("keeps both styles inside their own drawing area", () => {
+    for (const style of BODY_SHAPE_STYLES) {
+      const view = style === "MEASURE" ? MEASURE_VIEW : BODY_VIEW;
+      for (const point of pointsOf(buildBodyOutline(input, appearance, style).silhouette)) {
+        expect(point.x).toBeGreaterThan(0);
+        expect(point.x).toBeLessThan(view.width);
+        expect(point.y).toBeGreaterThan(0);
+        expect(point.y).toBeLessThan(view.height);
+      }
+    }
+  });
+
+  it("draws the same body either way, only posed differently", () => {
+    const waist = (style: (typeof BODY_SHAPE_STYLES)[number]) =>
+      bodyRegionGeometry(input, appearance, style).find((region) => region.key === "waist")!.rects[0];
+    expect(waist("MEASURE")).toEqual(waist("SILHOUETTE"));
+  });
+});
+
+describe("measure figure calipers", () => {
+  const rows = bodyMeasureRows(input, appearance);
+
+  it("measures every recorded region, in reading order", () => {
+    expect(rows.map((row) => row.key)).toEqual(BODY_REGIONS);
+  });
+
+  it("measures the torso across the centre line and the limbs on a limb", () => {
+    for (const key of ["neck", "chest", "waist", "hip"] as const) {
+      expect(rows.find((row) => row.key === key)!.cx).toBeCloseTo(BODY_VIEW.cx, 1);
+    }
+    for (const key of ["upperArm", "thigh", "calf"] as const) {
+      expect(rows.find((row) => row.key === key)!.cx).toBeGreaterThan(BODY_VIEW.cx + 10);
+    }
+  });
+
+  it("keeps every caliper clear of the label column", () => {
+    for (const row of rows) {
+      expect(row.cx - row.half).toBeGreaterThan(0);
+      expect(row.cx + row.half).toBeLessThan(MEASURE_VIEW.labelX - 8);
+    }
+  });
+
+  it("leaves room between labels for every build", () => {
+    for (const type of BODY_TYPES) {
+      for (const figure of BODY_FIGURES) {
+        const option: BodyAppearance = { type, figure };
+        const labels = bodyMeasureRows(baselineInput(option), option)
+          .map((row) => row.labelY)
+          .sort((a, b) => a - b);
+        for (let index = 0; index < labels.length - 1; index += 1) {
+          expect(labels[index + 1] - labels[index]).toBeGreaterThanOrEqual(MEASURE_ROW_GAP - 0.01);
+        }
+        expect(labels[labels.length - 1]).toBeLessThan(MEASURE_VIEW.height);
+      }
+    }
+  });
+
+  it("widens a caliper when the circumference it measures grows", () => {
+    const waist = (waistCm: number) =>
+      bodyMeasureRows(outlineInput({ ...measured, waistCm }, appearance), appearance).find(
+        (row) => row.key === "waist",
+      )!.half;
+    expect(waist(96)).toBeGreaterThan(waist(78));
   });
 });

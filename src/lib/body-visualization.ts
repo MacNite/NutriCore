@@ -75,65 +75,87 @@ export function axisRatio(current: number | null, reference: number | null): num
 
 /* ------------------------------------------------------------- Body outline */
 
-export const BODY_VIEW = { width: 340, height: 480, cx: 170 } as const;
+/**
+ * The drawn body is built on published anthropometry rather than on eyeballed
+ * offsets: every vertical landmark below is a fraction of stature from the
+ * crown (Drillis & Contini's segment lengths as reproduced in Winter,
+ * *Biomechanics and Motor Control of Human Movement*, Fig. 4.1), which puts the
+ * figure at the 7.5-head canon with the crotch at the midpoint of the body.
+ */
+export const BODY_VIEW = { width: 380, height: 480, cx: 190 } as const;
 
-/** Vertical anchors of the schematic figure, in view units. */
-const Y = {
-  headCenter: 40,
-  headRadius: 27,
-  jaw: 61,
-  neckBottom: 84,
-  shoulder: 98,
-  chest: 144,
-  waist: 208,
-  hip: 260,
-  crotch: 292,
-  thigh: 330,
-  knee: 374,
-  calf: 410,
-  ankle: 452,
+/**
+ * The measure figure is the same body with its arms further out and a column
+ * of labels beside it, so it needs the room the silhouette does not.
+ */
+export const MEASURE_VIEW = { width: 470, height: 480, cx: 190, labelX: 342 } as const;
+
+const CROWN = 14;
+const STATURE = 452;
+
+/**
+ * Landmark heights as fractions of stature, measured down from the crown.
+ * Exported because they are the model the drawing is answerable to: a change
+ * here is a claim about anatomy, not a nudge to make a curve look nicer.
+ */
+export const BODY_LANDMARKS = {
+  chin: 0.13,
+  neckBase: 0.158,
+  shoulder: 0.183,
+  armpit: 0.238,
+  chest: 0.28,
+  underbust: 0.318,
+  waist: 0.38,
+  navel: 0.407,
+  hip: 0.478,
+  crotch: 0.515,
+  thigh: 0.6,
+  knee: 0.715,
+  calf: 0.795,
+  ankle: 0.955,
+  sole: 1,
 } as const;
 
-const PX_PER_CM = 2.35;
+/** The same landmarks in view units, which is what every shape is drawn from. */
+const Y = Object.fromEntries(
+  Object.entries(BODY_LANDMARKS).map(([key, fraction]) => [key, CROWN + fraction * STATURE]),
+) as Record<keyof typeof BODY_LANDMARKS, number>;
+
+const HEAD_HEIGHT = BODY_LANDMARKS.chin * STATURE;
+/** A front-view head is three quarters as wide as it is tall. */
+const HEAD_HALF = (HEAD_HEIGHT * 0.75) / 2;
+const HEAD_RY = HEAD_HEIGHT / 2;
+/** Where the skull arc gives way to the neck, in degrees from the crown. */
+const SKULL_END_DEG = 140;
+
+/** Arm segments along their own axis, again as fractions of stature. */
+const ARM_SEGMENT = { upper: 0.186, fore: 0.146, hand: 0.108 } as const;
 
 /**
- * A circumference becomes a width via an assumed cross-section: the neck and
- * limbs are treated as circles, the torso as an ellipse of roughly the
- * proportions of a human trunk.
+ * The figure is drawn for a body of this height. Someone taller or shorter is
+ * still drawn at the same size on screen — the drawing compares a body with
+ * itself over time, not with anybody else.
  */
-const halfWidth = (circumferenceCm: number, perimeterRatio: number) =>
-  ((circumferenceCm / perimeterRatio) / 2) * PX_PER_CM;
-
-const CIRCLE = Math.PI;
-const TORSO = 2.75;
-const THIGH = 3.0;
-const CALF = 3.05;
+const REFERENCE_HEIGHT_CM = 176;
+const PX_PER_CM = STATURE / REFERENCE_HEIGHT_CM;
 
 /**
- * Drawn at true scale, two thighs are wider than the hips they hang from and
- * two arms make the figure a third as wide as it is tall. These factors keep
- * the silhouette plausible while every limb still moves with its measurement —
- * which is what the drawing is for. It is schematic, not anthropometric.
+ * A circumference becomes a breadth through the cross-section of that body
+ * part. Pairing measured circumferences with measured breadths puts every one
+ * of them close to a circle: a torso is flatter than a cylinder, but nowhere
+ * near as flat as the ellipse this used to assume.
  */
-const ARM_DISPLAY = 0.85;
+const CROSS_SECTION = {
+  neck: 3.15,
+  chest: 3.1,
+  waist: 2.95,
+  hip: 3.0,
+  arm: 3.15,
+  thigh: 3.15,
+  calf: 3.2,
+} as const;
 
-/**
- * Clearance between the arm and the body it hangs beside. Wide enough that the
- * smoothing of either outline can never make the two touch.
- */
-const ARM_GAP = 7;
-const THIGH_DISPLAY = 0.82;
-const CALF_DISPLAY = 0.86;
-
-export interface BodyOutlineInput {
-  neckCm: number;
-  chestCm: number;
-  waistCm: number;
-  hipCm: number;
-  upperArmCm: number;
-  thighCm: number;
-  calfCm: number;
-}
+const halfWidth = (circumferenceCm: number, ratio: number) => ((circumferenceCm / ratio) / 2) * PX_PER_CM;
 
 /**
  * A build for the drawn figure. Both halves are the reader's own choice: the
@@ -144,6 +166,13 @@ export interface BodyOutlineInput {
 export type BodyType = "ECTOMORPH" | "MESOMORPH" | "ENDOMORPH";
 export type BodyFigure = "NEUTRAL" | "MASCULINE" | "FEMININE";
 
+/**
+ * How the shape panel draws that body. The silhouette carries change as tinted
+ * bands over the figure; the measure figure holds its arms clear and puts a
+ * caliper across each measured level instead. Same geometry, same numbers.
+ */
+export type BodyShapeStyle = "SILHOUETTE" | "MEASURE";
+
 export interface BodyAppearance {
   type: BodyType;
   figure: BodyFigure;
@@ -151,9 +180,18 @@ export interface BodyAppearance {
 
 export const BODY_TYPES: BodyType[] = ["ECTOMORPH", "MESOMORPH", "ENDOMORPH"];
 export const BODY_FIGURES: BodyFigure[] = ["NEUTRAL", "MASCULINE", "FEMININE"];
+export const BODY_SHAPE_STYLES: BodyShapeStyle[] = ["SILHOUETTE", "MEASURE"];
 
 /** Used until someone picks, and for anyone who never does. */
 export const DEFAULT_APPEARANCE: BodyAppearance = { type: "MESOMORPH", figure: "NEUTRAL" };
+export const DEFAULT_SHAPE_STYLE: BodyShapeStyle = "SILHOUETTE";
+
+/**
+ * How far the arms hang away from the body. The silhouette needs only enough
+ * clearance to show the waist it is drawn to show; the measure figure needs
+ * room for a caliper to cross the body without touching an arm.
+ */
+const ARM_DEG: Record<BodyShapeStyle, number> = { SILHOUETTE: 10, MEASURE: 22 };
 
 /**
  * Which of the two visualisations a reader wants to see. They are a display
@@ -213,6 +251,16 @@ export function panelMetrics(panels: BodyPanels): BodyMetricKey[] {
   }).map(({ key }) => key);
 }
 
+export interface BodyOutlineInput {
+  neckCm: number;
+  chestCm: number;
+  waistCm: number;
+  hipCm: number;
+  upperArmCm: number;
+  thighCm: number;
+  calfCm: number;
+}
+
 /** Circumferences of an average adult build, in centimetres, per presentation. */
 const FIGURE_BASE: Record<BodyFigure, BodyOutlineInput> = {
   MASCULINE: { neckCm: 38, chestCm: 100, waistCm: 85, hipCm: 98, upperArmCm: 32, thighCm: 56, calfCm: 38 },
@@ -228,18 +276,18 @@ const TYPE_SCALE: Record<BodyType, Record<keyof BodyOutlineInput, number>> = {
 };
 
 /**
- * Half the shoulder span as a multiple of the ribcage, which is the one
- * proportion no tape measure captures. It only ever widens the deltoid past the
- * arm hanging below it, so a broad build reads as broad shoulders rather than
- * as thicker arms.
+ * Shoulder span as a fraction of stature — the one proportion no tape measure
+ * on the check-in form reaches, so it belongs to the chosen build rather than
+ * to the measurements. Anthropometry puts a biacromial breadth near 0.245 H;
+ * the drawn deltoid sits a little wider still.
  */
 const SHOULDER_SPAN: Record<BodyType, number> = {
-  ECTOMORPH: 1.42,
-  MESOMORPH: 1.6,
-  ENDOMORPH: 1.5,
+  ECTOMORPH: 0.236,
+  MESOMORPH: 0.255,
+  ENDOMORPH: 0.246,
 };
 
-const FIGURE_SHOULDER: Record<BodyFigure, number> = { MASCULINE: 1.06, NEUTRAL: 1.0, FEMININE: 0.94 };
+const FIGURE_SHOULDER: Record<BodyFigure, number> = { MASCULINE: 1.055, NEUTRAL: 1, FEMININE: 0.92 };
 
 /** The build a somatotype describes, with nothing measured. */
 export function baselineInput(appearance: BodyAppearance): BodyOutlineInput {
@@ -283,8 +331,7 @@ export interface BodyOutline {
   /**
    * The whole figure as one closed path — head, neck, arms, torso and legs.
    * Drawing it in one piece is what keeps the arms attached at the shoulder
-   * with no seam across them, the way the reference sheet reads; the channel
-   * between arm and waist is left open at the bottom rather than enclosed.
+   * with no seam across them; the skull is a true arc at both ends of it.
    */
   silhouette: string;
   /** Torso, head and legs, without arms. Used only to clip the change bands. */
@@ -329,18 +376,39 @@ export const outlineShapes = (outline: BodyOutline) => [outline.silhouette];
 export const clipShapes = (outline: BodyOutline, group: BodyClipGroup) =>
   group === "arms" ? outline.arms : [outline.torso];
 
-function widths(input: BodyOutlineInput, appearance: BodyAppearance) {
-  const chest = halfWidth(input.chestCm, TORSO);
+/**
+ * Clearance between the arm and the body it hangs beside, used to tell one
+ * from the other when a pointer target is cut.
+ */
+const ARM_GAP = 6;
+
+interface BodyWidths {
+  neck: number;
+  chest: number;
+  waist: number;
+  hip: number;
+  arm: number;
+  thigh: number;
+  calf: number;
+  /** Half the biacromial span. */
+  shoulder: number;
+  /** Half the span across the deltoids, which is what the drawing shows. */
+  deltoid: number;
+}
+
+function widths(input: BodyOutlineInput, appearance: BodyAppearance): BodyWidths {
+  const arm = halfWidth(input.upperArmCm, CROSS_SECTION.arm);
+  const shoulder = (SHOULDER_SPAN[appearance.type] * FIGURE_SHOULDER[appearance.figure] * STATURE) / 2;
   return {
-    neck: halfWidth(input.neckCm, CIRCLE),
-    chest,
-    waist: halfWidth(input.waistCm, TORSO),
-    hip: halfWidth(input.hipCm, TORSO),
-    /* The deltoids sit wider than the ribcage, by how much the build says. */
-    shoulder: chest * SHOULDER_SPAN[appearance.type] * FIGURE_SHOULDER[appearance.figure],
-    arm: halfWidth(input.upperArmCm, CIRCLE) * ARM_DISPLAY,
-    thigh: halfWidth(input.thighCm, THIGH) * THIGH_DISPLAY,
-    calf: halfWidth(input.calfCm, CALF) * CALF_DISPLAY,
+    neck: halfWidth(input.neckCm, CROSS_SECTION.neck),
+    chest: halfWidth(input.chestCm, CROSS_SECTION.chest),
+    waist: halfWidth(input.waistCm, CROSS_SECTION.waist),
+    hip: halfWidth(input.hipCm, CROSS_SECTION.hip),
+    arm,
+    thigh: halfWidth(input.thighCm, CROSS_SECTION.thigh),
+    calf: halfWidth(input.calfCm, CROSS_SECTION.calf),
+    shoulder,
+    deltoid: shoulder + arm * 0.55,
   };
 }
 
@@ -351,7 +419,7 @@ const round = (value: number) => Math.round(value * 100) / 100;
  * segments between measured circumferences would read as a technical drawing
  * rather than a body.
  */
-function curveThrough(points: Point[], tension = 0.9): string {
+function curveThrough(points: Point[], tension = 0.85): string {
   let d = "";
   for (let index = 0; index < points.length - 1; index += 1) {
     const previous = points[index - 1] ?? points[index];
@@ -373,101 +441,179 @@ function curveThrough(points: Point[], tension = 0.9): string {
 
 const mirror = (points: Point[]) => points.map((point) => ({ x: 2 * BODY_VIEW.cx - point.x, y: point.y }));
 
-const closedCurve = (points: Point[]) =>
-  `M${round(points[0].x)},${round(points[0].y)}${curveThrough(points)} Z`;
+const closedCurve = (points: Point[]) => `M${round(points[0].x)},${round(points[0].y)}${curveThrough(points)} Z`;
 
-/** Where the head circle meets the neck, measured from the crown. */
-const JAW_ANGLE = (130 * Math.PI) / 180;
+/** Reflects a path around the figure's centre line without re-deriving it. */
+function mirrorPath(path: string): string {
+  return path.replace(
+    /(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g,
+    (_match, x: string, y: string) => `${round(2 * BODY_VIEW.cx - Number(x))},${y}`,
+  );
+}
 
-/** How square the shoulders sit above the arm. */
-const TRAPEZIUS: Record<BodyType, number> = { ECTOMORPH: 0.6, MESOMORPH: 0.72, ENDOMORPH: 0.66 };
+/** A point on the skull, measured as an angle from the crown. */
+function skullPoint(angleDeg: number, rx: number, ry: number): Point {
+  const radians = (angleDeg * Math.PI) / 180;
+  return {
+    x: BODY_VIEW.cx + Math.sin(radians) * rx,
+    y: CROWN + ry - Math.cos(radians) * ry,
+  };
+}
 
-export function buildBodyOutline(input: BodyOutlineInput, appearance: BodyAppearance): BodyOutline {
+/**
+ * The arm as an axis hanging from the shoulder joint, with a half-width at each
+ * stop along it. Everything the arm needs — its outline, the band clipped to
+ * it, its pointer target and its caliper — comes from this one construction.
+ */
+interface ArmGeometry {
+  outer: Point[];
+  inner: Point[];
+  /** Centre of the upper arm, where its circumference is measured. */
+  midUpper: Point;
+}
+
+function armGeometry(w: BodyWidths, style: BodyShapeStyle): ArmGeometry {
+  const radians = (ARM_DEG[style] * Math.PI) / 180;
+  const along = { x: Math.sin(radians), y: Math.cos(radians) };
+  const across = { x: Math.cos(radians), y: -Math.sin(radians) };
+  const joint = { x: BODY_VIEW.cx + w.deltoid - w.arm, y: Y.shoulder + 0.03 * STATURE };
+  const at = (distance: number) => ({
+    x: joint.x + along.x * distance * STATURE,
+    y: joint.y + along.y * distance * STATURE,
+  });
+  /* Deltoid, mid upper arm, elbow, the belly of the forearm, wrist, hand and
+     fingertips: the stops a hanging arm actually narrows and swells at. */
+  const stops: { at: number; half: number }[] = [
+    { at: 0.02, half: w.arm * 1.06 },
+    { at: ARM_SEGMENT.upper * 0.55, half: w.arm },
+    { at: ARM_SEGMENT.upper, half: w.arm * 0.8 },
+    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore * 0.32, half: w.arm * 0.86 },
+    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore, half: w.arm * 0.5 },
+    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore + ARM_SEGMENT.hand * 0.45, half: w.arm * 0.72 },
+    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore + ARM_SEGMENT.hand, half: w.arm * 0.2 },
+  ];
+  const centres = stops.map((stop) => at(stop.at));
+  return {
+    outer: centres.map((centre, index) => ({
+      x: centre.x + across.x * stops[index].half,
+      y: centre.y + across.y * stops[index].half,
+    })),
+    inner: centres
+      .map((centre, index) => ({
+        x: centre.x - across.x * stops[index].half,
+        y: centre.y - across.y * stops[index].half,
+      }))
+      .reverse(),
+    midUpper: at(ARM_SEGMENT.upper * 0.5),
+  };
+}
+
+/**
+ * The legs as a centre line with a half-width at each level. Built this way the
+ * thighs hang from the hip rather than being added to it — two thighs at their
+ * widest are about as wide as the hips above them, which is what stops the
+ * drawing needing a fudge factor to stay plausible.
+ */
+function legGeometry(w: BodyWidths) {
+  const centre = {
+    crotch: w.hip * 0.98 - w.thigh,
+    thigh: w.hip * 0.52,
+    knee: w.hip * 0.46,
+    calf: w.hip * 0.42,
+    ankle: w.hip * 0.4,
+  };
+  const half = {
+    crotch: w.thigh,
+    thigh: w.thigh * 0.88,
+    knee: w.thigh * 0.52,
+    calf: w.calf * 0.92,
+    ankle: w.calf * 0.44,
+  };
+  return { centre, half };
+}
+
+export function buildBodyOutline(
+  input: BodyOutlineInput,
+  appearance: BodyAppearance,
+  style: BodyShapeStyle = DEFAULT_SHAPE_STYLE,
+): BodyOutline {
   const w = widths(input, appearance);
   const { cx } = BODY_VIEW;
-  const r = Y.headRadius;
-
-  /* The armpit sits at about the width of the ribcage, and the arm hangs
-     outside it: that is what sets the figure's overall span. */
-  const armInner = w.chest * 0.98;
-  const armOuter = armInner + 2 * w.arm;
-  /* A build broader than its own arms bulges at the deltoid and narrows again
-     below it; a narrow one just carries on down the arm. */
-  const deltoid = Math.max(armOuter, w.shoulder);
-  const trap = TRAPEZIUS[appearance.type];
+  const arm = armGeometry(w, style);
+  const leg = legGeometry(w);
 
   /* The skull is a true arc rather than a smoothed polygon: a head is the one
      part of the figure that no measurement changes, and an approximated one
-     reads as a defect. */
-  const crown = { x: cx, y: Y.headCenter - r };
-  const jaw = { x: cx + r * Math.sin(JAW_ANGLE), y: Y.headCenter - r * Math.cos(JAW_ANGLE) };
+     reads as a defect. It runs from the crown to where the jaw gives way to
+     the neck, and the mirrored half brings it back. */
+  const skullEnd = skullPoint(SKULL_END_DEG, HEAD_HALF, HEAD_RY);
+  const head: Point[] = [skullEnd, { x: cx + w.neck, y: Y.neckBase }];
 
-  const head: Point[] = [
-    { x: jaw.x - cx, y: jaw.y },
-    { x: w.neck, y: Y.neckBottom },
+  /* Trapezius out to the acromion, then over the deltoid and down the arm. */
+  const yoke: Point[] = [
+    { x: cx + w.shoulder * 0.55, y: Y.neckBase + 0.012 * STATURE },
+    { x: cx + w.shoulder * 0.92, y: Y.shoulder },
+    { x: cx + w.deltoid, y: Y.shoulder + 0.028 * STATURE },
   ];
 
-  /* Down the outside of the arm, round the hand, and back up the inside to the
-     armpit. The gap this leaves beside the waist stays open at the bottom. */
-  const arm: Point[] = [
-    { x: deltoid * trap, y: Y.shoulder - 8 },
-    { x: deltoid, y: Y.shoulder + 14 },
-    { x: armOuter + 1, y: Y.chest + 26 },
-    { x: armOuter - 1, y: Y.waist + 14 },
-    { x: armOuter + 2, y: Y.hip + 18 },
-    { x: armOuter - 2, y: Y.crotch + 8 },
-    { x: armOuter - 4, y: Y.crotch + 30 },
-    { x: armOuter - 4 - 2 * w.arm * 0.7, y: Y.crotch + 26 },
-    { x: armOuter - 2 - 2 * w.arm * 0.78, y: Y.crotch + 6 },
-    { x: armOuter + 2 - 2 * w.arm * 0.85, y: Y.hip + 16 },
-    { x: armOuter - 1 - 2 * w.arm * 0.95, y: Y.waist + 12 },
-    { x: armOuter + 1 - 2 * w.arm, y: Y.chest + 24 },
-    { x: armInner, y: Y.chest + 4 },
+  const torso: Point[] = [
+    { x: cx + w.chest * 0.99, y: Y.armpit },
+    { x: cx + w.chest, y: Y.chest },
+    { x: cx + w.chest * 0.62 + w.waist * 0.38, y: Y.underbust },
+    { x: cx + w.waist, y: Y.waist },
+    { x: cx + w.waist * 0.35 + w.hip * 0.65, y: Y.navel + 0.02 * STATURE },
+    { x: cx + w.hip, y: Y.hip },
   ];
 
-  const torsoAndLegs: Point[] = [
-    { x: w.waist, y: Y.waist },
-    { x: w.hip, y: Y.hip },
-    { x: w.hip * 0.94, y: Y.crotch },
-    { x: w.hip * 0.5 + w.thigh, y: Y.thigh },
-    { x: w.hip * 0.47 + w.thigh * 0.68, y: Y.knee },
-    { x: w.hip * 0.45 + w.calf, y: Y.calf },
-    { x: w.hip * 0.43 + w.calf * 0.5, y: Y.ankle },
-    { x: w.hip * 0.43 - w.calf * 0.5, y: Y.ankle },
-    { x: w.hip * 0.45 - w.calf, y: Y.calf },
-    { x: w.hip * 0.47 - w.thigh * 0.68, y: Y.knee },
-    /* The thighs meet at the crotch, so the inner edge is clamped rather than
-       allowed to cross the centre line. */
-    { x: Math.max(w.hip * 0.5 - w.thigh, 3), y: Y.thigh },
-    { x: 0, y: Y.crotch + 14 },
+  const legOuter: Point[] = [
+    { x: cx + leg.centre.crotch + leg.half.crotch, y: Y.crotch },
+    { x: cx + leg.centre.thigh + leg.half.thigh, y: Y.thigh },
+    { x: cx + leg.centre.knee + leg.half.knee, y: Y.knee },
+    { x: cx + leg.centre.calf + leg.half.calf, y: Y.calf },
+    { x: cx + leg.centre.ankle + leg.half.ankle, y: Y.ankle },
+  ];
+  /* Front view: the foot is foreshortened to a low, slightly splayed wedge. */
+  const foot: Point[] = [
+    { x: cx + leg.centre.ankle + w.calf * 0.66, y: Y.sole - 0.01 * STATURE },
+    { x: cx + leg.centre.ankle + w.calf * 0.62, y: Y.sole },
+    { x: cx + leg.centre.ankle - w.calf * 0.56, y: Y.sole },
+    { x: cx + leg.centre.ankle - w.calf * 0.5, y: Y.sole - 0.01 * STATURE },
+  ];
+  /* The thighs touch from the crotch down to about mid-thigh; the gap opens
+     below it. Anything else reads as a stance, which this figure never takes. */
+  const legInner: Point[] = [
+    { x: cx + leg.centre.ankle - leg.half.ankle, y: Y.ankle },
+    { x: cx + leg.centre.calf - leg.half.calf, y: Y.calf },
+    { x: cx + leg.centre.knee - leg.half.knee, y: Y.knee },
+    { x: cx + Math.max(leg.centre.thigh - leg.half.thigh, 4), y: Y.thigh },
+    { x: cx + 2.5, y: Y.crotch + 0.03 * STATURE },
   ];
 
-  const absolute = (points: Point[]) => points.map((point) => ({ x: cx + point.x, y: point.y }));
-  const rightHalf = absolute([...head, ...arm, ...torsoAndLegs]);
-  const leftHalf = mirror([...rightHalf].reverse()).slice(1);
-  const arc = (to: Point) => ` A${r},${r} 0 0 1 ${round(to.x)},${round(to.y)}`;
+  const right = [...head, ...yoke, ...arm.outer, ...arm.inner, ...torso, ...legOuter, ...foot, ...legInner];
+  const skullArc = (to: Point) => ` A${round(HEAD_HALF)},${round(HEAD_RY)} 0 0 1 ${round(to.x)},${round(to.y)}`;
 
   const silhouette =
-    `M${round(crown.x)},${round(crown.y)}` +
-    arc(jaw) +
-    curveThrough([...rightHalf, ...leftHalf]) +
-    arc(crown) +
+    `M${round(cx)},${round(CROWN)}` +
+    skullArc(skullEnd) +
+    curveThrough([...right, ...mirror([...right].reverse())]) +
+    skullArc({ x: cx, y: CROWN }) +
     " Z";
 
   /* Clip shapes. Never drawn, so they only have to line up with the parts of
      the silhouette whose change bands they carry. */
-  const torsoRight = absolute([
+  const torsoRight = [
     ...head,
-    { x: armInner * trap, y: Y.shoulder - 8 },
-    { x: armInner, y: Y.shoulder + 12 },
-    { x: armInner, y: Y.chest + 4 },
-    ...torsoAndLegs,
-  ]);
-  const torso = closedCurve([...torsoRight, ...mirror([...torsoRight].reverse()).slice(1)]);
+    yoke[0],
+    { x: cx + w.chest * 0.99, y: Y.shoulder + 0.02 * STATURE },
+    ...torso,
+    ...legOuter,
+    ...foot,
+    ...legInner,
+  ];
+  const torsoShape = closedCurve([...torsoRight, ...mirror([...torsoRight].reverse())]);
+  const rightArm = closedCurve([...arm.outer, ...arm.inner]);
 
-  const rightArm = closedCurve(absolute(arm.slice(1, -1)));
-
-  return { silhouette, torso, arms: [mirrorPath(rightArm), rightArm] };
+  return { silhouette, torso: torsoShape, arms: [mirrorPath(rightArm), rightArm] };
 }
 
 /* -------------------------------------------------------------- Figure art */
@@ -504,113 +650,103 @@ interface HairStyle {
 const HAIR: Record<BodyFigure, HairStyle> = {
   MASCULINE: { spread: 112, fringe: 0.2, part: 5, long: false },
   NEUTRAL: { spread: 106, fringe: 0.3, part: 0, long: false },
-  FEMININE: { spread: 126, fringe: 0.1, part: -6, long: true },
+  FEMININE: { spread: 126, fringe: 0.12, part: -6, long: true },
 };
-
-/** A point on the skull, measured as an angle from the crown. */
-function skullPoint(angleDeg: number, radius: number): Point {
-  const radians = (angleDeg * Math.PI) / 180;
-  return {
-    x: BODY_VIEW.cx + Math.sin(radians) * radius,
-    y: Y.headCenter - Math.cos(radians) * radius,
-  };
-}
 
 const move = (point: Point) => `M${round(point.x)},${round(point.y)}`;
 const lineTo = (point: Point) => ` L${round(point.x)},${round(point.y)}`;
 const curveTo = (c1: Point, c2: Point, end: Point) =>
   ` C${round(c1.x)},${round(c1.y)} ${round(c2.x)},${round(c2.y)} ${round(end.x)},${round(end.y)}`;
 
+/** Hair sits on the same ellipse as the skull, one step outside it. */
 function buildHair(style: HairStyle): { front: string; back: string | null } {
   const { cx } = BODY_VIEW;
-  const r = Y.headRadius;
-  const outer = r + 2;
-  const left = skullPoint(-style.spread, outer);
-  const right = skullPoint(style.spread, outer);
-  const fringeY = Y.headCenter - r * style.fringe;
+  const rx = HEAD_HALF + 2;
+  const ry = HEAD_RY + 2;
+  const centreY = CROWN + HEAD_RY;
+  const left = skullPoint(-style.spread, rx, ry);
+  const right = skullPoint(style.spread, rx, ry);
+  const fringeY = centreY - ry * (1 - 2 * style.fringe);
   const fringe = { x: cx + style.part, y: fringeY };
 
-  /* Cap: over the crown on the outside, back along the hairline on the inside. */
-  /* A cap wider than a half-circle is the major arc, so the large-arc flag has
+  /* Cap: over the crown on the outside, back along the hairline on the inside.
+     A cap wider than a half-circle is the major arc, so the large-arc flag has
      to say so or the renderer sweeps it under the chin instead. */
   const largeArc = style.spread > 90 ? 1 : 0;
   const front =
     move(left) +
-    ` A${outer},${outer} 0 ${largeArc} 1 ${round(right.x)},${round(right.y)}` +
-    curveTo({ x: cx + r * 0.82, y: Y.headCenter - r * 0.5 }, { x: fringe.x + r * 0.34, y: fringeY }, fringe) +
-    curveTo({ x: fringe.x - r * 0.4, y: fringeY - 1 }, { x: cx - r * 0.86, y: Y.headCenter - r * 0.46 }, {
-      x: left.x,
-      y: left.y,
-    }) +
+    ` A${round(rx)},${round(ry)} 0 ${largeArc} 1 ${round(right.x)},${round(right.y)}` +
+    curveTo({ x: cx + rx * 0.8, y: centreY - ry * 0.45 }, { x: fringe.x + rx * 0.34, y: fringeY }, fringe) +
+    curveTo({ x: fringe.x - rx * 0.4, y: fringeY - 1 }, { x: cx - rx * 0.84, y: centreY - ry * 0.42 }, left) +
     " Z";
 
   if (!style.long) return { front, back: null };
 
   /* Two panels falling past the shoulders, mirrored around the centre line. */
-  const rightPanel =
-    move({ x: cx + r * 0.86, y: Y.headCenter - 10 }) +
-    curveTo({ x: cx + r + 4, y: Y.headCenter + 30 }, { x: cx + r + 5, y: Y.shoulder + 24 }, {
-      x: cx + r + 2,
-      y: Y.shoulder + 58,
+  const panel =
+    move({ x: cx + rx * 0.84, y: centreY - ry * 0.3 }) +
+    curveTo({ x: cx + rx + 4, y: centreY + ry * 0.8 }, { x: cx + rx + 5, y: Y.shoulder + 20 }, {
+      x: cx + rx + 1,
+      y: Y.shoulder + 52,
     }) +
-    lineTo({ x: cx + r - 9, y: Y.shoulder + 56 }) +
-    curveTo({ x: cx + r - 7, y: Y.shoulder + 22 }, { x: cx + r - 8, y: Y.headCenter + 28 }, {
-      x: cx + r * 0.5,
-      y: Y.headCenter - 6,
+    lineTo({ x: cx + rx - 10, y: Y.shoulder + 50 }) +
+    curveTo({ x: cx + rx - 8, y: Y.shoulder + 18 }, { x: cx + rx - 9, y: centreY + ry * 0.7 }, {
+      x: cx + rx * 0.5,
+      y: centreY - ry * 0.2,
     }) +
     " Z";
 
-  return { front, back: `${rightPanel} ${mirrorPath(rightPanel)}` };
+  return { front, back: `${panel} ${mirrorPath(panel)}` };
 }
 
-/** Reflects a path around the figure's centre line without re-deriving it. */
-function mirrorPath(path: string): string {
-  return path.replace(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g, (_match, x: string, y: string) =>
-    `${round(2 * BODY_VIEW.cx - Number(x))},${y}`,
-  );
-}
-
-export function buildBodyFigure(input: BodyOutlineInput, appearance: BodyAppearance): BodyFigureArt {
+export function buildBodyFigure(
+  input: BodyOutlineInput,
+  appearance: BodyAppearance,
+  style: BodyShapeStyle = DEFAULT_SHAPE_STYLE,
+): BodyFigureArt {
   const w = widths(input, appearance);
   const { cx, width } = BODY_VIEW;
   const feminine = appearance.figure === "FEMININE";
   const masculine = appearance.figure === "MASCULINE";
   const hair = buildHair(HAIR[appearance.figure]);
+  const leg = legGeometry(w);
 
   /* Garments are clipped to the body, so they may run past its edges. */
-  const briefsTop = masculine ? Y.waist + 42 : Y.hip - 14;
+  const briefsTop = masculine ? Y.hip - 2 : Y.hip - 14;
   const briefs = masculine
     ? /* Trunks: a straight hem across both upper thighs. */
-      `M0,${briefsTop} L${width},${briefsTop} L${width},${Y.crotch + 22} L0,${Y.crotch + 22} Z`
+      `M0,${round(briefsTop)} L${width},${round(briefsTop)} L${width},${round(Y.crotch + 20)} L0,${round(
+        Y.crotch + 20,
+      )} Z`
     : /* Briefs: the hem rises towards the hips. */
       move({ x: 0, y: briefsTop }) +
       lineTo({ x: width, y: briefsTop }) +
-      lineTo({ x: width, y: Y.hip + 16 }) +
+      lineTo({ x: width, y: Y.hip + 12 }) +
       curveTo(
-        { x: cx + w.hip * 0.9, y: Y.hip + 24 },
-        { x: cx + w.hip * 0.45, y: Y.crotch + 14 },
-        { x: cx, y: Y.crotch + 14 },
+        { x: cx + w.hip * 0.9, y: Y.hip + 18 },
+        { x: cx + w.hip * 0.45, y: Y.crotch + 12 },
+        { x: cx, y: Y.crotch + 12 },
       ) +
       curveTo(
-        { x: cx - w.hip * 0.45, y: Y.crotch + 14 },
-        { x: cx - w.hip * 0.9, y: Y.hip + 24 },
-        { x: 0, y: Y.hip + 16 },
+        { x: cx - w.hip * 0.45, y: Y.crotch + 12 },
+        { x: cx - w.hip * 0.9, y: Y.hip + 18 },
+        { x: 0, y: Y.hip + 12 },
       ) +
       " Z";
 
-  const bandTop = Y.chest - 18;
-  const bandBottom = Y.chest + 10;
+  const bandTop = Y.chest - 15;
+  const bandBottom = Y.chest + 9;
   const bra = feminine
     ? move({ x: 0, y: bandTop }) +
       lineTo({ x: width, y: bandTop }) +
       lineTo({ x: width, y: bandBottom }) +
       curveTo(
         { x: cx + w.chest * 0.6, y: bandBottom + 4 },
-        { x: cx + w.chest * 0.3, y: bandBottom - 15 },
-        { x: cx, y: bandBottom - 15 },
+        { x: cx + w.chest * 0.3, y: bandBottom - 13 },
+        { x: cx, y: bandBottom - 13 },
       ) +
       curveTo(
-        { x: cx - w.chest * 0.3, y: bandBottom - 15 },
+        { x: cx - w.chest * 0.3, y: bandBottom - 13 },
         { x: cx - w.chest * 0.6, y: bandBottom + 4 },
         { x: 0, y: bandBottom },
       ) +
@@ -619,18 +755,18 @@ export function buildBodyFigure(input: BodyOutlineInput, appearance: BodyAppeara
 
   const contours = [
     /* Collarbone. */
-    move({ x: cx - w.chest * 0.52, y: Y.shoulder + 14 }) +
+    move({ x: cx - w.chest * 0.5, y: Y.armpit - 18 }) +
       curveTo(
-        { x: cx - w.chest * 0.2, y: Y.shoulder + 22 },
-        { x: cx + w.chest * 0.2, y: Y.shoulder + 22 },
-        { x: cx + w.chest * 0.52, y: Y.shoulder + 14 },
+        { x: cx - w.chest * 0.2, y: Y.armpit - 10 },
+        { x: cx + w.chest * 0.2, y: Y.armpit - 10 },
+        { x: cx + w.chest * 0.5, y: Y.armpit - 18 },
       ),
     /* Knees. */
-    move({ x: cx + w.hip * 0.47 - w.thigh * 0.4, y: Y.knee - 2 }) +
+    move({ x: cx + leg.centre.knee - leg.half.knee * 0.7, y: Y.knee - 2 }) +
       curveTo(
-        { x: cx + w.hip * 0.47 - w.thigh * 0.1, y: Y.knee + 6 },
-        { x: cx + w.hip * 0.47 + w.thigh * 0.1, y: Y.knee + 6 },
-        { x: cx + w.hip * 0.47 + w.thigh * 0.4, y: Y.knee - 2 },
+        { x: cx + leg.centre.knee - leg.half.knee * 0.2, y: Y.knee + 7 },
+        { x: cx + leg.centre.knee + leg.half.knee * 0.2, y: Y.knee + 7 },
+        { x: cx + leg.centre.knee + leg.half.knee * 0.7, y: Y.knee - 2 },
       ),
   ];
   contours.push(mirrorPath(contours[1]));
@@ -641,30 +777,38 @@ export function buildBodyFigure(input: BodyOutlineInput, appearance: BodyAppeara
       move({ x: cx + w.chest * 0.5, y: bandTop + 2 }) +
       curveTo(
         { x: cx + w.chest * 0.62, y: bandTop - 14 },
-        { x: cx + w.shoulder * 0.6, y: Y.shoulder + 14 },
-        { x: cx + w.shoulder * 0.52, y: Y.shoulder + 4 },
+        { x: cx + w.shoulder * 0.62, y: Y.shoulder + 14 },
+        { x: cx + w.shoulder * 0.55, y: Y.shoulder + 4 },
       );
     contours.push(strap, mirrorPath(strap));
   }
 
   return {
-    outline: buildBodyOutline(input, appearance),
+    outline: buildBodyOutline(input, appearance, style),
     hairBack: hair.back,
     hairFront: hair.front,
     briefs,
     bra,
     contours,
-    navel: { cx, cy: Y.waist + 16, r: 1.8 },
+    navel: { cx, cy: Y.navel, r: 1.8 },
   };
 }
+
+/* ------------------------------------------------------------ Region bands */
 
 /**
  * Bands used both for the change heat map and as pointer targets. Painted bands
  * are clipped to their group; pointer targets are plain, disjoint rectangles.
  */
-export function bodyRegionGeometry(input: BodyOutlineInput, appearance: BodyAppearance): BodyRegionGeometry[] {
+export function bodyRegionGeometry(
+  input: BodyOutlineInput,
+  appearance: BodyAppearance,
+  style: BodyShapeStyle = DEFAULT_SHAPE_STYLE,
+): BodyRegionGeometry[] {
   const w = widths(input, appearance);
   const { cx } = BODY_VIEW;
+  const arm = armGeometry(w, style);
+  const leg = legGeometry(w);
   const band = (halfW: number, top: number, bottom: number): Rect => ({
     x: cx - halfW,
     y: top,
@@ -677,52 +821,110 @@ export function bodyRegionGeometry(input: BodyOutlineInput, appearance: BodyAppe
     width: BODY_VIEW.width,
     height: bottom - top,
   });
-  const legX = w.hip * 0.5;
   /* Everything wider than the ribcage is an arm, and nothing narrower is. */
   const armDivide = w.chest + ARM_GAP;
-  const rightLabel = (y: number) => ({ x: 264, y, anchor: "start" as const });
-  const leftLabel = (y: number) => ({ x: 76, y, anchor: "end" as const });
+  const rightLabel = (y: number) => ({ x: 306, y, anchor: "start" as const });
+  const leftLabel = (y: number) => ({ x: 74, y, anchor: "end" as const });
   const torsoBand = (key: BodyRegionKey, halfW: number, top: number, bottom: number, y: number) => {
     const rect = band(halfW + 2, top, bottom);
     return { key, clip: "body" as const, rects: [rect], hitRects: [rect], label: rightLabel(y) };
   };
+  const legHit = (centre: number, halfW: number, top: number, bottom: number): Rect[] =>
+    [-1, 1].map((side) => ({
+      x: cx + side * centre - halfW,
+      y: top,
+      width: halfW * 2,
+      height: bottom - top,
+    }));
 
   return [
-    torsoBand("neck", w.neck, Y.neckBottom - 18, Y.neckBottom + 8, Y.neckBottom - 6),
-    torsoBand("chest", w.chest, Y.chest - 26, Y.chest + 26, Y.chest + 4),
-    torsoBand("waist", w.waist, Y.waist - 24, Y.waist + 24, Y.waist + 4),
-    torsoBand("hip", w.hip, Y.hip - 22, Y.hip + 24, Y.hip + 4),
+    torsoBand("neck", w.neck, Y.neckBase - 16, Y.neckBase + 6, Y.neckBase - 4),
+    torsoBand("chest", w.chest, Y.chest - 18, Y.chest + 18, Y.chest + 4),
+    torsoBand("waist", w.waist, Y.waist - 16, Y.waist + 16, Y.waist + 4),
+    torsoBand("hip", w.hip, Y.hip - 13, Y.hip + 16, Y.hip + 4),
     {
       key: "upperArm",
       clip: "arms",
-      rects: [fullWidth(Y.shoulder + 10, Y.waist + 10)],
+      rects: [fullWidth(Y.shoulder + 10, Y.waist + 6)],
       hitRects: [
-        { x: 0, y: Y.shoulder + 10, width: cx - armDivide, height: Y.waist - Y.shoulder + 20 },
-        { x: cx + armDivide, y: Y.shoulder + 10, width: cx - armDivide, height: Y.waist - Y.shoulder + 20 },
+        { x: 0, y: Y.shoulder + 10, width: cx - armDivide, height: Y.waist - Y.shoulder - 4 },
+        { x: cx + armDivide, y: Y.shoulder + 10, width: cx - armDivide, height: Y.waist - Y.shoulder - 4 },
       ],
-      label: leftLabel(Y.chest + 26),
+      label: leftLabel(arm.midUpper.y + 6),
     },
     {
       key: "thigh",
       clip: "body",
       rects: [fullWidth(Y.crotch + 6, Y.knee - 12)],
-      hitRects: [
-        { x: cx - legX - w.thigh - 5, y: Y.crotch + 6, width: (w.thigh + 5) * 2, height: Y.knee - Y.crotch - 18 },
-        { x: cx + legX - w.thigh - 5, y: Y.crotch + 6, width: (w.thigh + 5) * 2, height: Y.knee - Y.crotch - 18 },
-      ],
+      hitRects: legHit(leg.centre.thigh, leg.half.thigh + 6, Y.crotch + 6, Y.knee - 12),
       label: leftLabel(Y.thigh + 4),
     },
     {
       key: "calf",
       clip: "body",
       rects: [fullWidth(Y.knee + 6, Y.ankle)],
-      hitRects: [
-        { x: cx - legX - w.calf - 7, y: Y.knee + 6, width: (w.calf + 7) * 2, height: Y.ankle - Y.knee - 6 },
-        { x: cx + legX - w.calf - 7, y: Y.knee + 6, width: (w.calf + 7) * 2, height: Y.ankle - Y.knee - 6 },
-      ],
+      hitRects: legHit(leg.centre.calf, leg.half.calf + 7, Y.knee + 6, Y.ankle),
       label: leftLabel(Y.calf + 4),
     },
   ];
+}
+
+/* ---------------------------------------------------------- Measure figure */
+
+/**
+ * One measured level of the body: where a caliper is drawn across the figure,
+ * and where its label sits in the column beside it. The caliper measures the
+ * drawing; the number beside it is the recorded circumference, which is why the
+ * two are never the same span.
+ */
+export interface BodyMeasureRow {
+  key: BodyRegionKey;
+  /** Centre of the measured span. */
+  cx: number;
+  /** Half the drawn breadth at that level. */
+  half: number;
+  y: number;
+  /** Where this row's label sits, after rows have been pushed apart. */
+  labelY: number;
+}
+
+/** Room a label needs before the one below it starts. */
+export const MEASURE_ROW_GAP = 40;
+
+/**
+ * A caliper for every recorded circumference, top to bottom. Torso levels are
+ * measured across the centre line; the limbs are measured on the arm and leg
+ * nearest the labels, because a caliper on the far limb has to cross the whole
+ * figure to reach its own number.
+ */
+export function bodyMeasureRows(input: BodyOutlineInput, appearance: BodyAppearance): BodyMeasureRow[] {
+  const w = widths(input, appearance);
+  const { cx } = BODY_VIEW;
+  const arm = armGeometry(w, "MEASURE");
+  const leg = legGeometry(w);
+  const rows: Omit<BodyMeasureRow, "labelY">[] = [
+    { key: "neck", cx, half: w.neck, y: Y.neckBase - 8 },
+    { key: "chest", cx, half: w.chest, y: Y.chest },
+    { key: "waist", cx, half: w.waist, y: Y.waist },
+    { key: "hip", cx, half: w.hip, y: Y.hip },
+    { key: "upperArm", cx: arm.midUpper.x, half: w.arm, y: arm.midUpper.y },
+    { key: "thigh", cx: cx + leg.centre.thigh, half: leg.half.thigh, y: Y.thigh },
+    { key: "calf", cx: cx + leg.centre.calf, half: leg.half.calf, y: Y.calf },
+  ];
+
+  /* Labels follow their caliper, then get pushed down until they stop
+     colliding: a stack of rows the reader can follow beats a label sitting
+     exactly on a line it has been pushed off anyway. */
+  const ordered = [...rows].sort((a, b) => a.y - b.y);
+  let previous = -Infinity;
+  const labelled = new Map<BodyRegionKey, number>();
+  for (const row of ordered) {
+    const labelY = Math.max(row.y, previous + MEASURE_ROW_GAP);
+    labelled.set(row.key, labelY);
+    previous = labelY;
+  }
+
+  return rows.map((row) => ({ ...row, labelY: labelled.get(row.key)! }));
 }
 
 /**

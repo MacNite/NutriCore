@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { DEFAULT_SHAPE_STYLE } from "@/lib/body-visualization";
 import { requireUser } from "./session";
 import type { FormState } from "./profile-actions";
 
@@ -135,17 +136,22 @@ export async function deleteBodyMeasurementAction(formData: FormData): Promise<v
 const appearanceSchema = z.object({
   bodyType: z.enum(["ECTOMORPH", "MESOMORPH", "ENDOMORPH"]),
   bodyFigure: z.enum(["NEUTRAL", "MASCULINE", "FEMININE"]),
+  bodyShapeStyle: z.enum(["SILHOUETTE", "MEASURE"]),
 });
 
 /**
- * The figure is a look the reader picks for themselves. It is never inferred
- * from their measurements and never enters a calculation.
+ * The figure is a look the reader picks for themselves: how it is presented,
+ * what build it starts from, and which of the two drawings the shape panel
+ * uses. None of it is inferred from their measurements, and none of it enters
+ * a calculation.
  */
 export async function saveBodyAppearanceAction(_state: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   const parsed = appearanceSchema.safeParse({
     bodyType: formData.get("bodyType"),
     bodyFigure: formData.get("bodyFigure"),
+    /* An older form that never carried the field still saves a valid figure. */
+    bodyShapeStyle: formData.get("bodyShapeStyle") ?? DEFAULT_SHAPE_STYLE,
   });
   if (!parsed.success) return { error: "validation" };
 

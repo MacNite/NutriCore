@@ -394,7 +394,10 @@
       "summaryUnchanged": "{region} unchanged",
       "increased": "increased",
       "decreased": "decreased",
-      "noChanges": "No region changed measurably."
+      "noChanges": "No region changed measurably.",
+      "measureCaption": "Schematic measure figure based on recorded circumferences — not a body scan.",
+      "measureChartLabel": "Schematic measure figure: a caliper at every measured level, with the reference measurement marked on it.",
+      "measureLegendHint": "The marks on each caliper show the reference measurement."
     },
     "panels": {
       "title": "Body progress display",
@@ -533,7 +536,16 @@
         "ENDOMORPH": "Endomorph"
       },
       "disclaimer": "The build you pick only sets the drawing's starting proportions, which your own measurements then adjust. It is never read from your measurements, and it is not used in any calculation on this page.",
-      "saved": "Figure saved."
+      "saved": "Figure saved.",
+      "style": "View",
+      "styleName": {
+        "SILHOUETTE": "Silhouette",
+        "MEASURE": "Measure figure"
+      },
+      "styleHint": {
+        "SILHOUETTE": "The body outline, with tinted bands over the regions that changed.",
+        "MEASURE": "The figure with its arms out and a caliper at every measured level. The marks on each caliper show where the reference measurement sat."
+      }
     },
     "empty": {
       "intro": "No body measurements yet. A check-in records what you measured with a tape and, if you have one, what a smart scale reported.",

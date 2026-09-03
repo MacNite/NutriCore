@@ -90,6 +90,7 @@ export default async function ProgressPage() {
           {body.measurements.length === 0 ? (
             <BodyProgressEmpty
               appearance={body.appearance}
+              shapeStyle={body.shapeStyle}
               panels={body.panels}
               locale={locale}
               checkin={<BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />}
@@ -99,6 +100,7 @@ export default async function ProgressPage() {
               measurements={body.measurements}
               profile={body.profile}
               appearance={body.appearance}
+              shapeStyle={body.shapeStyle}
               panels={body.panels}
               locale={locale}
               checkin={<BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />}
