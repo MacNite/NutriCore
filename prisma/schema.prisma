@@ -68,6 +68,29 @@ enum MeasurementSource {
   MANUAL
   BIA
   OTHER_DEVICE
+  /// Estimated from a guided two-view photo capture. Never a measurement.
+  OPTICAL_SCAN
+}
+
+/// How far a body scan has got. Every path to ACCEPTED runs through
+/// AWAITING_REVIEW: an estimate becomes a recorded measurement only because
+/// someone looked at it and said so.
+enum BodyScanState {
+  QUEUED
+  PROCESSING
+  AWAITING_REVIEW
+  ACCEPTED
+  REJECTED
+  FAILED
+  EXPIRED
+}
+
+/// What the reviewer did with one estimated value.
+enum BodyScanDecision {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EDITED
 }
 
 /// A cosmetic build for the drawn figure. Chosen by the user, never inferred
@@ -160,6 +183,7 @@ model User {
   aiJobs            AiJob[]
   aiIngestionInputs AiIngestionInput[]
   activityEntries   ActivityEntry[]
+  bodyScans         BodyScan[]
 }
 
 model UserInvitation {
@@ -419,6 +443,15 @@ model BodyMeasurement {
   boneKg            Decimal?           @db.Decimal(4, 1)
   /// Where the composition values came from. Null when none were recorded.
   compositionSource MeasurementSource?
+  /**
+   * Per-value provenance, as `{ "waistCm": "OPTICAL_SCAN" }`. A field absent
+   * from the map was entered by hand, which is what every row recorded before
+   * scanning existed was: null therefore keeps meaning MANUAL and no backfill
+   * is needed. `compositionSource` still describes the composition block, so a
+   * session that mixes a scanned waist with a smart-scale body fat can say so
+   * without either claim overwriting the other.
+   */
+  valueSources      Json?
   note              String?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -427,6 +460,82 @@ model BodyMeasurement {
 
   @@unique([userId, date])
   @@index([userId, date])
+}
+
+/**
+ * One guided two-view body scan.
+ * The images are a transient worker handoff and nothing else: they are written
+ * here so the capture can outlive the request that submitted it, read exactly
+ * once, and cleared in the same transaction that stores the estimates. They are
+ * never re-served to the browser, never logged, and a sweeper clears whatever a
+ * crash left behind. `imagesExpireAt` is the deadline that sweeper enforces, so
+ * an abandoned capture disappears without anyone deciding to delete it.
+ * Height and weight are snapshotted rather than read back from the profile:
+ * they are inputs to the estimate, and an estimate has to stay explainable by
+ * the numbers it was actually computed from.
+ */
+model BodyScan {
+  id             String        @id @default(cuid())
+  userId         String
+  /// The day the scan is for, matching the check-in it can be merged into.
+  date           DateTime      @db.Date
+  state          BodyScanState @default(QUEUED)
+  /// Stature the estimate was scaled by. Without it there is no scale at all.
+  heightCm       Decimal       @db.Decimal(5, 1)
+  /// Closest same-day weight, recorded for provenance. Not used for scaling.
+  weightKg       Decimal?      @db.Decimal(6, 2)
+  /// Which version of the consent copy the user agreed to for this scan.
+  consentVersion String
+  frontMime      String?
+  frontData      Bytes?
+  sideMime       String?
+  sideData       Bytes?
+  imagesExpireAt DateTime?
+  /// Which estimator produced the result, so a later one can be told apart.
+  provider       String?
+  processorModel String?
+  version        String?
+  /// Whether the capture passed its quality checks, and the reasons if not.
+  accepted       Boolean       @default(false)
+  qualityReasons Json?
+  /// Machine-readable cause of a FAILED scan.
+  failureKind    String?
+  createdAt      DateTime      @default(now())
+  processedAt    DateTime?
+  reviewedAt     DateTime?
+
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  estimates BodyScanEstimate[]
+
+  @@index([userId, createdAt])
+  @@index([imagesExpireAt])
+}
+
+/**
+ * One estimated value from a scan, kept whatever the reviewer decided.
+ * The estimate and the decision are separate columns because an edited value
+ * has to keep both: what the estimator claimed is the audit record, and what
+ * the user corrected it to is the measurement. Overwriting one with the other
+ * would make a correction indistinguishable from a good estimate.
+ */
+model BodyScanEstimate {
+  id         String           @id @default(cuid())
+  scanId     String
+  /// A `BodyMeasurement` circumference field name, e.g. `waistCm`.
+  metricKey  String
+  valueCm    Decimal          @db.Decimal(5, 1)
+  /// Interval the estimator is prepared to stand behind, never a bare decimal.
+  lowerCm    Decimal          @db.Decimal(5, 1)
+  upperCm    Decimal          @db.Decimal(5, 1)
+  decision   BodyScanDecision @default(PENDING)
+  /// What the user accepted, when they edited the estimate rather than taking it.
+  acceptedCm Decimal?         @db.Decimal(5, 1)
+  createdAt  DateTime         @default(now())
+
+  scan BodyScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@unique([scanId, metricKey])
+  @@index([scanId])
 }
 
 /// Exercise energy is snapshotted so catalogue and weight changes never rewrite history.

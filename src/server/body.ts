@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { BodyMeasurement, BodyProfile, RecordedSource } from "@/lib/body-metrics";
+import type { BodyMeasurement, BodyProfile, RecordedSource, ValueSources } from "@/lib/body-metrics";
 import {
   DEFAULT_APPEARANCE,
   DEFAULT_PANELS,
@@ -88,6 +88,7 @@ export async function loadBodyProgress(userId: string): Promise<BodyProgressData
       bodyWaterPct: num(row.bodyWaterPct),
       boneKg: num(row.boneKg),
       compositionSource: (row.compositionSource as RecordedSource | null) ?? null,
+      valueSources: (row.valueSources ?? undefined) as ValueSources | undefined,
     });
   }
 

@@ -556,6 +556,31 @@ attributed regardless.
 This is operational documentation, not legal advice. The same information is
 shown in the app at `/about/data-sources`. Add your own licence in `LICENSE`.
 
+## Body scanning
+
+An opt-in two-view capture estimates body circumferences from a front and a side
+photograph. It runs on CPU in about 80 ms per scan, needs no GPU, no model
+weights and no third-party service, and nothing leaves the server.
+
+It is an estimate, never a measurement, and it is **not validated**: it reads
+the outline of a body and reports what that outline implies, with a range. No
+body-fat, muscle, water or bone value is produced from a photo. Every value is
+reviewed by hand before it is recorded, and a rejected capture produces no
+numbers at all.
+
+The images are held only until the worker has read them - at most ten minutes,
+swept every minute - and are deleted in the same transaction that stores the
+estimates. Because this stack has no object storage they live in Postgres until
+then, so a `pg_dump` taken inside that window can contain one; the same is true
+of meal and recipe-import photos. See [docs/BODY_SCAN.md](docs/BODY_SCAN.md) for
+the capture conditions, the privacy design and what would have to be measured
+before any accuracy claim.
+
+Scanning needs a height in the user's profile, which is the only thing that sets
+the scale. Live camera capture additionally needs an HTTPS origin; on a
+plain-HTTP LAN deployment the file picker is used instead and everything else
+works the same.
+
 ## Security considerations
 
 - Argon2id password hashing with OWASP-aligned parameters
@@ -568,6 +593,8 @@ shown in the app at `/about/data-sources`. Add your own licence in `LICENSE`.
 - SSRF protection with DNS resolution and private-range blocking
 - Secrets only from the environment, never logged, never shown in the UI
 - No advertising SDKs, no third-party analytics, no telemetry
+- Uploaded photos are validated by their bytes, not their filename or declared
+  type, held for minutes at most and swept by the worker
 
 Report the usual caveats: run behind a reverse proxy with TLS, keep the host
 patched, restrict access to a trusted network, and rotate `APP_SECRET` if it is

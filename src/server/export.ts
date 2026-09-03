@@ -2,8 +2,14 @@ import { prisma } from "@/lib/db";
 import type { Nutrients } from "@/lib/nutrition";
 import type { EntrySnapshot, ProvenanceSnapshot } from "./diary";
 
-/** Bump when the shape changes so future importers can branch on it. */
-export const EXPORT_FORMAT_VERSION = 1;
+/**
+ * Bump when the shape changes so future importers can branch on it.
+ *
+ * 2 added `bodyMeasurements` and `bodyScans`. Version 1 omitted the body
+ * timeline entirely: an export that claimed to be everything personal was
+ * silently missing every tape session the user had ever recorded.
+ */
+export const EXPORT_FORMAT_VERSION = 2;
 
 /**
  * Everything personal, in one documented envelope. Password hashes and session
@@ -16,6 +22,20 @@ export async function exportUserData(userId: string) {
       profile: true,
       targets: { orderBy: { validFrom: "asc" } },
       weights: { orderBy: { date: "asc" } },
+      bodyMeasurements: { orderBy: { date: "asc" } },
+      /* Estimates, their review decision and the consent each scan was taken
+         under. The captured images are never here: they are deleted minutes
+         after a scan runs and an export is not a way to get them back. */
+      bodyScans: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true, date: true, state: true, heightCm: true, weightKg: true,
+          consentVersion: true, provider: true, processorModel: true, version: true,
+          accepted: true, qualityReasons: true, failureKind: true,
+          createdAt: true, processedAt: true, reviewedAt: true,
+          estimates: { orderBy: { metricKey: "asc" } },
+        },
+      },
       favorites: true,
       usage: true,
       foods: {
@@ -40,6 +60,8 @@ export async function exportUserData(userId: string) {
     profile: user.profile,
     targets: user.targets,
     weights: user.weights,
+    bodyMeasurements: user.bodyMeasurements,
+    bodyScans: user.bodyScans,
     favorites: user.favorites,
     usageStats: user.usage,
     foods: user.foods,

@@ -447,13 +447,17 @@
       "MANUAL": "Manuell",
       "BIA": "BIA",
       "ESTIMATE": "Schätzung",
-      "DERIVED": "Abgeleitet"
+      "DERIVED": "Abgeleitet",
+      "OTHER_DEVICE": "Gerät",
+      "OPTICAL_SCAN": "Scan"
     },
     "sourceFull": {
       "MANUAL": "Von Hand mit dem Maßband gemessen",
       "BIA": "Bioelektrische Impedanz, von einer smarten Waage oder Körperanalyse",
       "ESTIMATE": "Aus einer Formel geschätzt, nicht gemessen",
-      "DERIVED": "Aus anderen gemessenen Werten berechnet"
+      "DERIVED": "Aus anderen gemessenen Werten berechnet",
+      "OTHER_DEVICE": "Von einem anderen Messgerät erfasst",
+      "OPTICAL_SCAN": "Aus einem Körperscan-Foto geschätzt, nicht gemessen"
     },
     "summary": {
       "microHead": "Kennzahlen",
@@ -554,6 +558,81 @@
       "intro": "Noch keine Körpermaße. Eine Messung erfasst, was du mit dem Maßband gemessen hast, und falls vorhanden, was eine smarte Waage gemeldet hat.",
       "records": "Das Gewicht wandert in dein Gewichtsprotokoll, damit das Diagramm darunter die einzige Aufzeichnung davon bleibt.",
       "needsSecond": "Das ist deine erste Messung, es gibt also noch nichts zu vergleichen. Trag eine zweite Messung ein, um Veränderungen zu sehen."
+    }
+  },
+  "bodyScan": {
+    "capture": {
+      "open": "Körperscan",
+      "title": "Körperscan",
+      "intro": "Aus zwei Fotos - eines von vorn, eines von der Seite - werden Umfänge geschätzt. Die Fotos werden gelöscht, sobald sie ausgewertet wurden.",
+      "notAMeasurement": "Hier werden deine Maße aus dem Umriss deines Körpers geschätzt. Das ist keine Messung und kein medizinisches Ergebnis. Körperfett, Muskeln oder Körperwasser lassen sich einem Foto nicht entnehmen.",
+      "conditions": "Bevor du beginnst",
+      "tips": {
+        "background": "Stell dich vor eine schlichte, freie Wand bei gleichmäßigem Licht.",
+        "clothing": "Trag enganliegende Kleidung. Weite Kleidung wird statt deines Körpers gemessen.",
+        "framing": "Dein ganzer Körper muss ins Bild, vom Scheitel bis zu den Füßen, mit Platz an beiden Seiten.",
+        "pose": "Steh aufrecht, Füße zusammen, Arme leicht vom Körper weg, sodass sie ihn nicht berühren.",
+        "repeat": "Nutze jedes Mal denselben Platz, denselben Abstand und dieselbe Kleidung. Für den Verlauf zählt Beständigkeit mehr als ein einzelner Scan."
+      },
+      "views": "Deine zwei Fotos",
+      "date": "Datum",
+      "height": "Körpergröße",
+      "heightHint": "Aus deinem Profil übernommen. Sie legt als Einziges den Maßstab fest - korrigiere sie dort, falls sie nicht stimmt.",
+      "front": "Ansicht von vorn",
+      "side": "Ansicht von der Seite",
+      "consentLegend": "Einwilligung",
+      "consent": "Ich bin damit einverstanden, dass diese zwei Fotos auf diesem Server verarbeitet werden, um meine Maße zu schätzen.",
+      "retention": "Die Fotos werden nur bis zur Auswertung gespeichert, höchstens zehn Minuten, und danach gelöscht. Sie werden nie wieder angezeigt und nirgendwohin gesendet.",
+      "submit": "Scan starten"
+    },
+    "review": {
+      "title": "Scan-Ergebnis",
+      "for": "Scan vom {date}",
+      "backToProgress": "Zurück zum Fortschritt",
+      "working": "Dein Scan wird ausgewertet. Deine Fotos werden gelöscht, sobald das erledigt ist.",
+      "intro": "Wähle die Werte, die du übernehmen möchtest. Bis dahin wird nichts gespeichert, und du kannst jeden Wert vor dem Übernehmen korrigieren.",
+      "notAMeasurement": "Das sind Schätzungen aus dem Umriss deines Körpers, mit dem Bereich, in dem der wahre Wert plausibel liegt. Eine Veränderung über mehrere Scans sagt mehr aus als eine einzelne Zahl.",
+      "tableCaption": "Geschätzte Umfänge, mit Bereich und deinem bisher erfassten Wert",
+      "accept": "Übernehmen",
+      "estimate": "Schätzung",
+      "range": "Bereich",
+      "current": "Erfasst",
+      "rangeValue": "{lower} bis {upper}",
+      "willWrite": "Die angehakten Werte werden im Check-in dieses Tages gespeichert. Alles Übrige wird verworfen.",
+      "willDiscard": "Es ist nichts angehakt - dieser Scan wird verworfen, ohne etwas zu speichern.",
+      "submit": "Ausgewählte Werte speichern",
+      "submitEmpty": "Diesen Scan verwerfen",
+      "saved": "Im Check-in gespeichert.",
+      "discarded": "Scan verworfen. Es wurde nichts gespeichert.",
+      "done": "Dieser Scan wurde bereits geprüft.",
+      "alreadyReviewed": "Dieser Scan wurde bereits geprüft.",
+      "pairedNote": "Ein Foto kann links nicht von rechts unterscheiden - eine Schätzung für Oberschenkel oder Wade wird deshalb für beide Seiten erfasst. Oberarme werden nicht geschätzt: Eine Ansicht von vorn schneidet Arme und Rumpf zugleich, und ein Umriss sagt nicht, wo das eine aufhört - miss die mit dem Maßband.",
+      "processor": "Geschätzt von {provider} {model}, Version {version}. Wird mit dem Ergebnis gespeichert, damit eine spätere Version im Verlauf unterscheidbar bleibt.",
+      "rejected": "Der Scan war nicht verwertbar",
+      "rejectedIntro": "Es wurde nichts geschätzt, weil die Fotos nicht zuverlässig ausgewertet werden konnten:",
+      "failed": "Der Scan ist fehlgeschlagen",
+      "failedBody": "Bei der Auswertung der Fotos ist etwas schiefgegangen. Sie wurden gelöscht; bitte versuch es noch einmal.",
+      "expiredBody": "Die Fotos wurden nicht rechtzeitig ausgewertet und sind gelöscht. Bitte versuch es noch einmal.",
+      "tryAgain": "Neuen Scan versuchen",
+      "region": "Maß"
+    },
+    "quality": {
+      "front-empty": "In der Ansicht von vorn ließ sich nichts vom Hintergrund unterscheiden.",
+      "side-empty": "In der Ansicht von der Seite ließ sich nichts vom Hintergrund unterscheiden.",
+      "cut-off-top": "Dein Kopf ragt oben aus dem Bild.",
+      "cut-off-bottom": "Deine Füße sind nicht im Bild.",
+      "too-small": "Du bist zu weit weg. Füll mehr vom Bild aus.",
+      "off-centre": "Du berührst den Bildrand. Stell dich mehr zur Mitte.",
+      "background-busy": "Dein Umriss ließ sich nicht vom Hintergrund trennen. Nimm eine schlichtere Wand und gleichmäßigeres Licht.",
+      "height-mismatch": "Die zwei Fotos wurden aus unterschiedlichem Abstand aufgenommen. Nutze für beide denselben Platz.",
+      "arms-touching": "Deine Arme liegen am Körper an und lassen sich nicht vom Rumpf unterscheiden. Halte sie etwas weg."
+    },
+    "errors": {
+      "heightRequired": "Trag zuerst deine Körpergröße im Profil ein. Sie legt als Einziges den Maßstab für einen Scan fest.",
+      "bothViewsRequired": "Es werden ein Foto von vorn und eines von der Seite gebraucht.",
+      "consentRequired": "Bitte stimme zu, bevor die Fotos verarbeitet werden.",
+      "imageTooLarge": "Eines der Fotos ist zu groß.",
+      "imageInvalid": "Eine der Dateien ist kein verwertbares JPEG-, PNG- oder WebP-Bild."
     }
   },
   "settings": {

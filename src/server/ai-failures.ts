@@ -25,6 +25,7 @@ export type AiFailureKind =
   | "SEARCH_UNAVAILABLE"
   | "RATE_LIMITED"
   | "DATA_MISSING"
+  | "IMAGE_UNREADABLE"
   | "CONFIG_INVALID"
   | "UNKNOWN";
 
@@ -42,6 +43,7 @@ export const AI_FAILURE_KINDS: AiFailureKind[] = [
   "SEARCH_UNAVAILABLE",
   "RATE_LIMITED",
   "DATA_MISSING",
+  "IMAGE_UNREADABLE",
   "CONFIG_INVALID",
   "UNKNOWN",
 ];
@@ -57,6 +59,8 @@ const PERMANENT: ReadonlySet<AiFailureKind> = new Set<AiFailureKind>([
   "DATA_MISSING",
   "MODEL_MISSING",
   "MODEL_VISION_UNSUPPORTED",
+  // Bytes that could not be decoded once decode identically the next time.
+  "IMAGE_UNREADABLE",
   // A missing or malformed setting is the same on every attempt, and burning the
   // retry budget on it only delays every other job behind it.
   "CONFIG_INVALID",
@@ -167,6 +171,10 @@ function classify(
   if (["source-redirect-limit", "source-unsupported-content", "source-no-ingredients"].includes(message) || /^source-http-/.test(message)) return "SOURCE_UNAVAILABLE";
   if (/rate limit/i.test(message)) return "RATE_LIMITED";
   if (/source search unavailable/i.test(message)) return "SEARCH_UNAVAILABLE";
+  if (named === "BodyScanImageError") return "IMAGE_UNREADABLE";
+  // A scan reads its images once and clears them with the result, so a second
+  // attempt has nothing left to read: this is permanent by construction.
+  if (["scan-not-found", "scan-images-gone"].includes(message)) return "DATA_MISSING";
   if (/not found|no diary target|Unsupported AI job entity/i.test(message)) return "DATA_MISSING";
   if (/is not available/i.test(message)) return "MODEL_MISSING";
 

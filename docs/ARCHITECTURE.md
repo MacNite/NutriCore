@@ -147,6 +147,46 @@ read only up to `MAX_RESEARCH_BYTES` with the remainder abandoned mid-transfer,
 stripped of scripts and markup, and wrapped in a delimiter that tells the model
 it is reference data and not instructions.
 
+## Body scanning
+
+A guided two-view capture estimates circumferences from a front and a side
+photograph, on CPU, with no model and no third party. It is geometry: a front
+view gives breadth at a landmark level, a side view gives depth at the same
+level, and the circumference is the perimeter of the ellipse through those axes,
+scaled by the declared height. Levels come from the same `BODY_LANDMARKS` the
+drawn body figure is built from, so a scan and the figure it feeds cannot drift
+apart about where a waist is.
+
+An estimate is never a measurement. A scan writes nothing to `BodyMeasurement`;
+it produces `BodyScanEstimate` rows with intervals, and only a person accepting
+one on the review screen turns it into a recorded value with `OPTICAL_SCAN`
+provenance. A value the reviewer edited is recorded as `MANUAL`, because a
+number they typed is their own measurement whatever prompted it. The estimate
+survives the decision either way, so a correction stays distinguishable from an
+acceptance. Per-value provenance lives in `BodyMeasurement.valueSources`; a
+field absent from that map was entered by hand, which is what every row recorded
+before scanning existed was.
+
+The captured images are the most sensitive bytes the application holds and are
+treated as a transient worker handoff: written to the scan row because this
+deployment has no object storage, read exactly once, and cleared in the same
+transaction that stores the estimates. `imagesExpireAt` is a ten-minute deadline
+that the worker sweeps every 60 seconds, so a crash between reading and writing
+still loses them within about a minute; a scan swept before it was processed
+becomes `EXPIRED`, because without its images it never can be. The job carries
+`maxRetries: 0` for the same reason. Body images never reach the AI provider.
+
+A rejected capture produces no numbers at all, only reasons to retake. Returning
+values the system has already said it does not believe invites the one thing
+this feature must not do. Upper arms are not estimated at all: a front view
+crosses the arms and the torso at one height and nothing in an outline says
+where one stops.
+
+`BodyScanProvider` is the seam for a mesh-fitting, learned or vendor estimator
+later. Nothing downstream needs a mesh — the progress figure is drawn from
+circumferences — so the expensive half of a conventional scanning pipeline is
+absent rather than deferred. See `docs/BODY_SCAN.md`.
+
 ## Authorisation
 
 Public provider foods have `ownerId = NULL` and are readable by everyone.

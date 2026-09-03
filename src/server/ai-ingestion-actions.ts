@@ -7,6 +7,7 @@ import { aiAvailable } from "./ai-availability";
 import { queueAiIngestion } from "./ai-ingestion-queue";
 import { imageUploadMaxBytes } from "@/lib/image-upload-limit";
 import type { ComponentCandidate, ProposedComponent } from "./ai-types";
+import { MEAL_IMAGE_TTL_MS } from "./meal-image";
 
 const MAX_IMAGE_BYTES = imageUploadMaxBytes();
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -89,6 +90,10 @@ export async function queueRecipeImportAction(formData: FormData) {
   // surfacing later as an unexplained worker failure.
   if (sourceUrl && !(await checkUrl(sourceUrl)).ok) back("unsafeUrl");
 
-  const record = await queueAiIngestion({ userId: user.id, intent: "RECIPE", text, sourceUrl: sourceUrl || null, servings, imageMime: hasImage ? image.type : null, imageData: hasImage ? Buffer.from(await image.arrayBuffer()) : null, imageExpiresAt: hasImage ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null });
+  /* The same deadline the quick-meal path uses, rather than a second literal
+     that can drift from it: both write to one table now, and one sweeper
+     enforces it. Minutes, not a day - the window an image can be caught in a
+     database dump is the window that matters. */
+  const record = await queueAiIngestion({ userId: user.id, intent: "RECIPE", text, sourceUrl: sourceUrl || null, servings, imageMime: hasImage ? image.type : null, imageData: hasImage ? Buffer.from(await image.arrayBuffer()) : null, imageExpiresAt: hasImage ? new Date(Date.now() + MEAL_IMAGE_TTL_MS) : null });
   redirect(`/recipes/new?import=${record.id}`);
 }

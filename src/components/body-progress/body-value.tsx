@@ -15,6 +15,7 @@ const BADGE_CLASS: Record<MeasurementSource, string> = {
   MANUAL: "",
   BIA: "badge-usda",
   OTHER_DEVICE: "badge-usda",
+  OPTICAL_SCAN: "badge-ai",
   ESTIMATE: "badge-ai",
   DERIVED: "badge-off",
 };
@@ -25,7 +26,7 @@ export function BodySourceBadge({ source }: { source: MeasurementSource }) {
 
   return (
     <span className={`badge ${BADGE_CLASS[source]}`.trimEnd()} title={full}>
-      {source === "ESTIMATE" ? <span aria-hidden="true">≈</span> : null}
+      {source === "ESTIMATE" || source === "OPTICAL_SCAN" ? <span aria-hidden="true">≈</span> : null}
       {t(`source.${source}`)}
       <span className="sr-only"> — {full}</span>
     </span>

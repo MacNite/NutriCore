@@ -11,6 +11,7 @@ import { formatDateKey } from "@/server/diary";
 import type { EntrySnapshot } from "@/server/diary";
 import { aggregateNutritionDay, type ProgressTarget } from "@/lib/nutrition-progress";
 import { BodyCheckinForm } from "@/components/body-progress/body-checkin-form";
+import { BodyScanForm } from "@/components/body-progress/body-scan-form";
 import { BodyProgressEmpty } from "@/components/body-progress/body-progress-empty";
 import { BodyProgressSection } from "@/components/body-progress/body-progress-section";
 import { loadBodyProgress } from "@/server/body";
@@ -31,7 +32,7 @@ export default async function ProgressPage() {
 
   const [entries, profile, diaryDays, nutritionTargets, body] = await Promise.all([
     prisma.weightEntry.findMany({ where: { userId: user.id }, orderBy: { date: "asc" }, take: 400 }),
-    prisma.userProfile.findUnique({ where: { userId: user.id }, select: { targetWeightKg: true } }),
+    prisma.userProfile.findUnique({ where: { userId: user.id }, select: { targetWeightKg: true, heightCm: true } }),
     prisma.diaryDay.findMany({ where: { userId: user.id }, include: { entries: true }, orderBy: { date: "desc" }, take: 90 }),
     prisma.nutritionTarget.findMany({ where: { userId: user.id }, orderBy: { validFrom: "asc" } }),
     loadBodyProgress(user.id),
@@ -65,6 +66,19 @@ export default async function ProgressPage() {
     return point ? [point] : [];
   });
 
+  /* Both ways of recording a body sit together: a tape session and a scan
+     produce the same measurements, and which one someone used is a detail of
+     provenance rather than a different feature. */
+  const checkinControls = (
+    <>
+      <BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />
+      <BodyScanForm
+        today={formatDateKey(new Date())}
+        heightCm={profile?.heightCm ? Number(profile.heightCm) : null}
+      />
+    </>
+  );
+
   return (
     <AppShell displayName={user.displayName}>
       <div className="page-head">
@@ -93,7 +107,7 @@ export default async function ProgressPage() {
               shapeStyle={body.shapeStyle}
               panels={body.panels}
               locale={locale}
-              checkin={<BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />}
+              checkin={checkinControls}
             />
           ) : (
             <BodyProgressSection
@@ -103,7 +117,7 @@ export default async function ProgressPage() {
               shapeStyle={body.shapeStyle}
               panels={body.panels}
               locale={locale}
-              checkin={<BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />}
+              checkin={checkinControls}
             />
           )}
         </section>
