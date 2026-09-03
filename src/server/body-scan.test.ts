@@ -17,7 +17,7 @@ const { prismaMock, bodyScan, bodyScanEstimate, bodyMeasurement } = vi.hoisted((
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
-import { cleanupExpiredScanImages, loadScanReview, runBodyScan } from "./body-scan";
+import { BODY_SCAN_IMAGE_TTL_MS, cleanupExpiredScanImages, loadScanReview, pendingScan, runBodyScan } from "./body-scan";
 import type { BodyScanProvider } from "@/providers/body-scan";
 
 const IMAGE_CLEARED = {
@@ -28,10 +28,14 @@ const IMAGE_CLEARED = {
   imagesExpireAt: null,
 };
 
+const NOW = new Date("2026-09-03T12:00:00.000Z");
+
 const scanRow = (overrides: Record<string, unknown> = {}) => ({
   id: "scan-1",
   userId: "user-1",
   date: new Date("2026-09-03T00:00:00.000Z"),
+  createdAt: NOW,
+  imagesExpireAt: new Date(NOW.getTime() + BODY_SCAN_IMAGE_TTL_MS),
   state: "QUEUED",
   heightCm: "176",
   weightKg: "80",
@@ -192,5 +196,76 @@ describe("loadScanReview", () => {
   it("is not found for someone else's scan", async () => {
     bodyScan.findFirst.mockResolvedValue(null);
     expect(await loadScanReview("user-2", "scan-1")).toBeNull();
+  });
+
+  /* The worker is the only thing that ever moved a scan out of QUEUED, so with
+     no worker running the review page reported "processing" for ever. These
+     cover the backstop that ends such a scan from the read path instead. */
+  it("times out a scan that is still queued past the point it could be processed", async () => {
+    bodyScan.findFirst.mockResolvedValue({ ...scanRow({ state: "QUEUED" }), estimates: [] });
+    bodyMeasurement.findUnique.mockResolvedValue(null);
+
+    const later = new Date(NOW.getTime() + BODY_SCAN_IMAGE_TTL_MS + 1000);
+    const review = await loadScanReview("user-1", "scan-1", later);
+
+    expect(review!.state).toBe("TIMED_OUT");
+    expect(bodyScan.updateMany).toHaveBeenCalledWith({
+      /* Conditional on it still being unprocessed, so a worker finishing at the
+         same moment wins and its result stands. */
+      where: { id: "scan-1", state: { in: ["QUEUED", "PROCESSING"] } },
+      data: { state: "TIMED_OUT", failureKind: "not-processed", ...IMAGE_CLEARED },
+    });
+  });
+
+  it("leaves a scan alone while it could still be processed", async () => {
+    bodyScan.findFirst.mockResolvedValue({ ...scanRow({ state: "PROCESSING" }), estimates: [] });
+    bodyMeasurement.findUnique.mockResolvedValue(null);
+
+    const review = await loadScanReview("user-1", "scan-1", new Date(NOW.getTime() + 1000));
+
+    expect(review!.state).toBe("PROCESSING");
+    expect(bodyScan.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a scan's own age when its deadline was cleared with the images", async () => {
+    /* A crash between clearing the images and recording the failure leaves the
+       row with no deadline at all, which must not read as "no deadline yet". */
+    bodyScan.findFirst.mockResolvedValue({
+      ...scanRow({ state: "QUEUED", imagesExpireAt: null }),
+      estimates: [],
+    });
+    bodyMeasurement.findUnique.mockResolvedValue(null);
+
+    const later = new Date(NOW.getTime() + BODY_SCAN_IMAGE_TTL_MS + 1000);
+    expect((await loadScanReview("user-1", "scan-1", later))!.state).toBe("TIMED_OUT");
+  });
+
+  it("does not time out a scan that already finished", async () => {
+    bodyScan.findFirst.mockResolvedValue({
+      ...scanRow({ state: "AWAITING_REVIEW", accepted: true, qualityReasons: [] }),
+      estimates: [],
+    });
+    bodyMeasurement.findUnique.mockResolvedValue(null);
+
+    const later = new Date(NOW.getTime() + BODY_SCAN_IMAGE_TTL_MS + 1000);
+    expect((await loadScanReview("user-1", "scan-1", later))!.state).toBe("AWAITING_REVIEW");
+    expect(bodyScan.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("pendingScan", () => {
+  it("offers a scan in flight only while it could still be processed", async () => {
+    bodyScan.findFirst.mockResolvedValue(null);
+    await pendingScan("user-1", NOW);
+
+    const { where } = bodyScan.findFirst.mock.calls[0][0];
+    expect(where.OR).toEqual([
+      /* Waiting on the reader: no deadline applies, they can take their time. */
+      { state: "AWAITING_REVIEW" },
+      /* Waiting on the worker: past the deadline it is finished, whatever the
+         row still says, and offering it as in progress would advertise the same
+         endless wait the review page used to. */
+      { state: { in: ["QUEUED", "PROCESSING"] }, imagesExpireAt: { gt: NOW } },
+    ]);
   });
 });
