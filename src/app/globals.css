@@ -236,7 +236,14 @@ a:hover {
 .shell {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 24px 20px 120px;
+  padding: 24px 20px;
+}
+
+/* Only pages that actually render the floating action button need extra
+   bottom clearance for it; everyone else should stop scrolling right after
+   the last panel. */
+.shell--with-fab {
+  padding-bottom: 100px;
 }
 
 .topbar {
@@ -1255,9 +1262,15 @@ legend {
   }
 
   .shell {
-    /* Clears both the bottom navigation and the floating action button, so the
-       last row of a list is never permanently hidden behind them. */
-    padding: 18px 14px 150px;
+    /* Clears the fixed bottom navigation, so the last row of a list is never
+       permanently hidden behind it. */
+    padding: 18px 14px 90px;
+  }
+
+  .shell--with-fab {
+    /* Also clears the floating action button, which sits just above the
+       bottom navigation on pages that render one. */
+    padding-bottom: 150px;
   }
 
   .nav {

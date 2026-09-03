@@ -16,7 +16,7 @@ const NAV = [
 /** Bottom navigation keeps the most-used destinations within thumb reach. */
 const MOBILE_NAV = NAV;
 
-export function AppShell({ displayName, children }: { displayName: string; children: React.ReactNode }) {
+export function AppShell({ displayName, children, hasFab }: { displayName: string; children: React.ReactNode; hasFab?: boolean }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
 
@@ -31,7 +31,7 @@ export function AppShell({ displayName, children }: { displayName: string; child
 
   return (
     <>
-      <div className="shell">
+      <div className={hasFab ? "shell shell--with-fab" : "shell"}>
         <header className="topbar">
           {pathname !== "/" && <BackButton />}
 
