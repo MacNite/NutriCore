@@ -17,7 +17,7 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/env", () => ({ researchEnabled: () => false }));
 vi.mock("@/providers/ollama", () => ({ OllamaProvider: class {} }));
 vi.mock("./component-resolver", () => ({ resolveComponent }));
-vi.mock("./meal-url", () => ({ fetchMealPage: vi.fn(async () => ({ url: "https://example.test/r", title: "Pfannkuchen", excerpt: "Zutaten:\n- 200 g Mehl", recipeFound: true })) }));
+vi.mock("./meal-url", () => ({ fetchMealPage: vi.fn(async () => ({ url: "https://example.test/r", title: "Pfannkuchen", excerpt: "Zutaten:\n- 200 g Mehl", recipeFound: true, structuredRecipe: { name: "Pfannkuchen", description: "Dünne Pfannkuchen von der Seite.", ingredientLines: ["200 g Mehl"], instructions: "1. Mehl abwiegen.\n2. Backen." } })) }));
 vi.mock("./recipes", () => ({ saveRecipe: vi.fn(async () => ({ recipe: { id: "recipe-1", name: "Pfannkuchen" }, food: null })) }));
 
 import { runRecipeImport } from "./ai-ingestion";
@@ -99,6 +99,25 @@ describe("extracting a recipe", () => {
     }));
   });
 
+  /**
+   * The user's own language is the one they read the recipe in. Nothing used to
+   * say so, and a German user importing a recipe got an English name,
+   * description and Zubereitung.
+   */
+  it("asks for the prose in the language the user reads", async () => {
+    await run();
+
+    expect(ai.complete.mock.calls[0][0].prompt).toContain("in German");
+  });
+
+  it("asks for English when that is what the user chose", async () => {
+    user.findUnique.mockResolvedValue({ profile: { language: "en", researchEnabled: false } });
+
+    await run();
+
+    expect(ai.complete.mock.calls[0][0].prompt).toContain("in English");
+  });
+
   it("stores no source for text or a photo, which have none", async () => {
     await run();
 
@@ -176,6 +195,42 @@ describe("turning components into ingredients", () => {
     const draft = await run();
 
     expect(draft.components?.[0].candidates).toEqual([{ foodId: "food-flour", grams: 200 }]);
+  });
+});
+
+describe("the recipe's own prose", () => {
+  /**
+   * The reported failure: "Zubereitung" was empty. The page's steps were read,
+   * sanitised and put in front of the model - and then the run kept only what
+   * the model echoed back, which a small local model routinely does not.
+   */
+  it("falls back to the page's own steps when the model returned none", async () => {
+    ingestionInput.findUnique.mockResolvedValue(input({ sourceUrl: "https://example.test/r" }));
+    ai.complete.mockResolvedValue({ ...extraction, description: "", instructions: "" });
+
+    const draft = await run();
+
+    expect(draft.instructions).toBe("1. Mehl abwiegen.\n2. Backen.");
+    expect(draft.description).toBe("Dünne Pfannkuchen von der Seite.");
+    expect(vi.mocked(saveRecipe).mock.calls[0][1]).toMatchObject({ instructions: "1. Mehl abwiegen.\n2. Backen." });
+  });
+
+  it("keeps the model's own wording where it gave any, because that one is translated", async () => {
+    ingestionInput.findUnique.mockResolvedValue(input({ sourceUrl: "https://example.test/r" }));
+
+    const draft = await run();
+
+    expect(draft.instructions).toBe("1. Mehl abwiegen.\n2. Backen.");
+    expect(draft.description).toBe("Dünne Pfannkuchen aus der Pfanne.");
+  });
+
+  it("leaves them empty for a text or photo import that has no page to fall back on", async () => {
+    ai.complete.mockResolvedValue({ ...extraction, description: "", instructions: "" });
+
+    const draft = await run();
+
+    expect(draft.instructions).toBe("");
+    expect(draft.description).toBe("");
   });
 });
 
