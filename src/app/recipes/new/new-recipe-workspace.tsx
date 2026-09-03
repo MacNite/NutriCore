@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { CompletionRedirect } from "@/components/completion-redirect";
 import { queueRecipeImportAction, type RecipeImportDraft, type RecipeImportError } from "@/server/recipe-import-actions";
 import { RecipeForm } from "../recipe-form";
 
@@ -19,6 +20,8 @@ export function NewRecipeWorkspace({
   failed,
   sourceFailure,
   imageMaxMb,
+  destination,
+  watching,
 }: {
   draft: RecipeImportDraft | null;
   error?: RecipeImportError;
@@ -27,11 +30,19 @@ export function NewRecipeWorkspace({
   /** A recognised URL failure, which reads better than the worker's own message. */
   sourceFailure: "noIngredients" | "unsupportedContent" | "oversizedPage" | "unreachablePage" | "unsafeUrl" | null;
   imageMaxMb: number;
+  /** The recipe this run produced, once there is one to open. */
+  destination: string | null;
+  /** Whether the run was still going when this reader arrived. */
+  watching: boolean;
 }) {
   const t = useTranslations("recipes.import");
 
   return (
     <div className="stack">
+      {/* Outside every conditional block on purpose: it has to stay mounted
+          across the refresh that turns "queued" into a finished draft, because
+          that is the transition it exists to follow. */}
+      <CompletionRedirect href={destination} watching={watching} />
       <section className="card" aria-labelledby="recipe-import-heading">
         <div className="card-head">
           <div>

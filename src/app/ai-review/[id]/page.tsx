@@ -6,7 +6,8 @@ import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { reviewAiProposalAction } from "@/server/meal-ai-actions";
-import { componentGrams, jobOutcome, type AcceptedOutcome, type ProposedComponent } from "@/server/ai-types";
+import { CompletionRedirect } from "@/components/completion-redirect";
+import { aiJobDestination, componentGrams, jobOutcome, type AcceptedOutcome, type ProposedComponent } from "@/server/ai-types";
 import { ComponentChoice, type ChoiceLabels } from "./component-choice";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,11 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
   const workerRecipe = jobOutcome(job?.metadata ?? null);
   const keptRecipeId = outcome?.recipeId ?? workerRecipe?.recipeId;
   const keptRecipeName = outcome?.recipeName ?? workerRecipe?.recipeName ?? "";
+  // Where this run ends. For a submission that asked for a recipe and not a
+  // diary entry, that is the recipe: nothing on this page is waiting on the
+  // reader, and the recipe is what they have been watching for. Every other
+  // quick meal ends here, where the meal is decided.
+  const destination = job ? aiJobDestination(job) : null;
   const urlFailure = job?.errorMessage === "source-unsupported-content" ? "unsupportedContent"
     : job?.errorMessage === "source-too-large" ? "oversizedPage"
     : job?.errorMessage === "source-no-ingredients" ? "noIngredients"
@@ -81,6 +87,12 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
 
   return (
     <AppShell displayName={user.displayName}>
+      {/* Rendered unconditionally so it survives the refresh that finishes the
+          run, and armed only for a reader who arrived while it was going: the
+          proposal behind this page stays reachable from the dashboard, and
+          from this URL, for everyone else. */}
+      <CompletionRedirect href={destination?.kind === "RECIPE_PREVIEW" ? destination.href : null} watching={pending} />
+
       <div className="page-head">
         <div>
           <h1>{t("title")}</h1>

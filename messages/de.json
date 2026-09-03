@@ -738,7 +738,7 @@
         "extractionFailed": "Das Rezept konnte nicht ausgelesen werden. Prüfe KI-Dienst, Link und Bild und versuche es erneut.",
         "unsafeUrl": "Diese Adresse ist nicht erlaubt. Verwende einen öffentlichen http(s)-Link ohne Zugangsdaten."
       },
-      "queued": "Eingereiht. Der Worker liest das Rezept aus; diese Seite aktualisiert sich selbst und füllt das Formular unten, sobald der Entwurf fertig ist."
+      "queued": "Eingereiht. Der Worker liest das Rezept aus; diese Seite aktualisiert sich selbst und öffnet den Rezeptentwurf, sobald er fertig ist."
     },
     "create": "Rezept erstellen",
     "edit": "Rezept bearbeiten",

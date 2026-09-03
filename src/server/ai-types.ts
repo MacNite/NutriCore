@@ -254,6 +254,55 @@ export function jobOutcome(metadata: unknown): AiJobOutcome | null {
 }
 
 /**
+ * Where a finished run leads: the one answer every surface that shows a run
+ * shares, rather than each page inferring it from `entityType` again.
+ */
+export type AiCompletionDestination =
+  | { kind: "MEAL_REVIEW"; href: string }
+  | { kind: "RECIPE_PREVIEW"; recipeId: string; href: string };
+
+/**
+ * The destination a run ends at, from what it actually produced.
+ *
+ * Derived rather than stored: the outcome it reads is already the record of
+ * what the job did, and a second copy could disagree with it - a draft the user
+ * declined is deleted and its id cleared, and a stored destination would go on
+ * pointing at a recipe that is gone.
+ *
+ * A quick meal ends at its review, because that is where the meal is decided -
+ * except for the one submission that asked for a recipe and explicitly not a
+ * diary entry. Nothing there is waiting on the reader: the recipe is what they
+ * asked for, and it is what they have been watching the status page for. The
+ * proposal is still kept and still reachable from the dashboard, so following
+ * the recipe does not throw the extraction away.
+ *
+ * `null` means "not yet": the run has produced nothing to open, and a caller
+ * should keep waiting rather than send the reader anywhere.
+ */
+export function aiJobDestination(job: {
+  entityType: string;
+  entityId: string;
+  metadata: unknown;
+  /**
+   * A recipe this caller already knows about, which wins over the outcome. The
+   * recipe import stores its draft before the job is marked complete, so the
+   * page holding that draft can say where the run leads a poll earlier than the
+   * outcome can.
+   */
+  recipeId?: string | null;
+}): AiCompletionDestination | null {
+  const recipeId = job.recipeId || jobOutcome(job.metadata)?.recipeId;
+  const preview = (id: string): AiCompletionDestination => ({ kind: "RECIPE_PREVIEW", recipeId: id, href: `/recipes/${id}` });
+
+  if (job.entityType === "RECIPE_IMPORT") return recipeId ? preview(recipeId) : null;
+  if (job.entityType !== "MEAL_INPUT") return null;
+
+  const { addToMeal, createRecipe } = quickMealOptions(job.metadata);
+  if (createRecipe && !addToMeal && recipeId) return preview(recipeId);
+  return { kind: "MEAL_REVIEW", href: `/ai-review/${job.entityId}` };
+}
+
+/**
  * Queue-management vocabulary for the admin panel. It lives here rather than in
  * `admin-actions.ts` because a `"use server"` module may only export async
  * functions, and both the action and the client panel need these values.
