@@ -14,7 +14,7 @@ vi.mock("./session", () => ({ requireUser: vi.fn(async () => ({ id: "user-1" }))
 vi.mock("@/lib/db", () => ({
   prisma: {
     food: { findFirst: foodFindFirst },
-    mealInput: { create: mealInputCreate },
+    ingestionInput: { create: mealInputCreate },
     aiJob: { create: aiJobCreate },
   },
 }));
@@ -25,7 +25,8 @@ vi.mock("./diary", () => ({
   PortionError: class PortionError extends Error {},
 }));
 
-import { logRecipeAction } from "./recipe-actions";
+import { confirmRecipeAction, logRecipeAction } from "./recipe-actions";
+import { confirmRecipe } from "./recipes";
 
 describe("logging a recipe", () => {
   beforeEach(() => {
@@ -63,5 +64,33 @@ describe("logging a recipe", () => {
     expect(mealInputCreate).not.toHaveBeenCalled();
     expect(aiJobCreate).not.toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith("/");
+  });
+});
+
+describe("confirming a draft recipe", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("keeps every choice on the component it was made for", async () => {
+    // A component that matched no food renders no radio group, so it submits
+    // nothing. Collecting the submitted entries into a list rather than reading
+    // them by index shifted the rest up - the butter's food was confirmed as
+    // the bread and the last ingredient was dropped, silently.
+    const form = new FormData();
+    form.set("id", "recipe-1");
+    form.set("component-1", "food-butter");
+    form.set("component-2", "food-jam");
+
+    await expect(confirmRecipeAction({}, form)).rejects.toThrow("redirect:/recipes/recipe-1");
+
+    expect(vi.mocked(confirmRecipe)).toHaveBeenCalledWith("user-1", "recipe-1", new Map([[1, "food-butter"], [2, "food-jam"]]));
+  });
+
+  it("passes no choices at all when the reader touched nothing", async () => {
+    const form = new FormData();
+    form.set("id", "recipe-1");
+
+    await expect(confirmRecipeAction({}, form)).rejects.toThrow("redirect:/recipes/recipe-1");
+
+    expect(vi.mocked(confirmRecipe)).toHaveBeenCalledWith("user-1", "recipe-1", new Map());
   });
 });

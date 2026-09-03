@@ -13,7 +13,7 @@ const { prismaMock, aiJob, aiJobAttempt, user } = vi.hoisted(() => {
     aiJob,
     aiJobAttempt,
     user,
-    prismaMock: { aiJob, aiJobAttempt, user, mealInput, aiProposal: { upsert: vi.fn() }, food: { findFirst: vi.fn() }, $transaction },
+    prismaMock: { aiJob, aiJobAttempt, user, aiIngestionInput: mealInput, aiProposal: { upsert: vi.fn() }, food: { findFirst: vi.fn() }, $transaction },
   };
 });
 
@@ -29,17 +29,17 @@ vi.mock("./meal-url", () => ({
   fetchMealPage: vi.fn(async (url: string) => ({ url, title: "Soup", excerpt: "Ingredients: 2 carrots", recipeFound: true })),
   mealPagePrompt: vi.fn((page: { excerpt: string }, text: string) => `${text}\nUNTRUSTED:${page.excerpt}`),
 }));
-vi.mock("./recipe-import", () => ({ runRecipeImport: vi.fn(), discardRecipeImportImage: vi.fn() }));
+vi.mock("./ai-ingestion", () => ({ runRecipeImport: vi.fn(), discardRecipeImportImage: vi.fn() }));
 vi.mock("./food-enrichment", () => ({ enrichFood: vi.fn(), missingNutritionKeys: vi.fn(() => []) }));
-vi.mock("./ai-approval", () => ({ autoApproveProposal: vi.fn(), storeQuickMealRecipe: vi.fn() }));
+vi.mock("./ai-approval", () => ({ autoApproveProposal: vi.fn() }));
 vi.mock("./meal-image", () => ({ discardMealInputImage: vi.fn() }));
 
 import { claimNextJob, findConservativeDuplicate, mealParseSchema, processNextAiJob, reclaimStaleJobs, scaleMealComponentsToServing } from "./ai-jobs";
-import { decideComponents, jobPriority, quickMealRecipeName, STUCK_RUNNING_MS } from "./ai-types";
+import { decideComponents, jobPriority, STUCK_RUNNING_MS } from "./ai-types";
 import { failResearchJob, runResearchJob } from "./research";
-import { runRecipeImport } from "./recipe-import";
+import { runRecipeImport } from "./ai-ingestion";
 import { resolveComponent } from "./component-resolver";
-import { autoApproveProposal, storeQuickMealRecipe } from "./ai-approval";
+import { autoApproveProposal } from "./ai-approval";
 import { fetchMealPage, mealPagePrompt } from "./meal-url";
 
 /** An AI provider whose generation always fails, to drive the retry paths. */
@@ -52,13 +52,13 @@ function queueJob(overrides: { retryCount?: number; maxRetries?: number; entityT
   const job = {
     id: "job-1",
     userId: "user-1",
-    entityType: overrides.entityType ?? "MEAL_INPUT",
+    entityType: overrides.entityType ?? "AI_INGESTION",
     entityId: "entity-1",
     status: "RUNNING",
     retryCount: overrides.retryCount ?? 0,
     maxRetries: overrides.maxRetries ?? 2,
     metadata: null,
-    mealInput: { id: "input-1", text: "two eggs", sourceUrl: null as string | null, imageData: null as Buffer | null, imageMime: null, meal: "BREAKFAST", diaryDate: new Date() },
+    ingestionInput: { intent: "MEAL", id: "input-1", text: "two eggs", sourceUrl: null as string | null, imageData: null as Buffer | null, imageMime: null, meal: "BREAKFAST", diaryDate: new Date() },
   };
   aiJob.findFirst.mockResolvedValue({ id: job.id });
   aiJob.updateMany.mockResolvedValue({ count: 1 });
@@ -206,7 +206,8 @@ describe("features the worker owns", () => {
   });
 
   it("runs a recipe extraction in the worker and completes it", async () => {
-    queueJob({ entityType: "RECIPE_IMPORT" });
+    const job = queueJob({ entityType: "AI_INGESTION" });
+    job.ingestionInput.intent = "RECIPE";
     await processNextAiJob();
 
     expect(runRecipeImport).toHaveBeenCalledWith("entity-1", expect.anything());
@@ -243,23 +244,23 @@ describe("applying a proposal without the review screen", () => {
 
   it("feeds URL-only ingredients into the same component resolver and proposal path", async () => {
     const job = queueJob();
-    job.mealInput.text = "";
-    job.mealInput.sourceUrl = "https://recipes.example/soup";
+    job.ingestionInput.text = "";
+    job.ingestionInput.sourceUrl = "https://recipes.example/soup";
     const ai = workingAi();
     await processNextAiJob({ ai: ai as never });
 
-    expect(fetchMealPage).toHaveBeenCalledWith(job.mealInput.sourceUrl);
+    expect(fetchMealPage).toHaveBeenCalledWith(job.ingestionInput.sourceUrl);
     expect(mealPagePrompt).toHaveBeenCalledWith(expect.objectContaining({ recipeFound: true }), "");
     expect(resolveComponent).toHaveBeenCalledWith(expect.objectContaining({ name: "Brot" }), expect.anything());
     const proposal = prismaMock.aiProposal.upsert.mock.calls[0][0];
-    expect(proposal.create.provenance).toMatchObject({ inputKind: "url", sourceUrl: job.mealInput.sourceUrl });
+    expect(proposal.create.provenance).toMatchObject({ inputKind: "url", sourceUrl: job.ingestionInput.sourceUrl });
     expect(JSON.stringify(proposal.create.proposed)).not.toContain("Ingredients: 2 carrots");
   });
 
   it("sends image bytes to the configured provider, then clears them after structured extraction", async () => {
     const job = queueJob();
-    job.mealInput.text = "with extra avocado";
-    job.mealInput.imageData = Buffer.from("private-image");
+    job.ingestionInput.text = "with extra avocado";
+    job.ingestionInput.imageData = Buffer.from("private-image");
     const ai = workingAi();
 
     await processNextAiJob({ ai: ai as never });
@@ -268,7 +269,7 @@ describe("applying a proposal without the review screen", () => {
       prompt: "with extra avocado",
       images: [Buffer.from("private-image").toString("base64")],
     }));
-    expect(prismaMock.mealInput.update).toHaveBeenCalledWith(expect.objectContaining({
+    expect(prismaMock.aiIngestionInput.update).toHaveBeenCalledWith(expect.objectContaining({
       data: { imageData: null, imageMime: null, imageExpiresAt: null },
     }));
     const proposalJson = JSON.stringify(prismaMock.aiProposal.upsert.mock.calls.at(-1));
@@ -308,28 +309,12 @@ describe("applying a proposal without the review screen", () => {
     await processNextAiJob({ ai: workingAi() as never });
 
     expect(autoApproveProposal).toHaveBeenCalledWith("proposal-1");
-    expect(storeQuickMealRecipe).not.toHaveBeenCalled();
   });
 
   /**
    * "Keep a recipe but do not log it" never reaches an approval, so the resolver's
    * own matches are all there is - and the recipe still has to be written.
    */
-  it("still keeps a recipe for a meal the submitter asked not to log", async () => {
-    const job = queueJob();
-    job.metadata = { addToMeal: false, createRecipe: true } as never;
-    vi.mocked(resolveComponent).mockResolvedValue({ candidates: [], selectedFoodId: "food-1", grams: 60, gramsSource: "PORTION" });
-
-    await processNextAiJob({ ai: workingAi() as never });
-
-    expect(autoApproveProposal).not.toHaveBeenCalled();
-    expect(storeQuickMealRecipe).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "job-1" }),
-      // The model named no dish, so the submitted sentence names the recipe.
-      "two eggs",
-      [{ foodId: "food-1", amount: 60, unit: "g" }],
-    );
-  });
 
   it("leaves it pending when the user wants to approve each one", async () => {
     queueJob();
@@ -417,29 +402,3 @@ describe("what an approved proposal may log", () => {
   });
 });
 
-describe("what a quick meal's recipe is called", () => {
-  it("uses the dish name the extraction produced, not the sentence that was typed", () => {
-    expect(quickMealRecipeName("Butterbrot mit Marmelade", "2 Scheiben Brot mit Butter und Marmelade")).toBe(
-      "Butterbrot mit Marmelade",
-    );
-  });
-
-  it("names a photo-only meal, which had no text to fall back to", () => {
-    expect(quickMealRecipeName("Gemüsepfanne", "")).toBe("Gemüsepfanne");
-  });
-
-  it("keeps the typed text when the extraction named no dish", () => {
-    // Which is also what a cached extraction from before the model was asked
-    // for a name arrives as.
-    expect(quickMealRecipeName(undefined, "Reste vom Buffet")).toBe("Reste vom Buffet");
-    expect(quickMealRecipeName("   ", "Reste vom Buffet")).toBe("Reste vom Buffet");
-  });
-
-  it("falls back to a constant when there is neither", () => {
-    expect(quickMealRecipeName(undefined, "  ")).toBe("Quick meal");
-  });
-
-  it("keeps a name the recipe can actually be saved with", () => {
-    expect(quickMealRecipeName("x".repeat(400), "")).toHaveLength(200);
-  });
-});

@@ -4,7 +4,7 @@ import { decideComponents, type ProposedComponent } from "./ai-types";
 export interface PendingProposal {
   proposalId: string;
   /** The MealInput id, which is what `/ai-review/[id]` is keyed on. */
-  mealInputId: string;
+  ingestionInputId: string;
   text: string;
   /** What accepting would log, and what it would leave out. */
   summary: string;
@@ -19,14 +19,14 @@ export interface PendingProposal {
  */
 export async function pendingProposals(userId: string, limit = 5): Promise<PendingProposal[]> {
   const rows = await prisma.aiProposal.findMany({
-    where: { approvalStatus: "PENDING", job: { userId, mealInputId: { not: null } } },
-    include: { job: { select: { entityId: true, mealInput: { select: { text: true } } } } },
+    where: { approvalStatus: "PENDING", job: { userId, ingestionInput: { intent: "MEAL" } } },
+    include: { job: { select: { entityId: true, ingestionInput: { select: { text: true } } } } },
     orderBy: { createdAt: "desc" },
     take: limit,
   });
 
   return rows.flatMap((row) => {
-    const mealInput = row.job.mealInput;
+    const mealInput = row.job.ingestionInput;
     if (!mealInput) return [];
 
     const components = (row.proposed as { components?: ProposedComponent[] }).components ?? [];
@@ -35,7 +35,7 @@ export async function pendingProposals(userId: string, limit = 5): Promise<Pendi
     return [
       {
         proposalId: row.id,
-        mealInputId: row.job.entityId,
+        ingestionInputId: row.job.entityId,
         text: mealInput.text,
         summary: loggable
           .map((entry) => `${entry.component.name} · ${Math.round(entry.grams)} g`)

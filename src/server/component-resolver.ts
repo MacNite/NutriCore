@@ -94,6 +94,7 @@ function sameUnitWord(wantedNormalized: string, candidate: string) {
 export function resolveGrams(
   component: Pick<ProposedComponent, "quantity" | "unit" | "estimatedGrams">,
   food: Pick<FoodResult, "servingSize" | "servingUnit" | "servings" | "densityGPerMl"> | null,
+  allowModelEstimates = true,
 ): { grams: number | null; source: GramsSource } {
   const unit = component.unit?.trim().toLowerCase() ?? "";
   const quantity = component.quantity;
@@ -101,7 +102,7 @@ export function resolveGrams(
   // Tried in order of how much the answer is a fact rather than a reading, and
   // the first plausible one wins. An implausible result falls through instead of
   // stopping the search, so a misread unit still ends up with the model's weight.
-  for (const attempt of weightAttempts(component, food, unit, quantity)) {
+  for (const attempt of weightAttempts(allowModelEstimates ? component : { ...component, estimatedGrams: undefined }, food, unit, quantity)) {
     if (attempt.grams > 0 && attempt.grams <= MAX_PLAUSIBLE_GRAMS) return attempt;
   }
   return { grams: null, source: "NONE" };
@@ -194,8 +195,8 @@ export function isSafeAutomaticMatch(componentName: string, candidateName: strin
 }
 
 /** Each candidate carries the weight it would give the component, not just a name. */
-const toCandidate = (food: FoodResult, component: ProposedComponent): ComponentCandidate => {
-  const { grams, source } = resolveGrams(component, food);
+const toCandidate = (food: FoodResult, component: ProposedComponent, allowModelEstimates: boolean): ComponentCandidate => {
+  const { grams, source } = resolveGrams(component, food, allowModelEstimates);
   return {
     foodId: food.id,
     name: food.name,
@@ -214,6 +215,8 @@ export interface ResolverContext {
   locale: Locale;
   /** Whether this user has consented to fetching pages from the open web. */
   webSourcesAllowed: boolean;
+  /** Whether an unresolved component may fall back to nutrition stated by the extraction model. */
+  allowModelEstimates: boolean;
   deps?: { ai?: OllamaProvider; search?: SearxngClient };
 }
 
@@ -236,7 +239,7 @@ export async function resolveComponent(
     // A food with no nutrition at all cannot be logged, however well it matches.
     for (const food of outcome.results) {
       if (!hasAnyNutrient(food.nutrients)) continue;
-      candidates.push(toCandidate(food, component));
+      candidates.push(toCandidate(food, component, context.allowModelEstimates));
       if (candidates.length >= MAX_CANDIDATES) break;
     }
   } catch (error) {
@@ -260,7 +263,7 @@ export async function resolveComponent(
   const selectedFoodId = chosen?.foodId ?? null;
   // The component-level weight is the one that applies when no food is chosen,
   // so it is the model's own reading of the sentence and nothing else.
-  const { grams, source } = resolveGrams(component, null);
+  const { grams, source } = context.allowModelEstimates ? resolveGrams(component, null) : { grams: null, source: "NONE" as const };
 
   return { candidates, selectedFoodId, grams, gramsSource: source };
 }
@@ -325,5 +328,5 @@ async function resolveFromWeb(component: ProposedComponent, context: ResolverCon
   const food = toFoodResult(created, 0, false);
   // `originOf` already reads AI_RESEARCH as a web extract; the URL is what the
   // review screen needs in order to show where the numbers came from.
-  return { ...toCandidate(food, component), url: extracted.url };
+  return { ...toCandidate(food, component, context.allowModelEstimates), url: extracted.url };
 }

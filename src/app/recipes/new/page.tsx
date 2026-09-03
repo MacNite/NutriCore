@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { AppShell } from "@/components/app-shell";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/server/session";
-import type { RecipeImportDraft, RecipeImportError } from "@/server/recipe-import-actions";
+import type { RecipeImportDraft, RecipeImportError } from "@/server/ai-ingestion-actions";
 import { aiJobDestination } from "@/server/ai-types";
 import { NewRecipeWorkspace } from "./new-recipe-workspace";
 import { imageUploadMaxMb } from "@/lib/image-upload-limit";
@@ -46,7 +46,7 @@ export default async function NewRecipePage({
   // The extraction runs in the worker, so the draft is loaded here rather than
   // returned by the action that started it.
   const record = importId
-    ? await prisma.recipeImport.findFirst({
+    ? await prisma.aiIngestionInput.findFirst({
         where: { id: importId, userId: user.id },
         select: { draft: true },
       })
@@ -54,7 +54,7 @@ export default async function NewRecipePage({
 
   const job = importId
     ? await prisma.aiJob.findFirst({
-        where: { entityType: "RECIPE_IMPORT", entityId: importId, userId: user.id },
+        where: { entityType: "AI_INGESTION", entityId: importId, userId: user.id },
         orderBy: { createdAt: "desc" },
         select: { status: true, errorMessage: true, failureKind: true, metadata: true },
       })
@@ -65,7 +65,7 @@ export default async function NewRecipePage({
   // draft's own recipe id is passed along because it is written before the job
   // is marked complete, so it names the destination one poll earlier.
   const destination = importId
-    ? aiJobDestination({ entityType: "RECIPE_IMPORT", entityId: importId, metadata: job?.metadata, recipeId: draft?.recipeId })
+    ? aiJobDestination({ entityType: "AI_INGESTION", entityId: importId, intent: "RECIPE", metadata: job?.metadata, recipeId: draft?.recipeId })
     : null;
   const error = IMPORT_ERRORS.has(importError as RecipeImportError) ? (importError as RecipeImportError) : undefined;
 

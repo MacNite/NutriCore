@@ -181,7 +181,7 @@
       "image": "Meal photo (optional)",
       "imageHint": "JPEG, PNG or WebP, up to {maxMb} MB. On supported mobile devices you can take a photo. The image is held temporarily for processing for no more than 24 hours, then deleted.",
       "servings": "Number of servings",
-      "servingsHint": "How many servings do all quantities in the text, URL, or photo make? Quick meal logs one serving.",
+      "servingsHint": "For a meal, quantities are scaled to one serving; for a recipe, this remains the complete yield.",
       "meal": "Meal",
       "submit": "Save and queue enrichment",
       "createRecipe": "Create recipe",
@@ -950,7 +950,8 @@
       "CANCELLED": "Cancelled",
       "UNKNOWN": "Unclassified",
       "MODEL_OUTPUT_TRUNCATED": "Answer cut off",
-      "CONFIG_INVALID": "Invalid configuration"
+      "CONFIG_INVALID": "Invalid configuration",
+      "MODEL_VISION_UNSUPPORTED": "Vision unsupported"
     },
     "hint": {
       "MODEL_TIMEOUT": "The model did not answer in time. Usually a model that is too slow, a prompt that is too long, or an answer that never terminates.",
@@ -967,7 +968,8 @@
       "UNKNOWN": "Not classified. The full cause chain is under “Show details”.",
       "CANCELLED": "Cancelled by an administrator.",
       "MODEL_OUTPUT_TRUNCATED": "The model was stopped at the token limit before it finished. Either the schema permits an answer that is too long, or OLLAMA_MAX_OUTPUT_TOKENS is too low.",
-      "CONFIG_INVALID": "A required setting is missing or invalid — the message names it. Check the .env of the affected container; the app and the worker need the same configuration. Another attempt will not help."
+      "CONFIG_INVALID": "A required setting is missing or invalid — the message names it. Check the .env of the affected container; the app and the worker need the same configuration. Another attempt will not help.",
+      "MODEL_VISION_UNSUPPORTED": "The configured model cannot read images. Choose a vision model or submit text or a URL."
     },
     "enrichmentRemaining": "{count, plural, one {One more food is waiting} other {# more foods are waiting}} – click again for the next batch.",
     "resultLogged": "Logged",

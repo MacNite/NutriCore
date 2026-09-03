@@ -31,7 +31,7 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const t = await getTranslations("aiReview");
 
-  const input = await prisma.mealInput.findFirst({
+  const input = await prisma.aiIngestionInput.findFirst({
     where: { id, userId: user.id },
     include: { aiJobs: { include: { proposal: true }, orderBy: { createdAt: "desc" }, take: 1 } },
   });
@@ -55,7 +55,7 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
   // diary entry, that is the recipe: nothing on this page is waiting on the
   // reader, and the recipe is what they have been watching for. Every other
   // quick meal ends here, where the meal is decided.
-  const destination = job ? aiJobDestination(job) : null;
+  const destination = job ? aiJobDestination({ ...job, intent: input.intent === "RECIPE" ? "RECIPE" : "MEAL" }) : null;
   const urlFailure = job?.errorMessage === "source-unsupported-content" ? "unsupportedContent"
     : job?.errorMessage === "source-too-large" ? "oversizedPage"
     : job?.errorMessage === "source-no-ingredients" ? "noIngredients"
