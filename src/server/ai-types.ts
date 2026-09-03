@@ -4,6 +4,8 @@
  * import them without pulling a server action into its module graph.
  */
 
+import { canonicalUnit, resolveIngredientWeight, servingLabelFor, type PortionContext } from "@/lib/units";
+
 /**
  * One component of a meal as the model proposed it, after the worker has tried
  * to resolve it against the food database. `canonicalFoodId` is null when no
@@ -145,16 +147,69 @@ const positive = (value: number | null | undefined) =>
   typeof value === "number" && value > 0 ? value : null;
 
 /**
- * The weight to log for a component, given the food finally chosen for it.
+ * The weight to log for a component, given the food finally chosen for it, and
+ * where that weight came from.
  *
  * The chosen candidate's own serving data wins, because a serving weight is a
  * fact about a food. The model's `estimatedGrams` is the fallback, because a
  * portion size is an interpretation of the sentence rather than a fact - and it
  * is the one number a nutrition source rarely carries.
+ *
+ * The source travels with the number so a caller can say which weights are the
+ * model's reading rather than the source's own words: a recipe draft has to
+ * point those out, because "1 EL Mehl" is a weight nobody wrote down.
  */
-export function componentGrams(component: ProposedComponent, foodId?: string | null): number | null {
+export function componentWeight(component: ProposedComponent, foodId?: string | null): { grams: number; source: GramsSource } | null {
   const candidate = foodId ? component.candidates?.find((entry) => entry.foodId === foodId) : undefined;
-  return positive(candidate?.grams) ?? positive(component.grams) ?? positive(component.estimatedGrams);
+  const fromCandidate = positive(candidate?.grams);
+  if (fromCandidate !== null) return { grams: fromCandidate, source: candidate?.gramsSource ?? "MODEL" };
+  const own = positive(component.grams);
+  if (own !== null) return { grams: own, source: component.gramsSource ?? "MODEL" };
+  const estimated = positive(component.estimatedGrams);
+  return estimated === null ? null : { grams: estimated, source: "MODEL" };
+}
+
+/** The weight alone, for the callers that do not care where it came from. */
+export function componentGrams(component: ProposedComponent, foodId?: string | null): number | null {
+  return componentWeight(component, foodId)?.grams ?? null;
+}
+
+/**
+ * The amount and unit one extracted component becomes as a recipe ingredient,
+ * for the food finally chosen for it - or `null` when it cannot be weighed at
+ * all and therefore cannot be an ingredient.
+ *
+ * The source's own words win wherever the chosen food can actually be measured
+ * in them, so "200 g Mehl" is stored as 200 g and "2 Scheiben Brot" as 2
+ * Scheiben of a bread that defines a slice. Only when the food cannot be
+ * measured that way does this fall back to a gram weight - the food's serving
+ * data where it has any, and otherwise the model's reading of the household
+ * measure. That fallback is what "1 EL Mehl" needs: the flour defines no spoon,
+ * so without it the ingredient had no weight and was dropped from the recipe
+ * entirely.
+ *
+ * `estimated` marks the weights the model read rather than the source stated,
+ * which is what the draft review has to show for checking.
+ *
+ * Shared by the import that writes the draft and the confirmation that turns it
+ * into a recipe: they used to decide this separately, and the confirmation's
+ * narrower rule silently dropped every ingredient the import had already
+ * reported as unconvertible.
+ */
+export function recipeIngredientAmount(
+  component: ProposedComponent,
+  foodId: string,
+  context: PortionContext,
+): { amount: number; unit: string; estimated: boolean } | null {
+  const sourceUnit = component.unit ?? "";
+  // The food's own spelling of the unit where it has one, so the stored unit is
+  // a value the recipe form's dropdown also offers.
+  const unit = canonicalUnit(sourceUnit) ?? servingLabelFor(sourceUnit, context) ?? sourceUnit;
+  const amount = component.quantity;
+  if (amount && unit && resolveIngredientWeight(amount, unit, context).ok) return { amount, unit, estimated: false };
+
+  const weight = componentWeight(component, foodId);
+  return weight === null ? null : { amount: weight.grams, unit: "g", estimated: weight.source === "MODEL" };
 }
 
 /** What approving a component actually does. */

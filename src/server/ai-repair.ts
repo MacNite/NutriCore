@@ -336,6 +336,63 @@ export function ingredientFromText(value: unknown): { name: string; amount: numb
   return weightBesideName(name, unit, amount) ?? { name, amount, unit };
 }
 
+/**
+ * Prose as one block of text, however the model shaped the field.
+ *
+ * A model asked for a string routinely answers with structure: a list of steps,
+ * a list of `{ step, text }` objects, `{"1": "..."}`. Reading only a string
+ * left a recipe with no Zubereitung at all - the user had to type the steps
+ * back out of the source they had just imported.
+ *
+ * A string is returned untouched, because it is already the author's own
+ * formatting. Only a list the model actually returned as a list is joined, and
+ * `numbered` decides whether joining it also numbers the parts: preparation
+ * steps read better numbered, a description must never be turned into a list.
+ * Nothing here writes a step the model did not.
+ */
+export function proseText(value: unknown, max: number, numbered = false): string | undefined {
+  if (typeof value === "string") return textOrAbsent(value, max);
+
+  const parts = proseParts(value)
+    .map((part) => textOrAbsent(part, max))
+    .filter((part): part is string => Boolean(part));
+  if (!parts.length) return undefined;
+  // Skipped for a single part, and for a part that already carries its own
+  // marker: a source writing "1. Mehl abwiegen" is not renumbered to "1. 1.".
+  const joined = numbered && parts.length > 1
+    ? parts.map((part, index) => (/^\s*(?:\d+[.)]|[-*\u2022])/.test(part) ? part : `${index + 1}. ${part}`))
+    : parts;
+  return textOrAbsent(joined.join("\n"), max);
+}
+
+/** Preparation steps, numbered where the model returned them as a list. */
+export const instructionsText = (value: unknown, max: number) => proseText(value, max, true);
+
+/** The text inside whatever shape one part of the answer turned out to be. */
+function proseParts(value: unknown, depth = 0): unknown[] {
+  if (typeof value === "string") return [value];
+  if (depth > 3) return [];
+  if (Array.isArray(value)) return value.flatMap((entry) => proseParts(entry, depth + 1));
+  if (!isRecord(value)) return [];
+  const nested = proseParts(value.itemListElement ?? value.steps, depth + 1);
+  if (nested.length) return nested;
+  const text = firstText(value, PROSE_KEYS, 20_000);
+  // `{"1": "Mehl abwiegen", "2": "Backen"}`, in the order the model wrote it.
+  return text ? [text] : Object.values(value).flatMap((entry) => (typeof entry === "string" ? [entry] : []));
+}
+
+const PROSE_KEYS = ["text", "name", "step", "instruction", "description"] as const;
+
+/** The first of `keys` that holds usable prose, whatever shape the model used. */
+export function proseField(value: unknown, keys: readonly string[], max: number, numbered = false): string | undefined {
+  if (!isRecord(value)) return undefined;
+  for (const key of keys) {
+    const text = proseText(value[key], max, numbered);
+    if (text) return text;
+  }
+  return undefined;
+}
+
 const NAME_KEYS = ["name", "ingredient", "item", "zutat", "food", "title"] as const;
 const AMOUNT_KEYS = ["amount", "quantity", "menge", "qty", "value"] as const;
 const UNIT_KEYS = ["unit", "units", "einheit", "measure", "unitOfMeasure", "unit_of_measure"] as const;

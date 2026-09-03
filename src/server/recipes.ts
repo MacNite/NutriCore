@@ -5,6 +5,7 @@ import { recipeNutrition, scaleNutrients, type Nutrients } from "@/lib/nutrition
 import { normalizeName, resolveIngredientWeight } from "@/lib/units";
 import { diaryDate, NotFoundError, PortionError } from "./diary";
 import { foodPortionContext, visibleFoodWhere } from "./foods";
+import { recipeIngredientAmount, type ProposedComponent } from "./ai-types";
 
 export interface RecipeInput {
   name: string;
@@ -140,7 +141,7 @@ export async function confirmRecipe(userId: string, id: string, selections: Map<
     include: { import: { select: { draft: true, logAfterConfirm: true, meal: true, diaryDate: true } }, ingredients: { orderBy: { position: "asc" }, select: { foodId: true, amount: true, unit: true } } },
   });
   if (!recipe) throw new NotFoundError("recipe");
-  const extracted = recipe.import?.draft as { components?: Array<{ quantity?: number; unit?: string; candidates?: Array<{ foodId: string; grams: number | null }> }> } | null;
+  const extracted = recipe.import?.draft as { components?: ProposedComponent[] } | null;
   let chosenIngredients = recipe.ingredients.map((item) => ({ foodId: item.foodId, amount: Number(item.amount), unit: item.unit }));
   if (extracted?.components && selections.size) {
     chosenIngredients = [];
@@ -152,13 +153,13 @@ export async function confirmRecipe(userId: string, id: string, selections: Map<
       const component = extracted.components[index];
       const food = await prisma.food.findFirst({ where: { id: foodId, ...visibleFoodWhere(userId) }, include: { servings: true } });
       if (!food) continue;
-      const context = foodPortionContext(food);
-      const unit = component.unit ?? "";
-      if (component.quantity && unit && resolveIngredientWeight(component.quantity, unit, context).ok) chosenIngredients.push({ foodId, amount: component.quantity, unit });
-      else {
-        const grams = component.candidates?.find((candidate) => candidate.foodId === foodId)?.grams;
-        if (grams) chosenIngredients.push({ foodId, amount: grams, unit: "g" });
-      }
+      // The same rule the import applied when it wrote the draft. Deciding it a
+      // second time here, and more narrowly, is what dropped every ingredient
+      // measured in a household unit: the reader chose a food for "1 EL Mehl",
+      // the flour defined no spoon, and the component silently vanished from
+      // the recipe they had just confirmed.
+      const measured = recipeIngredientAmount(component, foodId, foodPortionContext(food));
+      if (measured) chosenIngredients.push({ foodId, amount: measured.amount, unit: measured.unit });
     }
   }
   if (!chosenIngredients.length) throw new PortionError("invalid-amount");

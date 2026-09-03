@@ -17,6 +17,8 @@ import {
   repairMealParse,
   repairNutrientExtraction,
   repairResearchResult,
+  instructionsText,
+  proseText,
 } from "./ai-repair";
 
 describe("repairing a meal parse", () => {
@@ -258,5 +260,51 @@ describe("repairing an imported recipe", () => {
       instructions: "Mischen und backen.",
       ingredients: [{ name: "Mehl", amount: 200, unit: "g" }],
     });
+  });
+});
+
+describe("reading prose the model shaped its own way", () => {
+  /**
+   * The reported failure: a recipe arrived with an empty Zubereitung. The steps
+   * of a recipe are a list, and a model asked for a string field answers with
+   * one anyway - so reading only a string threw every step away and the user
+   * had to type them back out of the source they had just imported.
+   */
+  it("joins steps the model returned as a list, and numbers them", () => {
+    expect(instructionsText(["Mehl abwiegen.", "Eier dazugeben.", "Backen."], 20_000))
+      .toBe("1. Mehl abwiegen.\n2. Eier dazugeben.\n3. Backen.");
+    // schema.org HowToStep objects, which is what a publisher's page carries.
+    expect(instructionsText([{ "@type": "HowToStep", text: "Teig kneten." }, { text: "Ruhen lassen." }], 20_000))
+      .toBe("1. Teig kneten.\n2. Ruhen lassen.");
+    // Sections that carry their steps one level down.
+    expect(instructionsText([{ itemListElement: [{ text: "Ofen vorheizen." }, { text: "Belegen." }] }], 20_000))
+      .toBe("1. Ofen vorheizen.\n2. Belegen.");
+    // An object keyed by step number.
+    expect(instructionsText({ "1": "Waschen.", "2": "Schneiden." }, 20_000)).toBe("1. Waschen.\n2. Schneiden.");
+  });
+
+  it("leaves a string exactly as the author wrote it", () => {
+    // Already text: the line breaks and any numbering are theirs, not ours.
+    expect(instructionsText("1. Mehl abwiegen.\n2. Backen.", 20_000)).toBe("1. Mehl abwiegen.\n2. Backen.");
+    expect(instructionsText("Alles verrühren und backen.", 20_000)).toBe("Alles verrühren und backen.");
+    // A paragraph with a blank line stays a paragraph, not a numbered list.
+    expect(proseText("Eine Pizza.\n\nMit Tomaten.", 2000)).toBe("Eine Pizza.\n\nMit Tomaten.");
+  });
+
+  it("does not renumber a step that already carries its own marker", () => {
+    expect(instructionsText(["1. Mehl abwiegen.", "2. Backen."], 20_000)).toBe("1. Mehl abwiegen.\n2. Backen.");
+    expect(instructionsText(["- Mehl abwiegen.", "- Backen."], 20_000)).toBe("- Mehl abwiegen.\n- Backen.");
+  });
+
+  it("never numbers plain prose, however the model shaped it", () => {
+    // A description is not a list of steps, so joining one must not make it one.
+    expect(proseText(["Eine Pizza.", "Mit Tomaten."], 2000)).toBe("Eine Pizza.\nMit Tomaten.");
+  });
+
+  it("reports nothing rather than empty text when the model gave none", () => {
+    expect(instructionsText(undefined, 20_000)).toBeUndefined();
+    expect(instructionsText([], 20_000)).toBeUndefined();
+    expect(instructionsText(["", "   "], 20_000)).toBeUndefined();
+    expect(instructionsText(42, 20_000)).toBeUndefined();
   });
 });

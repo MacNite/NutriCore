@@ -37,6 +37,14 @@ export interface RecipeImportDraft {
    * invent. Optional: drafts written before this existed do not carry it.
    */
   unconverted?: string[];
+  /**
+   * Ingredients whose gram weight is the model's reading of a household measure
+   * - "1 EL Mehl" as 10 g - rather than an amount the source stated or the food
+   * itself defines. They are in the recipe, because nothing else can convert a
+   * spoon and dropping them lost the ingredient entirely; they are listed here
+   * because a weight nobody wrote down is the first thing worth checking.
+   */
+  estimatedWeights?: string[];
   /** Structured source lines that had no explicit deterministic quantity. */
   unparsedIngredients?: string[];
   /**
