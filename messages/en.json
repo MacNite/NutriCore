@@ -191,7 +191,8 @@
         "imageInvalid": "Use a valid JPEG, PNG, or WebP image.",
         "imageTooLarge": "The image exceeds the configured maximum size.",
         "imageEmpty": "The selected image is empty.",
-        "unsafeUrl": "That address could not be fetched safely, so nothing was saved."
+        "unsafeUrl": "That address could not be fetched safely, so nothing was saved.",
+        "aiDisabled": "AI features are switched off. Enable them in your settings to use the quick meal."
       },
       "createRecipeHint": "Also stores this meal as a draft recipe. A draft can only be logged once it is confirmed.",
       "addToMeal": "Add to meal",

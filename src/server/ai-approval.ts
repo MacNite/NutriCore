@@ -4,7 +4,7 @@ import { logger } from "@/lib/logger";
 import { resolveAiModel } from "@/lib/env";
 import { normalizeName } from "@/lib/units";
 import { addDiaryEntry, formatDateKey } from "./diary";
-import { saveRecipe } from "./recipes";
+import { deleteRecipe, saveRecipe } from "./recipes";
 import { decideComponents, jobOutcome, quickMealOptions, quickMealRecipeName, type AcceptedOutcome, type AiJobOutcome, type ProposedComponent } from "./ai-types";
 
 /**
@@ -122,6 +122,54 @@ export async function storeQuickMealRecipe(
     return { recipeId: recipe.id, recipeName: recipe.name };
   } catch (error) {
     logger.warn("Could not store the quick meal as a recipe", {
+      jobId: job.id,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+    return null;
+  }
+}
+
+/**
+ * Drops the draft recipe a declined quick meal left behind.
+ *
+ * With `createRecipe` ticked and the proposal still awaiting review, the worker
+ * has already stored a draft from whatever the resolver matched on its own -
+ * before anyone said whether the meal was read correctly at all. Declining the
+ * proposal used to leave that draft in the recipe list for good, with nothing
+ * on it saying where it came from or why the meal it describes was never
+ * logged. Rejecting the reading rejects the recipe built from it.
+ *
+ * A recipe the user has already confirmed is never touched: ACTIVE is their
+ * decision and not this job's. The recipe id is cleared from the outcome too,
+ * so the review page stops offering a link to something that is gone.
+ *
+ * Never throws: a rejection that could not clean up is still a rejection.
+ */
+export async function discardQuickMealRecipe(job: { id: string; userId: string; metadata: Prisma.JsonValue | null }) {
+  const recipeId = jobOutcome(job.metadata)?.recipeId;
+  if (!recipeId) return null;
+  try {
+    const recipe = await prisma.recipe.findFirst({
+      where: { id: recipeId, ownerId: job.userId },
+      select: { id: true, status: true },
+    });
+    if (!recipe || recipe.status !== "DRAFT") return null;
+    await deleteRecipe(job.userId, recipe.id);
+
+    // Read back rather than reused from the caller: the job may have been
+    // written since, and this only means to drop the two recipe keys.
+    const current = await prisma.aiJob.findUnique({ where: { id: job.id }, select: { metadata: true } });
+    const metadata = { ...((current?.metadata ?? {}) as Record<string, unknown>) };
+    const outcome = { ...((metadata.outcome ?? {}) as AiJobOutcome) };
+    delete outcome.recipeId;
+    delete outcome.recipeName;
+    await prisma.aiJob.update({
+      where: { id: job.id },
+      data: { metadata: { ...metadata, outcome } as unknown as Prisma.InputJsonValue },
+    });
+    return recipe.id;
+  } catch (error) {
+    logger.warn("Could not discard the draft recipe of a rejected quick meal", {
       jobId: job.id,
       reason: error instanceof Error ? error.message : "unknown",
     });

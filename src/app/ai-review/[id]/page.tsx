@@ -6,7 +6,7 @@ import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { reviewAiProposalAction } from "@/server/meal-ai-actions";
-import { componentGrams, type AcceptedOutcome, type ProposedComponent } from "@/server/ai-types";
+import { componentGrams, jobOutcome, type AcceptedOutcome, type ProposedComponent } from "@/server/ai-types";
 import { ComponentChoice, type ChoiceLabels } from "./component-choice";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +42,14 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
   const outcome = proposal?.accepted as AcceptedOutcome | null | undefined;
   const pending = job?.status === "QUEUED" || job?.status === "RUNNING";
   const pendingReview = proposal?.approvalStatus === "PENDING";
+  // The recipe this run kept, from the approval when there was one and from the
+  // job otherwise. The worker stores a draft for a proposal that is still
+  // pending as well, and reading only `accepted` meant that draft was announced
+  // nowhere: the submitter ticked "Rezept anlegen", landed here, and the recipe
+  // was reachable only by going looking for it in the recipe list.
+  const workerRecipe = jobOutcome(job?.metadata ?? null);
+  const keptRecipeId = outcome?.recipeId ?? workerRecipe?.recipeId;
+  const keptRecipeName = outcome?.recipeName ?? workerRecipe?.recipeName ?? "";
   const urlFailure = job?.errorMessage === "source-unsupported-content" ? "unsupportedContent"
     : job?.errorMessage === "source-too-large" ? "oversizedPage"
     : job?.errorMessage === "source-no-ingredients" ? "noIngredients"
@@ -174,6 +182,22 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
             <pre className="provenance">{JSON.stringify(proposal.provenance, null, 2)}</pre>
           </details>
 
+          {/* A quick meal the submitter asked to keep. Outside the approval
+              block on purpose: the draft exists as soon as the worker wrote it,
+              whether or not the meal itself has been decided on yet. The
+              recipe list can only show one that exists, and the reason it does
+              not was previously a line in the worker's log. */}
+          {keptRecipeId ? (
+            <p>
+              <Link href={`/recipes/${keptRecipeId}`}>{t("recipeKept", { name: keptRecipeName })}</Link>
+            </p>
+          ) : outcome?.recipeSkipped ? (
+            <div className="notice notice-warn">
+              <span className="notice-icon" aria-hidden="true">!</span>
+              <span>{t("recipeSkipped")}</span>
+            </div>
+          ) : null}
+
           {proposal.approvalStatus === "PENDING" ? null : proposal.approvalStatus === "ACCEPTED" ? (
             <div>
               <p>
@@ -194,19 +218,6 @@ export default async function AiReviewPage({ params }: { params: Promise<{ id: s
               ) : (
                 <p>{t("nothingLogged")}</p>
               )}
-              {/* A quick meal the submitter asked to keep. Said here because the
-                  recipe list can only show one that exists, and the reason it
-                  does not was previously a line in the worker's log. */}
-              {outcome?.recipeId ? (
-                <p>
-                  <Link href={`/recipes/${outcome.recipeId}`}>{t("recipeKept", { name: outcome.recipeName ?? "" })}</Link>
-                </p>
-              ) : outcome?.recipeSkipped ? (
-                <div className="notice notice-warn">
-                  <span className="notice-icon" aria-hidden="true">!</span>
-                  <span>{t("recipeSkipped")}</span>
-                </div>
-              ) : null}
               {outcome && outcome.skipped.length > 0 ? (
                 <>
                   <p className="muted">{t("skipped")}</p>

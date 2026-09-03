@@ -191,7 +191,8 @@
         "imageInvalid": "Verwende ein gültiges JPEG-, PNG- oder WebP-Bild.",
         "imageTooLarge": "Das Bild überschreitet die konfigurierte maximale Größe.",
         "imageEmpty": "Das ausgewählte Bild ist leer.",
-        "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert."
+        "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert.",
+        "aiDisabled": "KI-Funktionen sind ausgeschaltet. Aktiviere sie in den Einstellungen, um die schnelle Mahlzeit zu nutzen."
       },
       "createRecipeHint": "Legt aus dieser Mahlzeit zusätzlich ein Rezept als Entwurf an. Ein Entwurf lässt sich erst nach dem Bestätigen eintragen.",
       "addToMeal": "Zur Mahlzeit hinzufügen",

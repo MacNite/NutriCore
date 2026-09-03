@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { PrismaClient } from "@prisma/client";
 import { completeOnboarding, mealRowTrigger, registerAndOnboard } from "./helpers";
+
+const prisma = new PrismaClient();
+test.afterAll(async () => prisma.$disconnect());
 
 test("the dashboard quick-meal button opens the diary AI form", async ({ page }) => {
   await page.getByRole("button", { name: /quick meal|schnelle mahlzeit/i }).click();
@@ -171,4 +175,20 @@ test("activity entries can be added, edited and deleted in the Today dialog", as
   await diaryPanel.getByLabel(/^activity$|^aktivität$/i).selectOption("hiking");
   await expect(diaryPanel.getByLabel(/^intensity$|^intensität$/i)).toHaveCount(0);
   await diaryPanel.getByRole("button", { name: /^cancel$|^abbrechen$/i }).click();
+});
+
+test("the quick-meal button is gone once the user switches AI off", async ({ page }) => {
+  // The quick meal is an AI run and nothing else, but it was the one entry
+  // point that never asked whether the user wanted AI at all: with the switch
+  // off, the floating button still queued an extraction.
+  const user = await registerAndOnboard(page);
+  await completeOnboarding(page);
+  const quickMeal = page.getByRole("button", { name: /quick meal|schnelle mahlzeit/i });
+  await expect(quickMeal).toBeVisible();
+
+  const account = await prisma.user.findUniqueOrThrow({ where: { username: user.username }, select: { id: true } });
+  await prisma.userProfile.update({ where: { userId: account.id }, data: { aiEnabled: false } });
+
+  await page.goto("/");
+  await expect(quickMeal).toHaveCount(0);
 });

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { resolveAiModel } from "@/lib/env";
 import { checkUrl } from "@/lib/url-guard";
 import { requireUser } from "./session";
+import { aiAvailable } from "./ai-availability";
 import { jobPriority } from "./ai-types";
 import { imageUploadMaxBytes } from "@/lib/image-upload-limit";
 
@@ -69,7 +70,9 @@ export async function queueRecipeImportAction(formData: FormData) {
   const user = await requireUser();
   const back = (error: RecipeImportError) => redirect(`/recipes/new?importError=${error}`);
 
-  if (!user.aiEnabled || (process.env.AI_ENABLED ?? "true") === "false") back("aiDisabled");
+  // The same reading as the quick meal, so the two entry points cannot disagree
+  // about whether AI is switched on.
+  if (!aiAvailable(user)) back("aiDisabled");
 
   const text = String(formData.get("text") ?? "").trim().slice(0, 5000);
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim().slice(0, 500);
