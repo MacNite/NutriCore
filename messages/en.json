@@ -424,6 +424,7 @@
     },
     "metric": {
       "weightKg": "Weight",
+      "bmi": "BMI",
       "neckCm": "Neck",
       "chestCm": "Chest",
       "waistCm": "Waist",
@@ -460,6 +461,7 @@
       "firstSession": "First session"
     },
     "kpi": {
+      "bmiInfo": "Body weight divided by height in metres squared.",
       "whtr": "WHtR",
       "whtrLong": "Waist-to-height ratio",
       "whtrInfo": "Waist circumference divided by height. A single number that tracks central circumference independently of overall size.",

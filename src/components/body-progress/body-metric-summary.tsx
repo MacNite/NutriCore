@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/locales";
 import {
+  bodyMassIndex,
   deltaBetween,
   formatMeasure,
   metricDelta,
@@ -53,6 +54,7 @@ export function BodyMetricSummary({
   const t = useTranslations("bodyProgress");
 
   const currentWhtr = waistToHeight(current.waistCm, profile.heightCm);
+  const currentBmi = bodyMassIndex(current.weightKg, profile.heightCm);
   const currentWhr = waistToHip(current.waistCm, current.hipCm);
   const currentRfm = relativeFatMass(profile, current.waistCm);
 
@@ -65,6 +67,17 @@ export function BodyMetricSummary({
       digits: 1,
       delta: metricDelta(current, reference, "weightKg"),
       deltaUnit: t("unit.kg"),
+    },
+    {
+      id: "bmi",
+      name: t("metric.bmi"),
+      value: currentBmi,
+      unit: "",
+      digits: 1,
+      delta: deltaBetween(currentBmi, bodyMassIndex(reference.weightKg, profile.heightCm), 1),
+      deltaUnit: "",
+      source: "DERIVED",
+      info: t("kpi.bmiInfo"),
     },
     {
       id: "waist",
