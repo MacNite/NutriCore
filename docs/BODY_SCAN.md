@@ -32,8 +32,10 @@ any single number.
 4. `silhouetteFrom` estimates the background colour from a ring of border
    pixels, thresholds every pixel against it, keeps the largest connected
    component and fills enclosed holes.
-5. `assessCapture` decides whether the capture is usable at all. A rejected
-   capture produces **no numbers**, only reasons to retake.
+5. `assessCapture` decides whether the capture is usable at all, and which
+   individual levels the arms have spoiled. A rejected capture produces **no
+   numbers**, only reasons to retake; an accepted one may still omit a level,
+   and says which and why.
 6. `estimateCircumferences` reads the body's width at each landmark level in the
    front view and its depth at the same level in the side view, scales both by
    the declared height, and takes the perimeter of the ellipse through those two
@@ -65,6 +67,42 @@ torso. Torso levels therefore use the contiguous run through the body's centre
 line (`centralRunWidth`). Leg levels use the filled pixel count halved, since
 that row crosses two legs and the gap between them must not be counted.
 
+That only works where the arm is separated from the trunk by background. Where
+it is not — an upper arm resting against the ribcage — the centre run is the
+torso *plus* both arms, and no later check would catch the inflated number. So
+`armClearance` decides, per level, whether the arms leave it readable:
+
+- a level above the shoulder line, or below a whole arm's reach, has no arm on
+  it whatever the pose;
+- arms held out and up clear every torso level below them at once, recognised
+  from the shoulder line being far wider than the chest;
+- otherwise the level needs a real background gap either side of its trunk run,
+  measured as the clearance from the arm's inner edge and scaled to stature
+  rather than to the frame.
+
+How far down the arms reach is read from the mask — the lowest row a gap appears
+on — not assumed from arm length. Arms held out reach much less far down than
+arms hanging, and assuming the latter reports a hip as obscured by an arm that
+ends above it.
+
+A level the arms spoil is **left out and named**, not fixed up and not fatal to
+the scan: the other levels came off the same mask and are no worse for it. Only
+arms flat against the body all the way down — no gap at the chest, the waist or
+the hip — rejects the capture, because then there is no trunk width anywhere.
+
+A hand hanging beside a thigh is the same problem in the other direction: the
+row is halved, so a hand is counted as leg. A leg level therefore has to cross
+the two legs and nothing else.
+
+**This check used to be one boolean at one row**, halfway between the shoulder
+and the armpit — which is *above* the armpit, where an arm is joined to the
+deltoid at any pose short of holding it out horizontally. In practice only an
+exaggerated T-pose passed, a natural stance with the arms visibly clear of the
+body was rejected as "arms touching", and a *perfect* T-pose failed too, because
+arms held level leave that row entirely and it reads as a bare torso. The test
+that covered it drew two arms parallel to the torso with a constant strip of
+background from shoulder to hip — a body nobody has — so it looked correct.
+
 ### What is deliberately not estimated
 
 **Upper arms.** A front view crosses the arms and the torso at the same height,
@@ -94,6 +132,12 @@ ever holds, and the design follows from that.
   them within about a minute.
 - A scan that expires before it was processed becomes `EXPIRED`: without its
   images it can never be processed.
+- If nothing is running to do any of that — a stopped or crash-looping worker —
+  the review page ends the scan itself: past the same deadline, a scan still
+  `QUEUED` or `PROCESSING` is recorded as `TIMED_OUT` and its images cleared on
+  the read path. The write path is the thing that is not running, so the
+  backstop cannot live there. The update is conditional on the scan still being
+  unprocessed, so a worker finishing at that moment wins.
 - Failure paths clear the images too, and the job is given `maxRetries: 0` —
   the images are gone after one attempt, so a retry has nothing to read.
 - Nothing is sent to the AI provider. Body images never touch Ollama, and the
@@ -111,6 +155,21 @@ This is the cost of having no object storage; it is stated rather than hidden.
 If it matters for your deployment, take backups on a schedule rather than while
 scans are running, or encrypt them at rest.
 
+## Every scan ends
+
+`QUEUED` and `PROCESSING` are transient, and every scan reaches exactly one of
+`AWAITING_REVIEW`, `ACCEPTED`, `REJECTED`, `FAILED`, `EXPIRED` or `TIMED_OUT`.
+The last is the app's own backstop, described under [Privacy](#privacy): it is
+what stops a stopped worker showing "processing your scan" indefinitely.
+
+`TIMED_OUT` is kept distinct from `EXPIRED` because they point somewhere
+different. `EXPIRED` is "the sweeper cleared the images before the worker read
+them", which is a slow queue. `TIMED_OUT` is "nothing picked this up at all",
+which is an operator problem, and the copy says so.
+
+The review page reports which of the two waits a scan is in — queued, or being
+read — and every ending offers a retake.
+
 ## Capture conditions
 
 The estimator reads a silhouette, so the conditions are not advice — a capture
@@ -119,8 +178,9 @@ that ignores them is rejected rather than quietly wrong:
 - a plain, uncluttered wall in even light;
 - close-fitting clothing (loose clothing is measured instead of the body);
 - whole body in frame with room on both sides;
-- upright, feet together, **arms slightly away from the body** so a gap is
-  visible between each arm and the torso;
+- upright, feet together, **arms roughly a hand's width out from the sides** so
+  a gap is visible between each arm and the torso, hands clear of the thighs (a
+  natural stance is enough; there is no T-pose to hold);
 - the same spot, distance and clothing every time.
 
 Skin against a similarly toned wall defeats the threshold. That fails to an

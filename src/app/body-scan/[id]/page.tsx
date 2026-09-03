@@ -25,6 +25,20 @@ export default async function BodyScanPage({ params }: { params: Promise<{ id: s
   if (!scan) redirect("/progress");
 
   const working = scan.state === "QUEUED" || scan.state === "PROCESSING";
+  /* Which of the two is worth saying: "nothing has looked at your photos yet"
+     and "your photos are being read right now" are different waits, and a
+     single "processing" for both is what made a stalled queue indistinguishable
+     from a slow one. */
+  const stage = scan.state === "QUEUED" ? t("review.stageQueued") : t("review.stageAnalysing");
+  /* Every way a scan can end without a result. Each one gets the same way out -
+     a sentence saying what happened and a link to try again - because a dead
+     end with no action is the thing being fixed here. */
+  const failed = scan.state === "FAILED" || scan.state === "EXPIRED" || scan.state === "TIMED_OUT";
+  const failureBody = {
+    TIMED_OUT: "review.timedOutBody",
+    EXPIRED: "review.expiredBody",
+    FAILED: "review.failedBody",
+  }[scan.state] ?? "review.failedBody";
 
   return (
     <AppShell displayName={user.displayName}>
@@ -44,9 +58,13 @@ export default async function BodyScanPage({ params }: { params: Promise<{ id: s
         {working ? (
           <>
             {/* The images are already gone from the browser and will be gone
-                from the database within the minute. Nothing to poll but state. */}
-            <AutoRefresh intervalMs={3000} maxMinutes={10} label={t("review.working")} />
-            <p className="empty">{t("review.working")}</p>
+                from the database within the minute. Nothing to poll but state.
+                Polled past the ten-minute deadline rather than up to it, so the
+                refresh that sees a scan time out actually happens. */}
+            <AutoRefresh intervalMs={3000} maxMinutes={12} />
+            <p className="empty" aria-live="polite">
+              {stage}
+            </p>
           </>
         ) : scan.state === "AWAITING_REVIEW" ? (
           <>
@@ -57,6 +75,25 @@ export default async function BodyScanPage({ params }: { params: Promise<{ id: s
               </span>
               <span>{t("review.notAMeasurement")}</span>
             </div>
+            {/* Levels the arms crossed. Reported on an accepted scan too: they
+                are the difference between a value that is missing and one that
+                was never taken, and the retake advice is only useful if the
+                reader knows what it would buy them. */}
+            {scan.quality.reasons.length ? (
+              <div className="notice" role="note" style={{ marginBottom: 14 }}>
+                <span className="notice-icon" aria-hidden="true">
+                  !
+                </span>
+                <div>
+                  <strong>{t("review.partial")}</strong> {t("review.partialIntro")}
+                  <ul style={{ margin: "6px 0 0" }}>
+                    {scan.quality.reasons.map((reason) => (
+                      <li key={reason}>{t(`quality.${reason}`)}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : null}
             <ScanReview scanId={scan.id} estimates={scan.estimates} locale={user.language} />
             {scan.processor ? (
               <p className="muted" style={{ marginTop: 14 }}>
@@ -82,10 +119,10 @@ export default async function BodyScanPage({ params }: { params: Promise<{ id: s
               {t("review.tryAgain")}
             </Link>
           </>
-        ) : scan.state === "FAILED" || scan.state === "EXPIRED" ? (
+        ) : failed ? (
           <>
-            <h2>{t("review.failed")}</h2>
-            <p className="muted">{t(scan.state === "EXPIRED" ? "review.expiredBody" : "review.failedBody")}</p>
+            <h2>{t(scan.state === "TIMED_OUT" ? "review.timedOut" : "review.failed")}</h2>
+            <p className="muted">{t(failureBody)}</p>
             <Link className="btn btn-primary" href="/progress">
               {t("review.tryAgain")}
             </Link>

@@ -129,7 +129,7 @@ const HEAD_RY = HEAD_HEIGHT / 2;
 const SKULL_END_DEG = 140;
 
 /** Arm segments along their own axis, again as fractions of stature. */
-const ARM_SEGMENT = { upper: 0.186, fore: 0.146, hand: 0.108 } as const;
+export const ARM_SEGMENT = { upper: 0.186, fore: 0.146, hand: 0.108 } as const;
 
 /**
  * The figure is drawn for a body of this height. Someone taller or shorter is

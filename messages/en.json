@@ -563,6 +563,8 @@
   "bodyScan": {
     "capture": {
       "open": "Body scan",
+      "pendingWorking": "A scan is being processed",
+      "pendingReview": "A scan is waiting for your review",
       "title": "Body scan",
       "intro": "Two photos - one from the front, one from the side - are turned into estimated circumferences. The photos are deleted as soon as they have been read.",
       "notAMeasurement": "This estimates your measurements from the outline of your body. It is not a measurement and not a medical result. Nothing about body fat, muscle or body water can be read from a photo.",
@@ -571,7 +573,7 @@
         "background": "Stand against a plain, uncluttered wall in even light.",
         "clothing": "Wear close-fitting clothes. Loose clothing is measured instead of you.",
         "framing": "Get your whole body in frame, from the top of your head to your feet, with room on both sides.",
-        "pose": "Stand upright, feet together, arms slightly away from your body so they do not touch it.",
+        "pose": "Stand upright, feet together, arms roughly a hand's width out from your sides, so a strip of the wall shows between each arm and your body. Keep your hands clear of your thighs.",
         "repeat": "Use the same spot, distance and clothing every time. Consistency matters more for tracking progress than any single scan."
       },
       "views": "Your two photos",
@@ -590,6 +592,10 @@
       "for": "Scan from {date}",
       "backToProgress": "Back to progress",
       "working": "Processing your scan. Your photos are deleted as soon as it finishes.",
+      "stageQueued": "Waiting for a free worker. Nothing has read your photos yet.",
+      "stageAnalysing": "Analysing your photos. They are deleted the moment this finishes.",
+      "timedOut": "The scan was never processed",
+      "timedOutBody": "Nothing picked this scan up in the ten minutes its photos are kept for, so the photos have been deleted and it cannot be processed now. If this keeps happening, the background worker is probably not running.",
       "intro": "Pick the values you want to keep. Nothing is recorded until you do, and you can correct any value before accepting it.",
       "notAMeasurement": "These are estimates from the outline of your body, with the range each one could plausibly fall in. Treat a change over several scans as more meaningful than any single number.",
       "tableCaption": "Estimated circumferences, with the range and your current recorded value",
@@ -610,6 +616,8 @@
       "processor": "Estimated by {provider} {model}, version {version}. Recorded with the result, so a later version can be told apart on your charts.",
       "rejected": "The scan could not be used",
       "rejectedIntro": "Nothing was estimated, because the photos could not be read reliably:",
+      "partial": "Some measurements were left out",
+      "partialIntro": "Everything below was measured. These levels were not, and the scan says why rather than guessing at them:",
       "failed": "The scan failed",
       "failedBody": "Something went wrong while processing the photos. They have been deleted; please try again.",
       "expiredBody": "The photos were not processed in time and have been deleted. Please try again.",
@@ -625,7 +633,13 @@
       "off-centre": "You are touching the edge of the frame. Step towards the middle.",
       "background-busy": "Your outline could not be separated from the background. Use a plainer wall and more even light.",
       "height-mismatch": "The two photos were taken from different distances. Use the same spot for both.",
-      "arms-touching": "Your arms are against your body, so they cannot be told apart from your torso. Hold them slightly away."
+      "arms-touching": "Your arms are flat against your body, so there is no telling where your torso ends and an arm begins. Stand with your arms roughly a hand's width out from your sides, so a strip of the wall shows between each arm and your body, and take both photos again.",
+      "arm-obscured-neck": "Your neck could not be measured, because an arm crossed that height. Everything else was measured.",
+      "arm-obscured-chest": "Your chest could not be measured: your upper arm was still resting against it, and a photo cannot tell the two apart. Everything else was measured. Hold your arms a little further out to include it next time.",
+      "arm-obscured-waist": "Your waist could not be measured: an arm was against your side at that height. Everything else was measured. Hold your arms a little further out to include it next time.",
+      "arm-obscured-hip": "Your hips could not be measured: a hand or forearm was resting against them. Everything else was measured. Hold your arms a little further out to include them next time.",
+      "arm-obscured-thigh": "Your thighs could not be measured: a hand was hanging beside them, and an outline cannot tell a hand from a leg. Everything else was measured. Hold your arms a little further out, clear of your legs, to include them next time.",
+      "arm-obscured-calf": "Your calves could not be measured, because an arm crossed that height. Everything else was measured."
     },
     "errors": {
       "heightRequired": "Add your height to your profile first. It is the only thing that sets the scale for a scan.",

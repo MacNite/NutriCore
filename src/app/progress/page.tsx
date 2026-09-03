@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
@@ -15,6 +16,7 @@ import { BodyScanForm } from "@/components/body-progress/body-scan-form";
 import { BodyProgressEmpty } from "@/components/body-progress/body-progress-empty";
 import { BodyProgressSection } from "@/components/body-progress/body-progress-section";
 import { loadBodyProgress } from "@/server/body";
+import { pendingScan } from "@/server/body-scan";
 import { anyPanel } from "@/lib/body-visualization";
 
 export async function generateMetadata() {
@@ -28,14 +30,16 @@ export default async function ProgressPage() {
 
   const t = await getTranslations("progress");
   const bodyT = await getTranslations("bodyProgress");
+  const scanT = await getTranslations("bodyScan");
   const locale = user.language;
 
-  const [entries, profile, diaryDays, nutritionTargets, body] = await Promise.all([
+  const [entries, profile, diaryDays, nutritionTargets, body, scan] = await Promise.all([
     prisma.weightEntry.findMany({ where: { userId: user.id }, orderBy: { date: "asc" }, take: 400 }),
     prisma.userProfile.findUnique({ where: { userId: user.id }, select: { targetWeightKg: true, heightCm: true } }),
     prisma.diaryDay.findMany({ where: { userId: user.id }, include: { entries: true }, orderBy: { date: "desc" }, take: 90 }),
     prisma.nutritionTarget.findMany({ where: { userId: user.id }, orderBy: { validFrom: "asc" } }),
     loadBodyProgress(user.id),
+    pendingScan(user.id),
   ]);
 
   const points = entries.map((entry) => ({
@@ -76,6 +80,14 @@ export default async function ProgressPage() {
         today={formatDateKey(new Date())}
         heightCm={profile?.heightCm ? Number(profile.heightCm) : null}
       />
+      {/* The way back to a scan already in flight. Starting one redirects to
+          its page, and without this that page was the only route to it: leaving
+          it lost the scan, which reads as the scan having been dropped. */}
+      {scan ? (
+        <Link className="btn btn-quiet" href={`/body-scan/${scan.id}`}>
+          {scanT(scan.state === "AWAITING_REVIEW" ? "capture.pendingReview" : "capture.pendingWorking")}
+        </Link>
+      ) : null}
     </>
   );
 

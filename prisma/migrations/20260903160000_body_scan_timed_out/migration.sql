@@ -1,0 +1,12 @@
+-- A terminal state for a scan nothing ever processed.
+--
+-- QUEUED and PROCESSING were only ever left by the worker: on success, on a
+-- failure it recorded, or via the sweeper that expires images a worker had not
+-- got to. With no worker running, none of those happen and the scan sits in
+-- QUEUED for good while the review page reports "processing your scan"
+-- indefinitely - which is the shape of the bug this fixes.
+--
+-- Kept distinct from EXPIRED so the two causes stay tellable apart: EXPIRED is
+-- "the images were swept before the worker read them", TIMED_OUT is "nothing
+-- picked this up at all", which points at the worker rather than at the scan.
+ALTER TYPE "BodyScanState" ADD VALUE 'TIMED_OUT';

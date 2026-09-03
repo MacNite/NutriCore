@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { SilhouetteBodyScanProvider } from "./body-scan";
-import { BODY_LANDMARKS } from "@/lib/body-visualization";
+import { ARM_SEGMENT, BODY_LANDMARKS } from "@/lib/body-visualization";
 import { ellipsePerimeter } from "@/lib/body-scan";
 
 /**
@@ -51,8 +51,16 @@ function halfWidthAt(profile: Profile, fraction: number): number {
   return last.halfWidthPx;
 }
 
-/** Draws a body on a plain wall and encodes it the way a phone would. */
-async function render(profile: Profile, armHalfWidthPx: number): Promise<Buffer> {
+/**
+ * Draws a body on a plain wall and encodes it the way a phone would.
+ *
+ * `armAbductionDeg` is how far the arms are held out from hanging straight
+ * down. Which poses the clearance model accepts is settled by the unit tests on
+ * masks; what this fixture has to be is anatomically possible, so that the
+ * decode-and-threshold half of the pipeline is exercised on a body someone
+ * could actually stand in.
+ */
+async function render(profile: Profile, armHalfWidthPx: number, armAbductionDeg = 25): Promise<Buffer> {
   const raw = Buffer.alloc(WIDTH * HEIGHT * 3);
   for (let i = 0; i < WIDTH * HEIGHT; i += 1) {
     raw[i * 3] = WALL[0];
@@ -72,14 +80,36 @@ async function render(profile: Profile, armHalfWidthPx: number): Promise<Buffer>
     const fraction = (y - TOP) / (BOTTOM - TOP);
     const half = Math.round(halfWidthAt(profile, fraction));
     for (let x = centre - half; x <= centre + half; x += 1) put(x, y);
-    /* Arms held clear of the torso but joined at the shoulder, as the capture
-       instructions ask for and as a real body is: one connected silhouette
-       with a gap of background either side of the trunk. */
-    if (armHalfWidthPx > 0 && fraction >= BODY_LANDMARKS.shoulder - 0.02 && fraction <= 0.5) {
-      const gap = fraction < BODY_LANDMARKS.shoulder + 0.01 ? 0 : 14;
-      for (const side of [-1, 1]) {
-        const inner = centre + side * (half + gap);
-        for (let k = 0; k <= armHalfWidthPx * 2; k += 1) put(Math.round(inner + side * k), y);
+  }
+
+  /* Arms hinged at the shoulder and fused to the torso there, coming away from
+     the trunk further down as a real one does - one connected silhouette. Drawn
+     as a capsule from the joint rather than as a strip parallel to the torso:
+     the strip left a gap of background from shoulder to hip on a body nobody
+     has, and a clearance check that only ever passed an exaggerated T-pose
+     looked correct against it. */
+  if (armHalfWidthPx > 0) {
+    const rad = (armAbductionDeg * Math.PI) / 180;
+    const shoulderY = TOP + BODY_LANDMARKS.shoulder * (BOTTOM - TOP);
+    /* On the drawn shoulder line, so the arm overlaps the torso there and the
+       whole figure stays one connected component. Hinging it outside the widest
+       part of the chest instead left it floating clear of a narrower shoulder,
+       and the segmentation step - which keeps only the largest blob - threw
+       both arms away. */
+    const shoulderHalf = halfWidthAt(profile, BODY_LANDMARKS.shoulder);
+    const length = (ARM_SEGMENT.upper + ARM_SEGMENT.fore + ARM_SEGMENT.hand) * (BOTTOM - TOP);
+    for (const side of [-1, 1]) {
+      const jointX = centre + side * (shoulderHalf - armHalfWidthPx);
+      /* Across the arm's own axis, so it is as thick held out as hanging down. */
+      const acrossX = side * Math.cos(rad);
+      const acrossY = -Math.sin(rad);
+      for (let along = 0; along <= length; along += 0.4) {
+        const ax = jointX + side * along * Math.sin(rad);
+        const ay = shoulderY + along * Math.cos(rad);
+        for (let across = -armHalfWidthPx; across <= armHalfWidthPx; across += 0.4) {
+          const y = Math.round(ay + acrossY * across);
+          if (y >= 0 && y < HEIGHT) put(Math.round(ax + acrossX * across), y);
+        }
       }
     }
   }
@@ -89,6 +119,14 @@ async function render(profile: Profile, armHalfWidthPx: number): Promise<Buffer>
 const frontProfile: Profile = [
   { at: 0, halfWidthPx: px(15) },
   { at: BODY_LANDMARKS.neckBase, halfWidthPx: px(TRUTH.neckCm.breadth) / 2 },
+  /* The neck holds its width a little below the level it is measured at, so the
+     smoothing band over that row never reaches the shoulder flare below. */
+  { at: (BODY_LANDMARKS.neckBase + BODY_LANDMARKS.shoulder) / 2, halfWidthPx: px(TRUTH.neckCm.breadth) / 2 },
+  /* A shoulder line of its own, wider than the chest, so the arms hang off the
+     outside of the trunk. Interpolated from the neck and the chest instead, the
+     shoulder came out narrower than the chest and the arms hinged from inside
+     it, which no pose can hold clear. Not a measured level. */
+  { at: BODY_LANDMARKS.shoulder, halfWidthPx: px(38) / 2 },
   { at: BODY_LANDMARKS.chest, halfWidthPx: px(TRUTH.chestCm.breadth) / 2 },
   { at: BODY_LANDMARKS.waist, halfWidthPx: px(TRUTH.waistCm.breadth) / 2 },
   { at: BODY_LANDMARKS.hip, halfWidthPx: px(TRUTH.hipCm.breadth) / 2 },
@@ -133,6 +171,38 @@ describe("SilhouetteBodyScanProvider", () => {
       expect(Math.abs(actual!.valueCm - expected), `${region}: got ${actual!.valueCm}, drew ${expected.toFixed(1)}`)
         .toBeLessThan(2);
     }
+  });
+
+  it("accepts a natural stance and still reads the body it was drawn as", async () => {
+    /* Arms ten degrees out from hanging straight: the stance someone actually
+       adopts to be photographed, and one the old clearance check rejected
+       outright in favour of an exaggerated T-pose. */
+    const input = { ...(await capture()), front: { mime: "image/png", data: await render(frontProfile, px(4.5) / 2, 10) } };
+    const result = await new SilhouetteBodyScanProvider().estimate(input);
+
+    expect(result.quality.accepted).toBe(true);
+    /* Whatever survives has to be the body that was drawn. Accepting a natural
+       stance is only worth anything if it does not trade a rejection for a
+       quietly wrong number. */
+    for (const measurement of result.measurements) {
+      const truth = TRUTH[measurement.region as keyof typeof TRUTH];
+      const expected = ellipsePerimeter(truth.breadth / 2, truth.depth / 2);
+      expect(Math.abs(measurement.valueCm - expected), `${measurement.region}: got ${measurement.valueCm}`)
+        .toBeLessThan(2);
+    }
+    /* A hand hanging beside the thigh is counted as thigh by a halved row, so
+       that one level is left out and said to be left out. */
+    expect(result.quality.reasons).toContain("arm-obscured-thigh");
+    expect(result.measurements.map((measurement) => measurement.region)).toContain("waistCm");
+  });
+
+  it("returns no numbers for arms flat against the body", async () => {
+    const input = { ...(await capture()), front: { mime: "image/png", data: await render(frontProfile, px(4.5) / 2, 0) } };
+    const result = await new SilhouetteBodyScanProvider().estimate(input);
+
+    expect(result.quality.accepted).toBe(false);
+    expect(result.quality.reasons).toContain("arms-touching");
+    expect(result.measurements).toEqual([]);
   });
 
   it("brackets each value and reports which estimator produced it", async () => {

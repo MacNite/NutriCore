@@ -53,6 +53,52 @@ export async function discardScanImages(scanId: string) {
   }
 }
 
+/** States a scan can only be moved out of by something processing it. */
+const WORKING_STATES = ["QUEUED", "PROCESSING"] as const;
+
+/**
+ * When a scan stops being processable.
+ *
+ * The same deadline the images have, because it is the same fact: the estimate
+ * is computed from the images and nothing else, so a scan whose images are due
+ * to be swept can never produce one. `imagesExpireAt` is cleared along with the
+ * images, so a row that lost them without being moved on falls back to its own
+ * age rather than looking like it has no deadline at all.
+ */
+const processingDeadline = (scan: { imagesExpireAt: Date | null; createdAt: Date }) =>
+  scan.imagesExpireAt ?? new Date(scan.createdAt.getTime() + BODY_SCAN_IMAGE_TTL_MS);
+
+/**
+ * Declares a scan that nothing ever processed dead, and clears its images.
+ *
+ * QUEUED and PROCESSING were only ever left by the worker - on success, on a
+ * failure it recorded, or through the sweeper. All three need a worker, so with
+ * none running a scan stayed QUEUED for good and the review page reported
+ * "processing your scan" indefinitely, with no error and no way out.
+ *
+ * This is the backstop for that, and it belongs on the read path precisely
+ * because the write path is what is not running. The update is conditional on
+ * the scan still being unprocessed, so a worker finishing at the same moment
+ * wins and its result stands. It clears the images too: if the sweeper is not
+ * running either, this is the only thing that will.
+ *
+ * Never throws into the caller: reporting a stalled scan matters more than
+ * recording that we did, and a failed write here is retried on the next read.
+ */
+export async function timeOutStalledScan(scanId: string) {
+  try {
+    await prisma.bodyScan.updateMany({
+      where: { id: scanId, state: { in: [...WORKING_STATES] } },
+      data: { state: "TIMED_OUT", failureKind: "not-processed", ...IMAGE_FIELDS },
+    });
+  } catch (error) {
+    logger.warn("Could not time out a stalled body scan", {
+      scanId,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+}
+
 /**
  * Worker maintenance: images left behind by a crash, and captures nobody
  * finished.
@@ -170,12 +216,21 @@ const dateKey = (date: Date) => date.toISOString().slice(0, 10);
  * is making is a comparison, not a reading: "34 cm" means little, and "34 cm
  * where you measured 36 cm by hand last week" means a great deal.
  */
-export async function loadScanReview(userId: string, scanId: string): Promise<ScanReview | null> {
+export async function loadScanReview(userId: string, scanId: string, now = new Date()): Promise<ScanReview | null> {
   const scan = await prisma.bodyScan.findFirst({
     where: { id: scanId, userId },
     include: { estimates: { orderBy: { metricKey: "asc" } } },
   });
   if (!scan) return null;
+
+  /* A scan still waiting past the point where it could be processed is over,
+     whether or not anything is running to say so. Reported as timed out and
+     recorded as timed out, so the page shows an ending rather than a spinner
+     and the next reader is not left deciding this again. */
+  const stalled =
+    (WORKING_STATES as readonly string[]).includes(scan.state) && processingDeadline(scan).getTime() <= now.getTime();
+  if (stalled) await timeOutStalledScan(scan.id);
+  const state = stalled ? "TIMED_OUT" : scan.state;
 
   const existing = await prisma.bodyMeasurement.findUnique({
     where: { userId_date: { userId, date: scan.date } },
@@ -202,7 +257,7 @@ export async function loadScanReview(userId: string, scanId: string): Promise<Sc
   return {
     id: scan.id,
     date: dateKey(scan.date),
-    state: scan.state,
+    state,
     quality: {
       accepted: scan.accepted,
       reasons: Array.isArray(scan.qualityReasons) ? (scan.qualityReasons as string[]) : [],
@@ -214,10 +269,19 @@ export async function loadScanReview(userId: string, scanId: string): Promise<Sc
   };
 }
 
-/** The scan a user should be shown next, if any is waiting on them. */
-export async function pendingScan(userId: string) {
+/**
+ * The scan a user should be shown next, if any is waiting on them.
+ *
+ * A scan in flight counts only while it could still be processed. Past that it
+ * is finished, whatever its row still says, and offering it as in progress
+ * would advertise the same endless wait the review page used to.
+ */
+export async function pendingScan(userId: string, now = new Date()) {
   return prisma.bodyScan.findFirst({
-    where: { userId, state: { in: ["QUEUED", "PROCESSING", "AWAITING_REVIEW"] } },
+    where: {
+      userId,
+      OR: [{ state: "AWAITING_REVIEW" }, { state: { in: [...WORKING_STATES] }, imagesExpireAt: { gt: now } }],
+    },
     orderBy: { createdAt: "desc" },
     select: { id: true, state: true, createdAt: true },
   });

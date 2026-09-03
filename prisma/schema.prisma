@@ -83,6 +83,11 @@ enum BodyScanState {
   REJECTED
   FAILED
   EXPIRED
+  /// Nothing ever picked the scan up. Distinct from EXPIRED, which is a sweeper
+  /// clearing images a worker had not got to: this is the app itself declaring
+  /// a scan dead because no worker moved it on at all, and it is the state that
+  /// stops a stopped worker showing "processing" for ever.
+  TIMED_OUT
 }
 
 /// What the reviewer did with one estimated value.

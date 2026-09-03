@@ -563,6 +563,8 @@
   "bodyScan": {
     "capture": {
       "open": "Körperscan",
+      "pendingWorking": "Ein Scan wird ausgewertet",
+      "pendingReview": "Ein Scan wartet auf deine Prüfung",
       "title": "Körperscan",
       "intro": "Aus zwei Fotos - eines von vorn, eines von der Seite - werden Umfänge geschätzt. Die Fotos werden gelöscht, sobald sie ausgewertet wurden.",
       "notAMeasurement": "Hier werden deine Maße aus dem Umriss deines Körpers geschätzt. Das ist keine Messung und kein medizinisches Ergebnis. Körperfett, Muskeln oder Körperwasser lassen sich einem Foto nicht entnehmen.",
@@ -571,7 +573,7 @@
         "background": "Stell dich vor eine schlichte, freie Wand bei gleichmäßigem Licht.",
         "clothing": "Trag enganliegende Kleidung. Weite Kleidung wird statt deines Körpers gemessen.",
         "framing": "Dein ganzer Körper muss ins Bild, vom Scheitel bis zu den Füßen, mit Platz an beiden Seiten.",
-        "pose": "Steh aufrecht, Füße zusammen, Arme leicht vom Körper weg, sodass sie ihn nicht berühren.",
+        "pose": "Steh aufrecht, Füße zusammen, die Arme etwa eine Handbreit vom Körper weg, sodass zwischen jedem Arm und dem Körper ein Streifen Wand zu sehen ist. Halte die Hände frei von den Oberschenkeln.",
         "repeat": "Nutze jedes Mal denselben Platz, denselben Abstand und dieselbe Kleidung. Für den Verlauf zählt Beständigkeit mehr als ein einzelner Scan."
       },
       "views": "Deine zwei Fotos",
@@ -590,6 +592,10 @@
       "for": "Scan vom {date}",
       "backToProgress": "Zurück zum Fortschritt",
       "working": "Dein Scan wird ausgewertet. Deine Fotos werden gelöscht, sobald das erledigt ist.",
+      "stageQueued": "Warten auf einen freien Worker. Deine Fotos wurden noch nicht gelesen.",
+      "stageAnalysing": "Deine Fotos werden ausgewertet. Sie werden gelöscht, sobald das erledigt ist.",
+      "timedOut": "Der Scan wurde nie ausgewertet",
+      "timedOutBody": "In den zehn Minuten, die die Fotos aufbewahrt werden, hat niemand diesen Scan übernommen. Die Fotos sind gelöscht und der Scan kann jetzt nicht mehr ausgewertet werden. Wenn das öfter passiert, läuft vermutlich der Hintergrund-Worker nicht.",
       "intro": "Wähle die Werte, die du übernehmen möchtest. Bis dahin wird nichts gespeichert, und du kannst jeden Wert vor dem Übernehmen korrigieren.",
       "notAMeasurement": "Das sind Schätzungen aus dem Umriss deines Körpers, mit dem Bereich, in dem der wahre Wert plausibel liegt. Eine Veränderung über mehrere Scans sagt mehr aus als eine einzelne Zahl.",
       "tableCaption": "Geschätzte Umfänge, mit Bereich und deinem bisher erfassten Wert",
@@ -610,6 +616,8 @@
       "processor": "Geschätzt von {provider} {model}, Version {version}. Wird mit dem Ergebnis gespeichert, damit eine spätere Version im Verlauf unterscheidbar bleibt.",
       "rejected": "Der Scan war nicht verwertbar",
       "rejectedIntro": "Es wurde nichts geschätzt, weil die Fotos nicht zuverlässig ausgewertet werden konnten:",
+      "partial": "Einige Maße fehlen",
+      "partialIntro": "Alles Weitere unten wurde gemessen. Diese Höhen nicht - der Scan sagt, warum, statt sie zu schätzen:",
       "failed": "Der Scan ist fehlgeschlagen",
       "failedBody": "Bei der Auswertung der Fotos ist etwas schiefgegangen. Sie wurden gelöscht; bitte versuch es noch einmal.",
       "expiredBody": "Die Fotos wurden nicht rechtzeitig ausgewertet und sind gelöscht. Bitte versuch es noch einmal.",
@@ -625,7 +633,13 @@
       "off-centre": "Du berührst den Bildrand. Stell dich mehr zur Mitte.",
       "background-busy": "Dein Umriss ließ sich nicht vom Hintergrund trennen. Nimm eine schlichtere Wand und gleichmäßigeres Licht.",
       "height-mismatch": "Die zwei Fotos wurden aus unterschiedlichem Abstand aufgenommen. Nutze für beide denselben Platz.",
-      "arms-touching": "Deine Arme liegen am Körper an und lassen sich nicht vom Rumpf unterscheiden. Halte sie etwas weg."
+      "arms-touching": "Deine Arme liegen flach am Körper an - so lässt sich nicht erkennen, wo der Rumpf endet und ein Arm beginnt. Halte die Arme etwa eine Handbreit vom Körper weg, sodass zwischen jedem Arm und dem Körper ein Streifen Wand zu sehen ist, und nimm beide Fotos noch einmal auf.",
+      "arm-obscured-neck": "Dein Hals konnte nicht gemessen werden, weil auf dieser Höhe ein Arm im Weg war. Alles Übrige wurde gemessen.",
+      "arm-obscured-chest": "Dein Brustumfang konnte nicht gemessen werden: Der Oberarm lag noch am Brustkorb an, und ein Foto kann beides nicht auseinanderhalten. Alles Übrige wurde gemessen. Halte die Arme etwas weiter weg, damit er nächstes Mal dabei ist.",
+      "arm-obscured-waist": "Deine Taille konnte nicht gemessen werden: Auf dieser Höhe lag ein Arm an der Seite an. Alles Übrige wurde gemessen. Halte die Arme etwas weiter weg, damit sie nächstes Mal dabei ist.",
+      "arm-obscured-hip": "Deine Hüfte konnte nicht gemessen werden: Eine Hand oder ein Unterarm lag daran an. Alles Übrige wurde gemessen. Halte die Arme etwas weiter weg, damit sie nächstes Mal dabei ist.",
+      "arm-obscured-thigh": "Deine Oberschenkel konnten nicht gemessen werden: Eine Hand hing daneben, und ein Umriss unterscheidet Hand nicht von Bein. Alles Übrige wurde gemessen. Halte die Arme etwas weiter weg, frei von den Beinen, damit sie nächstes Mal dabei sind.",
+      "arm-obscured-calf": "Deine Waden konnten nicht gemessen werden, weil auf dieser Höhe ein Arm im Weg war. Alles Übrige wurde gemessen."
     },
     "errors": {
       "heightRequired": "Trag zuerst deine Körpergröße im Profil ein. Sie legt als Einziges den Maßstab für einen Scan fest.",
