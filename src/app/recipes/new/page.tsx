@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/server/session";
 import type { RecipeImportDraft, RecipeImportError } from "@/server/recipe-import-actions";
+import { aiJobDestination } from "@/server/ai-types";
 import { NewRecipeWorkspace } from "./new-recipe-workspace";
 import { imageUploadMaxMb } from "@/lib/image-upload-limit";
 
@@ -55,11 +56,17 @@ export default async function NewRecipePage({
     ? await prisma.aiJob.findFirst({
         where: { entityType: "RECIPE_IMPORT", entityId: importId, userId: user.id },
         orderBy: { createdAt: "desc" },
-        select: { status: true, errorMessage: true, failureKind: true },
+        select: { status: true, errorMessage: true, failureKind: true, metadata: true },
       })
     : null;
 
   const draft = (record?.draft ?? null) as unknown as RecipeImportDraft | null;
+  // Where this run leads, asked of the job rather than worked out here. The
+  // draft's own recipe id is passed along because it is written before the job
+  // is marked complete, so it names the destination one poll earlier.
+  const destination = importId
+    ? aiJobDestination({ entityType: "RECIPE_IMPORT", entityId: importId, metadata: job?.metadata, recipeId: draft?.recipeId })
+    : null;
   const error = IMPORT_ERRORS.has(importError as RecipeImportError) ? (importError as RecipeImportError) : undefined;
 
   return (
@@ -74,6 +81,13 @@ export default async function NewRecipePage({
         // A finished job with no draft means the extraction produced nothing
         // usable; that is a failure to report, not a state to keep waiting in.
         pending={Boolean(importId) && !draft && (job?.status === "QUEUED" || job?.status === "RUNNING")}
+        // The extraction ends in the recipe it produced, for the reader who
+        // waited here for it. Absent when it produced none, and then the form
+        // below is still filled in as before.
+        destination={destination?.kind === "RECIPE_PREVIEW" ? destination.href : null}
+        // Whether this reader arrived while the run was still going. Someone
+        // reopening a finished import stays on the form.
+        watching={Boolean(importId) && (job?.status === "QUEUED" || job?.status === "RUNNING")}
         failed={job?.status === "FAILED" ? (job.errorMessage ?? job.failureKind ?? "") : null}
         sourceFailure={job?.status === "FAILED" ? sourceFailure(job) : null}
       />

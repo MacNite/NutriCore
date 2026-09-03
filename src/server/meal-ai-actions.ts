@@ -8,11 +8,12 @@ import { resolveAiModel } from "@/lib/env";
 import { requireUser } from "./session";
 import { checkUrl } from "@/lib/url-guard";
 import { validDateKey } from "@/lib/date";
-import { applyProposal } from "./ai-approval";
+import { applyProposal, discardQuickMealRecipe } from "./ai-approval";
+import { aiAvailable } from "./ai-availability";
 import { jobPriority } from "./ai-types";
 import { hasMealInput, validateMealImage, type MealImageError } from "./meal-image";
 
-export type MealInputError = MealImageError | "inputRequired" | "unsafeUrl";
+export type MealInputError = MealImageError | "inputRequired" | "unsafeUrl" | "aiDisabled";
 
 export async function queueMealInputAction(formData: FormData) {
   const user = await requireUser();
@@ -21,6 +22,10 @@ export async function queueMealInputAction(formData: FormData) {
     const query = new URLSearchParams({ date: dateValue, error, quickMeal: "1" });
     redirect(`/?${query}`);
   };
+  // Before anything is stored, and checked here as well as on the page: the
+  // dialog is gone as soon as either switch is off, but a form already open in
+  // another tab must not queue a run the user has just opted out of.
+  if (!aiAvailable(user)) back("aiDisabled");
   let image;
   try {
     image = await validateMealImage(formData.get("image"));
@@ -99,7 +104,7 @@ export async function reviewAiProposalAction(formData: FormData) {
   // Scoped to this user's own proposal: the id comes from a form field.
   const proposal = await prisma.aiProposal.findFirst({
     where: { id, job: { userId: user.id } },
-    include: { job: { select: { entityId: true } } },
+    include: { job: { select: { id: true, userId: true, entityId: true, metadata: true } } },
   });
   if (!proposal || proposal.approvalStatus !== "PENDING") throw new Error("Proposal is not awaiting review");
 
@@ -108,6 +113,8 @@ export async function reviewAiProposalAction(formData: FormData) {
       where: { id },
       data: { approvalStatus: "REJECTED", accepted: Prisma.DbNull, reviewedAt: new Date() },
     });
+    // The draft this reading already produced goes with it.
+    await discardQuickMealRecipe(proposal.job);
     redirect(`/ai-review/${proposal.job.entityId}`);
   }
 
@@ -147,9 +154,18 @@ export async function rejectAiProposalAction(formData: FormData) {
   const id = String(formData.get("proposalId"));
   const returnTo = "/";
 
-  await prisma.aiProposal.updateMany({
+  const rejected = await prisma.aiProposal.updateMany({
     where: { id, approvalStatus: "PENDING", job: { userId: user.id } },
     data: { approvalStatus: "REJECTED", accepted: Prisma.DbNull, reviewedAt: new Date() },
   });
+  // Only the call that actually rejected cleans up after it, and only then is
+  // the job known to be this user's: the conditional update is what decided it.
+  if (rejected.count) {
+    const proposal = await prisma.aiProposal.findFirst({
+      where: { id },
+      select: { job: { select: { id: true, userId: true, metadata: true } } },
+    });
+    if (proposal) await discardQuickMealRecipe(proposal.job);
+  }
   redirect(returnTo);
 }

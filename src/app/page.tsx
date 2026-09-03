@@ -27,6 +27,7 @@ import { ActivityEditor } from "@/components/activity-panel";
 import { getActivityEntries } from "@/server/activities";
 import { FoodSearchField } from "@/components/food-search-field";
 import { researchAvailability } from "@/server/research";
+import { aiAvailable } from "@/server/ai-availability";
 
 export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string; quickMeal?: string; editMeal?: string; error?: string }> }) {
   const user = await getSessionUser();
@@ -44,6 +45,9 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const selectedDate = validDateKey(params.date, today);
   const research = researchAvailability(user);
+  // No floating button for a feature the user has switched off: the quick meal
+  // is an AI run and nothing else, so with AI off it is a dead end.
+  const aiOn = aiAvailable(user);
 
   const [day, target, recent, pending, activities, placeholders] = await Promise.all([
     getDiaryDay(user.id, selectedDate),
@@ -77,7 +81,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const targetKcal = target?.kcal ?? null;
 
   return (
-    <AppShell displayName={user.displayName} hasFab>
+    <AppShell displayName={user.displayName} hasFab={aiOn}>
       <div className="page-head">
         <div>
           <h1>{t("greeting", { name: user.displayName })}</h1>
@@ -95,6 +99,13 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
           </Link>
         </nav>
       </div>
+
+      {/* Only reachable in the race the action guards against: AI was switched
+          off while the dialog was still open. Shown here rather than in the
+          dialog, which by then is no longer rendered at all. */}
+      {!aiOn && params.error === "aiDisabled" ? (
+        <div className="notice notice-warn" role="alert">{diaryT("ai.errors.aiDisabled")}</div>
+      ) : null}
 
       {/* A finished run has to reach the page that is showing its placeholder,
           or the stand-in would sit there until someone reloaded by hand. */}
@@ -227,18 +238,20 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         </aside>
       </div>
 
-      <QuickMealDialog
-        triggerLabel={diaryT("ai.quickAction")}
-        title={diaryT("ai.title")}
-        hint={diaryT("ai.hint")}
-        closeLabel={common("close")}
-        initialOpen={params.quickMeal === "1"}
-      >
-        {params.error && ["unsafeUrl", "inputRequired", "imageInvalid", "imageTooLarge", "imageEmpty"].includes(params.error) ? (
-          <div className="notice notice-warn">{diaryT(`ai.errors.${params.error}`)}</div>
-        ) : null}
-        <QuickMealForm date={selectedDate} returnTo="/" />
-      </QuickMealDialog>
+      {aiOn ? (
+        <QuickMealDialog
+          triggerLabel={diaryT("ai.quickAction")}
+          title={diaryT("ai.title")}
+          hint={diaryT("ai.hint")}
+          closeLabel={common("close")}
+          initialOpen={params.quickMeal === "1"}
+        >
+          {params.error && ["unsafeUrl", "inputRequired", "imageInvalid", "imageTooLarge", "imageEmpty"].includes(params.error) ? (
+            <div className="notice notice-warn">{diaryT(`ai.errors.${params.error}`)}</div>
+          ) : null}
+          <QuickMealForm date={selectedDate} returnTo="/" />
+        </QuickMealDialog>
+      ) : null}
     </AppShell>
   );
 }

@@ -16,10 +16,11 @@ vi.mock("./diary", () => ({
 }));
 vi.mock("./recipes", () => ({
   saveRecipe: vi.fn(async () => ({ recipe: { id: "recipe-1", name: "Rührei mit Speck" }, food: null })),
+  deleteRecipe: vi.fn(),
 }));
 
-import { applyProposal } from "./ai-approval";
-import { saveRecipe } from "./recipes";
+import { applyProposal, discardQuickMealRecipe } from "./ai-approval";
+import { deleteRecipe, saveRecipe } from "./recipes";
 import { addDiaryEntry } from "./diary";
 
 /** Two components the resolver could not match: exactly what the reviewer is there for. */
@@ -121,5 +122,58 @@ describe("the recipe a quick meal keeps", () => {
 
     expect(outcome.logged).toEqual(["Ei", "Speck"]);
     expect(outcome.recipeId).toBeUndefined();
+  });
+});
+
+/** The job as the rejecting action reads it: a quick meal that kept a recipe. */
+const rejectedJob = () => ({
+  id: "job-1",
+  userId: "user-1",
+  metadata: { addToMeal: false, createRecipe: true, outcome: { recipeId: "recipe-1", recipeName: "Rührei mit Speck" } },
+});
+
+describe("the draft recipe of a declined quick meal", () => {
+  it("goes with the reading it was built from", async () => {
+    // The worker writes the draft before anyone has reviewed the meal. Declining
+    // the proposal used to leave it in the recipe list for good.
+    recipe.findFirst.mockResolvedValue({ id: "recipe-1", status: "DRAFT" });
+    aiJob.findUnique.mockResolvedValue({ metadata: { outcome: { recipeId: "recipe-1", recipeName: "Rührei mit Speck" } } });
+
+    await expect(discardQuickMealRecipe(rejectedJob())).resolves.toBe("recipe-1");
+    expect(vi.mocked(deleteRecipe)).toHaveBeenCalledWith("user-1", "recipe-1");
+  });
+
+  it("stops being offered by the review page, which would link to nothing", async () => {
+    recipe.findFirst.mockResolvedValue({ id: "recipe-1", status: "DRAFT" });
+    aiJob.findUnique.mockResolvedValue({ metadata: { extraction: { name: "Rührei" }, outcome: { recipeId: "recipe-1", recipeName: "Rührei mit Speck", ingredientCount: 2 } } });
+
+    await discardQuickMealRecipe(rejectedJob());
+
+    const metadata = aiJob.update.mock.calls[0][0].data.metadata;
+    expect(metadata.outcome).toEqual({ ingredientCount: 2 });
+    // The cached extraction is the expensive part; dropping two keys must not
+    // take it with them.
+    expect(metadata.extraction).toEqual({ name: "Rührei" });
+  });
+
+  it("leaves one the user already confirmed alone", async () => {
+    recipe.findFirst.mockResolvedValue({ id: "recipe-1", status: "ACTIVE" });
+
+    await expect(discardQuickMealRecipe(rejectedJob())).resolves.toBeNull();
+    expect(vi.mocked(deleteRecipe)).not.toHaveBeenCalled();
+    expect(aiJob.update).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the submitter never asked for a recipe", async () => {
+    await expect(discardQuickMealRecipe({ id: "job-1", userId: "user-1", metadata: { addToMeal: true, createRecipe: false } })).resolves.toBeNull();
+    expect(recipe.findFirst).not.toHaveBeenCalled();
+    expect(vi.mocked(deleteRecipe)).not.toHaveBeenCalled();
+  });
+
+  it("does not turn a rejection into a failure when the recipe cannot be deleted", async () => {
+    recipe.findFirst.mockResolvedValue({ id: "recipe-1", status: "DRAFT" });
+    vi.mocked(deleteRecipe).mockRejectedValueOnce(new Error("recipe not found"));
+
+    await expect(discardQuickMealRecipe(rejectedJob())).resolves.toBeNull();
   });
 });

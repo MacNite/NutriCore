@@ -191,7 +191,8 @@
         "imageInvalid": "Verwende ein gültiges JPEG-, PNG- oder WebP-Bild.",
         "imageTooLarge": "Das Bild überschreitet die konfigurierte maximale Größe.",
         "imageEmpty": "Das ausgewählte Bild ist leer.",
-        "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert."
+        "unsafeUrl": "Diese Adresse konnte nicht sicher abgerufen werden, es wurde nichts gespeichert.",
+        "aiDisabled": "KI-Funktionen sind ausgeschaltet. Aktiviere sie in den Einstellungen, um die schnelle Mahlzeit zu nutzen."
       },
       "createRecipeHint": "Legt aus dieser Mahlzeit zusätzlich ein Rezept als Entwurf an. Ein Entwurf lässt sich erst nach dem Bestätigen eintragen.",
       "addToMeal": "Zur Mahlzeit hinzufügen",
@@ -737,7 +738,7 @@
         "extractionFailed": "Das Rezept konnte nicht ausgelesen werden. Prüfe KI-Dienst, Link und Bild und versuche es erneut.",
         "unsafeUrl": "Diese Adresse ist nicht erlaubt. Verwende einen öffentlichen http(s)-Link ohne Zugangsdaten."
       },
-      "queued": "Eingereiht. Der Worker liest das Rezept aus; diese Seite aktualisiert sich selbst und füllt das Formular unten, sobald der Entwurf fertig ist."
+      "queued": "Eingereiht. Der Worker liest das Rezept aus; diese Seite aktualisiert sich selbst und öffnet den Rezeptentwurf, sobald er fertig ist."
     },
     "create": "Rezept erstellen",
     "edit": "Rezept bearbeiten",
