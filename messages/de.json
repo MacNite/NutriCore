@@ -1142,6 +1142,7 @@
     "empty": "Noch keine Aktivität eingetragen.",
     "noWeight": "Kalorienschätzung nicht verfügbar – Körpergewicht hinterlegen.",
     "addWeight": "Zu den Einstellungen",
+    "addLabel": "Aktivität hinzufügen",
     "editLabel": "{name} bearbeiten",
     "deleteLabel": "{name} löschen",
     "names": {

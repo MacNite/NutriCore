@@ -1564,10 +1564,7 @@ legend {
 .dialog-toolbar, .editor-actions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-bottom: 8px; }
 .dialog-toolbar { justify-content: space-between; }
 .row-main-button { display: flex; flex: 1; min-width: 0; align-items: center; gap: 12px; padding: 14px 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit; }
-.row-main-button:focus-visible, .summary-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.summary-trigger { width: 100%; border: 0; padding: 0; background: transparent; color: inherit; display: flex; justify-content: space-between; align-items: center; text-align: left; cursor: pointer; font: inherit; }
-.summary-trigger strong, .summary-trigger small { display: block; }
-.summary-trigger small { color: var(--text-muted); margin-top: 4px; }
+.row-main-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .copy-previous-action { display: flex; justify-content: center; padding: 12px 0 4px; }
 .copy-previous-action .btn { min-height: 44px; box-shadow: 0 2px 8px rgba(10, 30, 20, .08); }
 @media (max-width: 600px) { .app-dialog-head { padding: 16px; } .app-dialog-body { padding: 14px 16px 18px; } }

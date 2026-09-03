@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ACTIVITIES, findActivityVariant } from "@/lib/activities";
 import { deleteActivityAction, saveActivityAction } from "@/server/activity-actions";
@@ -30,8 +30,18 @@ function ActivityForm({ date, entry, done }: { date: string; entry?: ActivityEnt
 export function ActivityEditor({ date, entries, totalActiveKcal, locale }: { date: string; entries: ActivityEntryView[]; totalActiveKcal: number | null; locale: Locale }) {
   const t = useTranslations("activity"); const common = useTranslations("common");
   const [adding, setAdding] = useState(false); const [editing, setEditing] = useState<string | null>(null);
-  return <div className="activity-editor">
-    <div className="editor-actions"><button type="button" className="btn btn-quiet" onClick={() => setAdding(true)}><span aria-hidden="true">＋</span> {common("add")}</button></div>
+  const root = useRef<HTMLDivElement>(null);
+  // The editor outlives the dialog it sits in, so a form left open on close
+  // would still be open the next time the row is tapped for the overview.
+  useEffect(() => {
+    const dialog = root.current?.closest("dialog");
+    if (!dialog) return;
+    const reset = () => { setAdding(false); setEditing(null); };
+    dialog.addEventListener("close", reset);
+    return () => dialog.removeEventListener("close", reset);
+  }, []);
+  return <div className="activity-editor" ref={root}>
+    <div className="editor-actions"><button type="button" className="btn btn-quiet activity-add-button" onClick={() => setAdding(true)}><span aria-hidden="true">＋</span> {common("add")}</button></div>
     {adding ? <ActivityForm date={date} done={() => setAdding(false)} /> : null}
     {entries.length === 0 && !adding ? <p className="empty">{t("empty")}</p> : entries.map((entry) => {
       const resolved = findActivityVariant(entry.activityKey, entry.intensityKey); const name = t(`names.${entry.activityKey}`);
