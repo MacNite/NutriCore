@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/locales";
-import { baselineInput, type BodyAppearance, type BodyPanels } from "@/lib/body-visualization";
+import { baselineInput, type BodyAppearance, type BodyPanels, type BodyShapeStyle } from "@/lib/body-visualization";
 import { BodyFigureDrawing } from "./body-figure-drawing";
 import { BodyFigurePicker } from "./body-figure-picker";
 
@@ -17,11 +17,13 @@ import { BodyFigurePicker } from "./body-figure-picker";
  */
 export function BodyProgressEmpty({
   appearance,
+  shapeStyle,
   panels,
   checkin,
   locale,
 }: {
   appearance: BodyAppearance;
+  shapeStyle: BodyShapeStyle;
   panels: BodyPanels;
   checkin: React.ReactNode;
   locale: Locale;
@@ -32,7 +34,7 @@ export function BodyProgressEmpty({
     <section className="card" aria-labelledby="body-empty-heading">
       <div className="card-head body-card-head">
         <h2 id="body-empty-heading">{t("title")}</h2>
-        {panels.shape ? <BodyFigurePicker appearance={appearance} locale={locale} /> : null}
+        {panels.shape ? <BodyFigurePicker appearance={appearance} shapeStyle={shapeStyle} locale={locale} /> : null}
       </div>
 
       <div className={panels.shape ? "body-empty" : "body-empty body-empty-single"}>
@@ -41,6 +43,7 @@ export function BodyProgressEmpty({
             <BodyFigureDrawing
               input={baselineInput(appearance)}
               appearance={appearance}
+              style={shapeStyle}
               label={t(`figure.typeName.${appearance.type}`)}
             />
           </div>

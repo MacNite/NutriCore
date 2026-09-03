@@ -87,6 +87,14 @@ enum BodyFigure {
   FEMININE
 }
 
+/// How the body-shape panel draws that figure: as a silhouette with tinted
+/// change bands, or as a measure figure with a caliper across every level a
+/// tape measure was put around. A display choice over the same numbers.
+enum BodyShapeStyle {
+  SILHOUETTE
+  MEASURE
+}
+
 enum ActivityLevel {
   SEDENTARY
   LIGHT
@@ -333,22 +341,22 @@ model Session {
 }
 
 model UserProfile {
-  id                  String        @id @default(cuid())
-  userId              String        @unique
+  id                  String          @id @default(cuid())
+  userId              String          @unique
   displayName         String
-  language            Locale        @default(de)
-  unitPreference      String        @default("metric")
-  birthDate           DateTime?     @db.Date
-  heightCm            Decimal?      @db.Decimal(6, 2)
-  weightKg            Decimal?      @db.Decimal(6, 2)
-  biologicalSex       BiologicalSex @default(UNSPECIFIED)
-  activityLevel       ActivityLevel @default(MODERATE)
-  goal                Goal          @default(MAINTAIN)
-  targetWeightKg      Decimal?      @db.Decimal(6, 2)
-  isPregnant          Boolean       @default(false)
-  isBreastfeeding     Boolean       @default(false)
-  aiEnabled           Boolean       @default(true)
-  researchEnabled     Boolean       @default(false)
+  language            Locale          @default(de)
+  unitPreference      String          @default("metric")
+  birthDate           DateTime?       @db.Date
+  heightCm            Decimal?        @db.Decimal(6, 2)
+  weightKg            Decimal?        @db.Decimal(6, 2)
+  biologicalSex       BiologicalSex   @default(UNSPECIFIED)
+  activityLevel       ActivityLevel   @default(MODERATE)
+  goal                Goal            @default(MAINTAIN)
+  targetWeightKg      Decimal?        @db.Decimal(6, 2)
+  isPregnant          Boolean         @default(false)
+  isBreastfeeding     Boolean         @default(false)
+  aiEnabled           Boolean         @default(true)
+  researchEnabled     Boolean         @default(false)
   /**
    * Apply an AI meal proposal to the diary without opening the review screen.
    * Defaults on because a queued meal that is never reviewed is a meal that was
@@ -356,22 +364,24 @@ model UserProfile {
    * submitting. Everything it logs is still recorded on the proposal and every
    * value still carries its provenance; turn it off to approve each one by hand.
    */
-  autoApproveAi       Boolean       @default(true)
-  theme               String        @default("system")
+  autoApproveAi       Boolean         @default(true)
+  theme               String          @default("system")
   /// Appearance of the body-progress figure. Null until the user picks one.
   bodyType            BodyType?
   bodyFigure          BodyFigure?
+  /// How the shape panel draws it. Null until the user picks one.
+  bodyShapeStyle      BodyShapeStyle?
   /**
    * Which body-progress visualisations the reader wants. Both default on: the
    * card is the point of the progress page, and anyone who never opens their
    * settings should still see it. Turning one off hides the visualisation only
    * - the underlying measurements stay recorded, exported and editable.
    */
-  showBodyComposition Boolean       @default(true)
-  showBodyShape       Boolean       @default(true)
+  showBodyComposition Boolean         @default(true)
+  showBodyShape       Boolean         @default(true)
   onboardedAt         DateTime?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

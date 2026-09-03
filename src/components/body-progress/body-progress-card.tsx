@@ -3,9 +3,10 @@
 import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/locales";
 import { emptyMeasurement, type BodyMeasurement } from "@/lib/body-metrics";
-import type { BodyAppearance, BodyPanels, BodyRegionKey } from "@/lib/body-visualization";
+import type { BodyAppearance, BodyPanels, BodyRegionKey, BodyShapeStyle } from "@/lib/body-visualization";
 import { BodyChangeHeatmap } from "./body-change-heatmap";
 import { BodyCompositionDiamond } from "./body-composition-diamond";
+import { BodyMeasureFigure } from "./body-measure-figure";
 import { BodyReferenceBar } from "./body-reference-bar";
 import { BodyShapeProgress, useBodyShapeSummary } from "./body-shape-progress";
 
@@ -27,6 +28,7 @@ export function BodyProgressCard({
   onActiveRegion,
   referenceLabel,
   appearance,
+  shapeStyle,
   hasReference,
   figurePicker,
   panels,
@@ -40,6 +42,7 @@ export function BodyProgressCard({
   onActiveRegion: (region: BodyRegionKey | null) => void;
   referenceLabel: string;
   appearance: BodyAppearance;
+  shapeStyle: BodyShapeStyle;
   hasReference: boolean;
   figurePicker: React.ReactNode;
   panels: BodyPanels;
@@ -94,16 +97,30 @@ export function BodyProgressCard({
             {/* The figure is decorative once this sentence exists; the sentence is
                 the guaranteed equivalent for anyone not reading the drawing. */}
             <p className="sr-only">{shapeSummary}</p>
-            <BodyShapeProgress
-              current={current}
-              reference={reference}
-              appearance={appearance}
-              hasReference={hasReference}
-              locale={locale}
-              referenceLabel={referenceLabel}
-              active={activeRegion}
-              onActive={onActiveRegion}
-            />
+            {/* Two drawings of the same numbers; the reader picks which one. */}
+            {shapeStyle === "MEASURE" ? (
+              <BodyMeasureFigure
+                current={current}
+                reference={reference}
+                appearance={appearance}
+                hasReference={hasReference}
+                locale={locale}
+                referenceLabel={referenceLabel}
+                active={activeRegion}
+                onActive={onActiveRegion}
+              />
+            ) : (
+              <BodyShapeProgress
+                current={current}
+                reference={reference}
+                appearance={appearance}
+                hasReference={hasReference}
+                locale={locale}
+                referenceLabel={referenceLabel}
+                active={activeRegion}
+                onActive={onActiveRegion}
+              />
+            )}
             <BodyChangeHeatmap
               current={current}
               reference={reference}

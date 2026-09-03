@@ -394,7 +394,10 @@
       "summaryUnchanged": "{region} unverändert",
       "increased": "gewachsen",
       "decreased": "geschrumpft",
-      "noChanges": "Keine Region hat sich messbar verändert."
+      "noChanges": "Keine Region hat sich messbar verändert.",
+      "measureCaption": "Schematische Messfigur auf Basis erfasster Umfänge — kein Körperscan.",
+      "measureChartLabel": "Schematische Messfigur: an jeder gemessenen Stelle ein Maßband, die Marken zeigen die Referenzmessung.",
+      "measureLegendHint": "Die Marken auf jedem Maßband zeigen die Referenzmessung."
     },
     "panels": {
       "title": "Körperfortschritt anzeigen",
@@ -533,7 +536,16 @@
         "ENDOMORPH": "Endomorph"
       },
       "disclaimer": "Die gewählte Statur legt nur die Ausgangsproportionen der Zeichnung fest, die deine eigenen Maße danach anpassen. Sie wird nie aus deinen Maßen abgeleitet und fließt in keine Berechnung auf dieser Seite ein.",
-      "saved": "Figur gespeichert."
+      "saved": "Figur gespeichert.",
+      "style": "Ansicht",
+      "styleName": {
+        "SILHOUETTE": "Silhouette",
+        "MEASURE": "Messfigur"
+      },
+      "styleHint": {
+        "SILHOUETTE": "Die Körperkontur mit farbigen Bändern an den Regionen, die sich verändert haben.",
+        "MEASURE": "Die Figur mit ausgestreckten Armen und einem Maßband an jeder gemessenen Stelle. Die Marken auf dem Maßband zeigen, wo die Referenzmessung lag."
+      }
     },
     "empty": {
       "intro": "Noch keine Körpermaße. Eine Messung erfasst, was du mit dem Maßband gemessen hast, und falls vorhanden, was eine smarte Waage gemeldet hat.",

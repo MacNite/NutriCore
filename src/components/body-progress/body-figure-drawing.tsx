@@ -3,11 +3,13 @@
 import { useId } from "react";
 import {
   BODY_VIEW,
+  DEFAULT_SHAPE_STYLE,
   buildBodyFigure,
   clipShapes,
   outlineShapes,
   type BodyAppearance,
   type BodyOutlineInput,
+  type BodyShapeStyle,
 } from "@/lib/body-visualization";
 
 /**
@@ -17,14 +19,17 @@ import {
 export function BodyFigureDrawing({
   input,
   appearance,
+  style = DEFAULT_SHAPE_STYLE,
   label,
 }: {
   input: BodyOutlineInput;
   appearance: BodyAppearance;
+  /** How the shape panel will draw it, so the preview shows the same stance. */
+  style?: BodyShapeStyle;
   label: string;
 }) {
   const id = useId();
-  const figure = buildBodyFigure(input, appearance);
+  const figure = buildBodyFigure(input, appearance, style);
 
   return (
     <svg viewBox={`0 0 ${BODY_VIEW.width} ${BODY_VIEW.height}`} role="img" aria-label={label}>

@@ -11,7 +11,13 @@ import {
   type BodyMeasurement,
   type BodyProfile,
 } from "@/lib/body-metrics";
-import { panelMetrics, type BodyAppearance, type BodyPanels, type BodyRegionKey } from "@/lib/body-visualization";
+import {
+  panelMetrics,
+  type BodyAppearance,
+  type BodyPanels,
+  type BodyRegionKey,
+  type BodyShapeStyle,
+} from "@/lib/body-visualization";
 import { BodyFigurePicker } from "./body-figure-picker";
 import { BodyMeasurementChart } from "./body-measurement-chart";
 import { BodyMeasurementTable } from "./body-measurement-table";
@@ -35,6 +41,7 @@ export function BodyProgressSection({
   measurements,
   profile,
   appearance,
+  shapeStyle,
   panels,
   checkin,
   locale,
@@ -42,6 +49,8 @@ export function BodyProgressSection({
   measurements: BodyMeasurement[];
   profile: BodyProfile;
   appearance: BodyAppearance;
+  /** Which of the two shape drawings this reader has chosen. */
+  shapeStyle: BodyShapeStyle;
   /** Which of the two visualisations this reader has switched on. */
   panels: BodyPanels;
   /** The check-in dialog, rendered by the page so it sits in the card head. */
@@ -80,7 +89,9 @@ export function BodyProgressSection({
      the drawing. The check-in button stays whatever is on screen. */
   const actions = (
     <span className="body-card-actions">
-      {panels.shape ? <BodyFigurePicker key="figure" appearance={appearance} locale={locale} /> : null}
+      {panels.shape ? (
+        <BodyFigurePicker key="figure" appearance={appearance} shapeStyle={shapeStyle} locale={locale} />
+      ) : null}
       <span key="checkin">{checkin}</span>
     </span>
   );
@@ -96,6 +107,7 @@ export function BodyProgressSection({
         onActiveRegion={setActiveRegion}
         referenceLabel={referenceLabel}
         appearance={appearance}
+        shapeStyle={shapeStyle}
         hasReference={hasReference}
         figurePicker={actions}
         panels={panels}
