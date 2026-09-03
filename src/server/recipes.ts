@@ -134,7 +134,7 @@ export async function saveRecipe(userId: string, input: RecipeInput, recipeId?: 
  * the user is looking at. It throws exactly where a manual save would - an
  * unresolvable unit is reported, never quietly dropped.
  */
-export async function confirmRecipe(userId: string, id: string, selections: string[] = []) {
+export async function confirmRecipe(userId: string, id: string, selections: Map<number, string> = new Map()) {
   const recipe = await prisma.recipe.findFirst({
     where: { id, ownerId: userId },
     include: { import: { select: { draft: true, logAfterConfirm: true, meal: true, diaryDate: true } }, ingredients: { orderBy: { position: "asc" }, select: { foodId: true, amount: true, unit: true } } },
@@ -142,10 +142,12 @@ export async function confirmRecipe(userId: string, id: string, selections: stri
   if (!recipe) throw new NotFoundError("recipe");
   const extracted = recipe.import?.draft as { components?: Array<{ quantity?: number; unit?: string; candidates?: Array<{ foodId: string; grams: number | null }> }> } | null;
   let chosenIngredients = recipe.ingredients.map((item) => ({ foodId: item.foodId, amount: Number(item.amount), unit: item.unit }));
-  if (extracted?.components && selections.length) {
+  if (extracted?.components && selections.size) {
     chosenIngredients = [];
     for (let index = 0; index < extracted.components.length; index++) {
-      const foodId = selections[index];
+      // Absent means the reader never chose for this component, empty means they
+      // chose to leave it out. Both drop it; neither may borrow a later choice.
+      const foodId = selections.get(index);
       if (!foodId) continue;
       const component = extracted.components[index];
       const food = await prisma.food.findFirst({ where: { id: foodId, ...visibleFoodWhere(userId) }, include: { servings: true } });

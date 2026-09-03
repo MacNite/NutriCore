@@ -85,7 +85,17 @@ export async function confirmRecipeAction(_state: FormState, formData: FormData)
   const user = await requireUser();
   const parsed = z.object({ id: z.string().min(1) }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "validation" };
-  const selections = [...formData.entries()].filter(([key]) => key.startsWith("component-")).sort(([a], [b]) => Number(a.slice(10)) - Number(b.slice(10))).map(([, value]) => String(value));
+  // Keyed by the index in the field name, never collected into a list: a
+  // component whose radio group submitted nothing - it matched no food, or the
+  // resolver pre-selected none of its candidates and the reader left it alone -
+  // would otherwise shift every later choice onto the wrong ingredient, and the
+  // recipe would silently be confirmed with the butter's food under the bread.
+  const selections = new Map<number, string>();
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("component-")) continue;
+    const index = Number(key.slice("component-".length));
+    if (Number.isInteger(index) && index >= 0) selections.set(index, String(value));
+  }
   try { await confirmRecipe(user.id, parsed.data.id, selections); } catch (error) { return errorState(error); }
   revalidatePath("/recipes"); revalidatePath("/foods"); revalidatePath(`/recipes/${parsed.data.id}`);
   redirect(`/recipes/${parsed.data.id}`);
