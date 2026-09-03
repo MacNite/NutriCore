@@ -150,6 +150,42 @@ describe("the choices a reader makes on a draft", () => {
     await expect(confirmRecipe("user-1", "recipe-1", new Map([[1, ""]]))).rejects.toThrow(new PortionError("invalid-amount"));
   });
 
+  /**
+   * The reported bug, at the end that turns a draft into a recipe. The reader
+   * picked a food for "1 EL Mehl" and pressed confirm; the flour defines no
+   * spoon, so the component was dropped without a word and the recipe came back
+   * without the ingredient they had just chosen.
+   */
+  it("keeps a component measured in a household unit at the weight the model read", async () => {
+    prismaMock.recipe.findFirst.mockResolvedValue({
+      ...draftWithUnmatchedFirst,
+      import: {
+        ...draftWithUnmatchedFirst.import,
+        draft: { components: [{ name: "Mehl", quantity: 1, unit: "EL", estimatedGrams: 10, candidates: [{ foodId: "food-flour", grams: null }] }] },
+      },
+    });
+    prismaMock.food.findFirst.mockResolvedValue(flour);
+
+    await confirmRecipe("user-1", "recipe-1", new Map([[0, "food-flour"]]));
+
+    expect(tx.recipeIngredient.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ foodId: "food-flour", amount: 10, unit: "g" })],
+    });
+  });
+
+  it("leaves out a component nothing can weigh rather than logging it as nothing", async () => {
+    prismaMock.recipe.findFirst.mockResolvedValue({
+      ...draftWithUnmatchedFirst,
+      import: {
+        ...draftWithUnmatchedFirst.import,
+        draft: { components: [{ name: "Gewürze", quantity: 1, unit: "Prise", candidates: [{ foodId: "food-flour", grams: null }] }] },
+      },
+    });
+    prismaMock.food.findFirst.mockResolvedValue(flour);
+
+    await expect(confirmRecipe("user-1", "recipe-1", new Map([[0, "food-flour"]]))).rejects.toThrow(new PortionError("invalid-amount"));
+  });
+
   it("keeps what the resolver matched when the reader chose nothing at all", async () => {
     prismaMock.recipe.findFirst.mockResolvedValue(draftWithUnmatchedFirst);
 

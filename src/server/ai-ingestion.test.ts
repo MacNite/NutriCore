@@ -125,6 +125,44 @@ describe("turning components into ingredients", () => {
     expect(draft.ingredients).toEqual([expect.objectContaining({ amount: 60, unit: "g" })]);
   });
 
+  /**
+   * The reported bug, at the end that writes the draft. Every household measure
+   * in the source - "2 M" eggs, "1 EL" flour, "0.5 TL" baking powder, "1
+   * Handvoll" tomatoes - matched a real food and was then dropped for having no
+   * convertible unit, so a nine-ingredient recipe arrived as a two-ingredient
+   * draft and confirming it added nothing.
+   */
+  it("keeps an ingredient measured in a household unit, weighed by the model", async () => {
+    ai.complete.mockResolvedValue({ ...extraction, components: [{ name: "Mehl", quantity: 1, unit: "EL", estimatedGrams: 10 }] });
+    resolveComponent.mockResolvedValue({ selectedFoodId: "food-flour", candidates: [{ foodId: "food-flour", grams: null, gramsSource: "NONE" }], grams: null, gramsSource: "NONE" });
+
+    const draft = await run();
+
+    expect(draft.ingredients).toEqual([expect.objectContaining({ foodId: "food-flour", amount: 10, unit: "g" })]);
+    expect(draft.unconverted).toEqual([]);
+    // Usable, but nobody's stated fact: the review has to say so.
+    expect(draft.estimatedWeights).toEqual(["Mehl (1 EL) ≈ 10 g"]);
+  });
+
+  it("still reports an ingredient nothing can weigh, rather than guessing at one", async () => {
+    // No spoon on the food and no reading from the model either. There is
+    // nothing here to convert, so the ingredient is named for the reader.
+    ai.complete.mockResolvedValue({ ...extraction, components: [{ name: "Gewürze", quantity: 1, unit: "Prise" }] });
+    resolveComponent.mockResolvedValue({ selectedFoodId: "food-flour", candidates: [{ foodId: "food-flour", grams: null, gramsSource: "NONE" }], grams: null, gramsSource: "NONE" });
+
+    const draft = await run();
+
+    expect(draft.ingredients).toEqual([]);
+    expect(draft.unconverted).toEqual(["Gewürze (1 Prise)"]);
+    expect(draft.estimatedWeights).toEqual([]);
+  });
+
+  it("calls a weight the source itself stated exactly that", async () => {
+    const draft = await run();
+
+    expect(draft.estimatedWeights).toEqual([]);
+  });
+
   it("reports an ingredient nothing matched instead of inventing one", async () => {
     resolveComponent.mockResolvedValue({ selectedFoodId: null, candidates: [], grams: null, gramsSource: "NONE" });
 

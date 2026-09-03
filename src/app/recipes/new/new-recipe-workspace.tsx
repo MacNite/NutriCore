@@ -88,6 +88,11 @@ export function NewRecipeWorkspace({
           <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("unconverted", { names: draft.unconverted.join(", ") })}</div>
         ) : null}
 
+        {/* In the recipe, but weighed by the model rather than by the source. */}
+        {draft?.estimatedWeights?.length ? (
+          <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("estimatedWeights", { names: draft.estimatedWeights.join(", ") })}</div>
+        ) : null}
+
         {draft?.unparsedIngredients?.length ? (
           <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("unparsed", { names: draft.unparsedIngredients.join(", ") })}</div>
         ) : null}

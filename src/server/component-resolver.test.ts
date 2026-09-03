@@ -79,8 +79,42 @@ describe("how many grams a component logs", () => {
     expect(resolveGrams({ quantity: 400, unit: "Scheiben" }, bread)).toEqual({ grams: null, source: "NONE" });
   });
 
-  it("never uses a model-estimated weight when recipe resolution forbids estimates", () => {
+  it("reports no weight at all when the caller forbids the model's own reading", () => {
     expect(resolveGrams({ estimatedGrams: 60 }, null, false)).toEqual({ grams: null, source: "NONE" });
+  });
+
+  /**
+   * The recipe-import failure this exists for: "1 EL Mehl" against a flour with
+   * no spoon and no serving row of any kind. Nothing in a food database knows
+   * what a tablespoon of flour weighs, so refusing the model's reading here left
+   * the ingredient with no weight - and an ingredient with no weight was dropped
+   * from the recipe entirely.
+   */
+  it("takes the model's reading of a household measure the food cannot convert", () => {
+    expect(resolveGrams({ quantity: 1, unit: "EL", estimatedGrams: 10 }, food())).toEqual({ grams: 10, source: "MODEL" });
+    expect(resolveGrams({ quantity: 2, unit: "M", estimatedGrams: 120 }, food())).toEqual({ grams: 120, source: "MODEL" });
+  });
+
+  /**
+   * A serving size is a fact about a portion of the food, not about a spoon: a
+   * level tablespoon of flour is roughly 10 g whatever the packet calls one
+   * serving, so reading "1 EL" as one 125 g Open Food Facts serving would be
+   * twelve times the truth. A portion word keeps that fallback; a measure word
+   * falls through to the reading that is actually about the measure.
+   */
+  it("never reads a measure word as one serving of the food", () => {
+    const flour = food({ servingSize: 125, servingUnit: "g" });
+
+    expect(resolveGrams({ quantity: 1, unit: "EL", estimatedGrams: 10 }, flour)).toEqual({ grams: 10, source: "MODEL" });
+    expect(resolveGrams({ quantity: 0.5, unit: "TL", estimatedGrams: 2 }, flour)).toEqual({ grams: 2, source: "MODEL" });
+    expect(resolveGrams({ quantity: 1, unit: "Handvoll", estimatedGrams: 30 }, flour)).toEqual({ grams: 30, source: "MODEL" });
+    // Spelt with the umlaut the source would use, which normalisation strips.
+    expect(resolveGrams({ quantity: 1, unit: "Esslöffel", estimatedGrams: 10 }, flour)).toEqual({ grams: 10, source: "MODEL" });
+    // A counted portion is a portion of this food, so the serving still applies.
+    expect(resolveGrams({ quantity: 2, unit: "Stück", estimatedGrams: 10 }, flour)).toEqual({ grams: 250, source: "PORTION" });
+    // With nothing to fall through to, a measure word still reports no weight
+    // rather than borrowing a serving size that says nothing about it.
+    expect(resolveGrams({ quantity: 1, unit: "EL" }, flour)).toEqual({ grams: null, source: "NONE" });
   });
 
   it("uses servingSize when the food carries no serving rows", () => {

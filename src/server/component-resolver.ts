@@ -52,6 +52,24 @@ const MAX_CANDIDATES = 3;
 const GRAM_UNITS = new Set(["g", "gr", "gramm", "gram", "grams"]);
 const ML_UNITS = new Set(["ml", "milliliter", "millilitre"]);
 
+/**
+ * Words that measure out some of an ingredient rather than count portions of it.
+ *
+ * The distinction matters for the fallback below: a food's serving weight is a
+ * fair answer for "2 Scheiben" or "1 Stück", and no answer at all for "1 EL" -
+ * a level spoon holds what it holds whatever the packet's serving happens to be.
+ *
+ * Spelt as `normalizeName` writes them, which is diacritic-free: "Esslöffel"
+ * arrives here as "essloffel", so that is the spelling this set must carry.
+ */
+const MEASURE_WORDS = new Set([
+  "el", "essloffel", "essloffeln", "tbsp", "tablespoon", "tablespoons",
+  "tl", "teeloffel", "teeloffeln", "tsp", "teaspoon", "teaspoons",
+  "msp", "messerspitze", "messerspitzen", "prise", "prisen", "pinch", "dash",
+  "handvoll", "handful", "handfuls", "cup", "cups", "tasse", "tassen",
+  "schuss", "spritzer", "tropfen", "drop", "drops",
+]);
+
 const originOf = (food: FoodResult): ComponentCandidate["origin"] =>
   food.sourceType === "OPEN_FOOD_FACTS" ? "OPEN_FOOD_FACTS" : food.sourceType === "AI_RESEARCH" ? "WEB_EXTRACT" : "LOCAL";
 
@@ -90,11 +108,16 @@ function sameUnitWord(wantedNormalized: string, candidate: string) {
  * needs the food's own serving data, and only when neither exists does the
  * model's guess stand - which is the right order, because a portion size is an
  * interpretation of the sentence while a serving weight is a fact about a food.
+ *
+ * `allowModelWeight` is about the weight and nothing else. It is not the flag
+ * that decides whether the model may supply *nutrition*: a gram figure for a
+ * food whose values come from a real source is still a sourced ingredient, and
+ * refusing it only means the ingredient cannot be used at all.
  */
 export function resolveGrams(
   component: Pick<ProposedComponent, "quantity" | "unit" | "estimatedGrams">,
   food: Pick<FoodResult, "servingSize" | "servingUnit" | "servings" | "densityGPerMl"> | null,
-  allowModelEstimates = true,
+  allowModelWeight = true,
 ): { grams: number | null; source: GramsSource } {
   const unit = component.unit?.trim().toLowerCase() ?? "";
   const quantity = component.quantity;
@@ -102,7 +125,7 @@ export function resolveGrams(
   // Tried in order of how much the answer is a fact rather than a reading, and
   // the first plausible one wins. An implausible result falls through instead of
   // stopping the search, so a misread unit still ends up with the model's weight.
-  for (const attempt of weightAttempts(allowModelEstimates ? component : { ...component, estimatedGrams: undefined }, food, unit, quantity)) {
+  for (const attempt of weightAttempts(allowModelWeight ? component : { ...component, estimatedGrams: undefined }, food, unit, quantity)) {
     if (attempt.grams > 0 && attempt.grams <= MAX_PLAUSIBLE_GRAMS) return attempt;
   }
   return { grams: null, source: "NONE" };
@@ -139,9 +162,17 @@ function* weightAttempts(
        * something else. Open Food Facts labels its serving after the amount
        * ("30 g"), never "Scheibe", so requiring the words to match meant "2
        * Scheiben Brot" resolved to no weight at all and could not be logged.
+       *
+       * A measure word is excluded, because it is not a portion of this food at
+       * all: a spoon of flour and a spoon of salt weigh different amounts, and
+       * neither is the flour's serving size. Reading "1 EL" as one whole
+       * Open Food Facts serving of 125 g is not a conversion, so those fall
+       * through to the model's reading of the measure instead.
        */
-      const anyServing = food.servings.find((entry) => entry.gramEquivalent)?.gramEquivalent ?? food.servingSize;
-      if (anyServing) yield { grams: quantity * anyServing, source: "PORTION" };
+      if (!MEASURE_WORDS.has(wanted)) {
+        const anyServing = food.servings.find((entry) => entry.gramEquivalent)?.gramEquivalent ?? food.servingSize;
+        if (anyServing) yield { grams: quantity * anyServing, source: "PORTION" };
+      }
     }
   }
 
@@ -194,9 +225,16 @@ export function isSafeAutomaticMatch(componentName: string, candidateName: strin
   return !extraCandidateTokens.some(identityChanging);
 }
 
-/** Each candidate carries the weight it would give the component, not just a name. */
-const toCandidate = (food: FoodResult, component: ProposedComponent, allowModelEstimates: boolean): ComponentCandidate => {
-  const { grams, source } = resolveGrams(component, food, allowModelEstimates);
+/**
+ * Each candidate carries the weight it would give the component, not just a name.
+ *
+ * The model's own reading of a household measure is always allowed here, even
+ * where model *nutrition* is forbidden: the nutrition comes from this food, and
+ * only the weight is the model's. `gramsSource` records that, so the review
+ * screen can show which weights are worth checking.
+ */
+const toCandidate = (food: FoodResult, component: ProposedComponent): ComponentCandidate => {
+  const { grams, source } = resolveGrams(component, food);
   return {
     foodId: food.id,
     name: food.name,
@@ -215,7 +253,12 @@ export interface ResolverContext {
   locale: Locale;
   /** Whether this user has consented to fetching pages from the open web. */
   webSourcesAllowed: boolean;
-  /** Whether an unresolved component may fall back to nutrition stated by the extraction model. */
+  /**
+   * Whether an unresolved component may fall back to nutrition stated by the
+   * extraction model. It governs nutrition only: the weight a *resolved* food
+   * gets for a household measure is always the model's to supply, because
+   * nothing else in the chain knows what a spoonful weighs.
+   */
   allowModelEstimates: boolean;
   deps?: { ai?: OllamaProvider; search?: SearxngClient };
 }
@@ -239,7 +282,7 @@ export async function resolveComponent(
     // A food with no nutrition at all cannot be logged, however well it matches.
     for (const food of outcome.results) {
       if (!hasAnyNutrient(food.nutrients)) continue;
-      candidates.push(toCandidate(food, component, context.allowModelEstimates));
+      candidates.push(toCandidate(food, component));
       if (candidates.length >= MAX_CANDIDATES) break;
     }
   } catch (error) {
@@ -328,5 +371,5 @@ async function resolveFromWeb(component: ProposedComponent, context: ResolverCon
   const food = toFoodResult(created, 0, false);
   // `originOf` already reads AI_RESEARCH as a web extract; the URL is what the
   // review screen needs in order to show where the numbers came from.
-  return { ...toCandidate(food, component, context.allowModelEstimates), url: extracted.url };
+  return { ...toCandidate(food, component), url: extracted.url };
 }
