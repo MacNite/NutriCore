@@ -77,7 +77,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const targetKcal = target?.kcal ?? null;
 
   return (
-    <AppShell displayName={user.displayName}>
+    <AppShell displayName={user.displayName} hasFab>
       <div className="page-head">
         <div>
           <h1>{t("greeting", { name: user.displayName })}</h1>
