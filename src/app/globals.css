@@ -2115,6 +2115,26 @@ legend {
   margin-bottom: 0;
 }
 
+/* Two ways in, one per button. A phone opening its camera when someone meant
+   to reach for a photo they already have is a dead end, so the choice is made
+   before the picker opens rather than inside it. */
+.scan-source {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.scan-source .btn {
+  flex: 1 1 140px;
+  min-height: 44px;
+}
+
+/* A file name is arbitrary text and often long; it wraps rather than pushing
+   the dialog sideways. */
+.scan-source-file {
+  overflow-wrap: anywhere;
+}
+
 .body-advanced summary {
   cursor: pointer;
   font-size: 13px;
