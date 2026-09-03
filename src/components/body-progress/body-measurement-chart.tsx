@@ -6,13 +6,15 @@ import type { Locale } from "@/i18n/locales";
 import { formatDate } from "@/lib/format";
 import {
   BODY_METRIC_BY_KEY,
+  bodyMassIndex,
   daysBetween,
   deltaBetween,
   formatDelta,
   formatMeasure,
   metricValue,
   type BodyMeasurement,
-  type BodyMetricKey,
+  type BodyProfile,
+  type BodySeriesMetricKey,
 } from "@/lib/body-metrics";
 import { UNIT_KEY } from "./body-value";
 
@@ -51,6 +53,7 @@ export function BodyMeasurementChart({
   currentIndex,
   onCurrentIndex,
   metrics,
+  profile,
   locale,
 }: {
   measurements: BodyMeasurement[];
@@ -58,28 +61,39 @@ export function BodyMeasurementChart({
   currentIndex: number;
   onCurrentIndex: (index: number) => void;
   /** The metrics offered as chips, already narrowed to the switched-on panels. */
-  metrics: BodyMetricKey[];
+  metrics: BodySeriesMetricKey[];
+  profile: BodyProfile;
   locale: Locale;
 }) {
   const t = useTranslations("bodyProgress");
   /* The waist leads wherever it is offered; otherwise whatever comes first. */
-  const [metric, setMetric] = useState<BodyMetricKey>(() => metrics[0]);
+  const [metric, setMetric] = useState<BodySeriesMetricKey>(() => metrics[0]);
   const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("all");
   const [active, setActive] = useState<number | null>(null);
 
-  const def = BODY_METRIC_BY_KEY.get(metric)!;
-  const unit = t(UNIT_KEY[def.unit]);
-  const deltaUnit = t(UNIT_KEY[def.deltaUnit]);
-  const referenceValue = metricValue(measurements[referenceIndex], metric);
+  const def = metric === "bmi"
+    ? { key: "bmi", unit: "" as const, deltaUnit: "" as const, digits: 1 }
+    : BODY_METRIC_BY_KEY.get(metric)!;
+  const unit = def.unit ? t(UNIT_KEY[def.unit]) : "";
+  const deltaUnit = def.deltaUnit ? t(UNIT_KEY[def.deltaUnit]) : "";
+  const referenceValue = metric === "bmi"
+    ? bodyMassIndex(measurements[referenceIndex].weightKg, profile.heightCm)
+    : metricValue(measurements[referenceIndex], metric);
 
   const points = useMemo(() => {
     const days = RANGES.find((entry) => entry.key === range)?.days ?? null;
     const lastDate = measurements[measurements.length - 1].date;
     return measurements
-      .map((measurement, index) => ({ index, measurement, value: metricValue(measurement, metric) }))
+      .map((measurement, index) => ({
+        index,
+        measurement,
+        value: metric === "bmi"
+          ? bodyMassIndex(measurement.weightKg, profile.heightCm)
+          : metricValue(measurement, metric),
+      }))
       .filter((point) => point.value != null)
       .filter((point) => days == null || daysBetween(point.measurement.date, lastDate) <= days);
-  }, [measurements, metric, range]);
+  }, [measurements, metric, range, profile.heightCm]);
 
   const chart = useMemo(() => {
     if (points.length < 2) return null;

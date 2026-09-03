@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bodyMassIndex,
   carryForward,
   deltaBetween,
   emptyMeasurement,
@@ -136,6 +137,12 @@ describe("carrying values forward", () => {
 });
 
 describe("derived ratios", () => {
+  it("calculates BMI from weight and height", () => {
+    expect(bodyMassIndex(78.4, 182)).toBeCloseTo(23.67, 2);
+    expect(bodyMassIndex(null, 182)).toBeNull();
+    expect(bodyMassIndex(78.4, 0)).toBeNull();
+  });
+
   it("divides waist by height and waist by hips", () => {
     expect(waistToHeight(84.2, 182)).toBeCloseTo(0.463, 3);
     expect(waistToHip(84.2, 100.9)).toBeCloseTo(0.8345, 4);

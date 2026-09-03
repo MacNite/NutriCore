@@ -75,6 +75,9 @@ export interface BodyMetricDef {
   source: MeasurementSource;
 }
 
+/** BMI is calculated for presentation and is never stored with a check-in. */
+export type BodySeriesMetricKey = BodyMetricKey | "bmi";
+
 export const BODY_METRICS: BodyMetricDef[] = [
   { key: "weightKg", unit: "kg", deltaUnit: "kg", digits: 1, source: "MANUAL" },
   { key: "neckCm", unit: "cm", deltaUnit: "cm", digits: 1, source: "MANUAL" },
@@ -93,15 +96,16 @@ export const BODY_METRICS: BodyMetricDef[] = [
 export const BODY_METRIC_BY_KEY = new Map(BODY_METRICS.map((metric) => [metric.key, metric]));
 
 /** Metrics offered as chips in the time-series card, in reading order. */
-export const SERIES_METRICS: BodyMetricKey[] = [
-  "waistCm",
+export const SERIES_METRICS: BodySeriesMetricKey[] = [
   "weightKg",
+  "bmi",
+  "bodyFatPct",
+  "muscleKg",
+  "waistCm",
   "hipCm",
   "chestCm",
   "upperArmCm",
   "thighCm",
-  "bodyFatPct",
-  "muscleKg",
 ];
 
 /**
@@ -205,6 +209,12 @@ export function metricDelta(
 export function waistToHeight(waistCm: number | null, heightCm: number | null): number | null {
   if (waistCm == null || heightCm == null || heightCm <= 0) return null;
   return waistCm / heightCm;
+}
+
+/** Body mass index from weight in kilograms and height in centimetres. */
+export function bodyMassIndex(weightKg: number | null, heightCm: number | null): number | null {
+  if (weightKg == null || weightKg <= 0 || heightCm == null || heightCm <= 0) return null;
+  return weightKg / (heightCm / 100) ** 2;
 }
 
 /** Waist-to-hip ratio. */

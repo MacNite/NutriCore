@@ -424,6 +424,7 @@
     },
     "metric": {
       "weightKg": "Gewicht",
+      "bmi": "BMI",
       "neckCm": "Hals",
       "chestCm": "Brust",
       "waistCm": "Taille",
@@ -460,6 +461,7 @@
       "firstSession": "Erste Messung"
     },
     "kpi": {
+      "bmiInfo": "Körpergewicht geteilt durch die Körpergröße in Metern zum Quadrat.",
       "whtr": "WHtR",
       "whtrLong": "Taille-zu-Größe-Verhältnis",
       "whtrInfo": "Taillenumfang geteilt durch Körpergröße. Eine einzelne Zahl, die den Bauchumfang unabhängig von der Körpergröße verfolgt.",

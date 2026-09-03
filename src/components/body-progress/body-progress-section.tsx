@@ -69,7 +69,7 @@ export function BodyProgressSection({
   /* The rows and chips each switch is answerable for, in their catalogue and
      reading orders respectively. */
   const metrics = panelMetrics(panels);
-  const seriesMetrics = SERIES_METRICS.filter((key) => metrics.includes(key));
+  const seriesMetrics = SERIES_METRICS.filter((key) => key === "bmi" || metrics.includes(key));
 
   /** A reference must stay older than the current session it is compared with. */
   function selectCurrent(index: number) {
@@ -135,6 +135,7 @@ export function BodyProgressSection({
           currentIndex={currentIndex}
           onCurrentIndex={selectCurrent}
           metrics={seriesMetrics}
+          profile={profile}
           locale={locale}
         />
       ) : null}
