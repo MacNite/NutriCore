@@ -13,7 +13,7 @@ import { pendingProposals } from "@/server/pending-proposals";
 import { AiPlaceholderRow } from "@/components/ai-placeholder-row";
 import { mealPlaceholders } from "@/server/ai-placeholders";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { QuickMealDialog } from "@/components/quick-meal-dialog";
+import { QuickActionsFab } from "@/components/quick-actions-fab";
 import { AppDialog } from "@/components/app-dialog";
 import { DiaryEntryRow } from "@/components/diary-entry-row";
 import { CopyPreviousDay } from "@/components/copy-previous-day";
@@ -40,13 +40,15 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const aiT = await getTranslations("aiReview");
   const placeholderT = await getTranslations("aiPlaceholder");
   const activityT = await getTranslations("activity");
+  const quickT = await getTranslations("quickActions");
   const locale = user.language;
   const today = formatDateKey(new Date());
   const params = await searchParams;
   const selectedDate = validDateKey(params.date, today);
   const research = researchAvailability(user);
-  // No floating button for a feature the user has switched off: the quick meal
-  // is an AI run and nothing else, so with AI off it is a dead end.
+  // No quick-meal row for a feature the user has switched off: the quick meal
+  // is an AI run and nothing else, so with AI off it is a dead end. The rest of
+  // the menu records a day without any AI at all, so the button itself stays.
   const aiOn = aiAvailable(user);
 
   const [day, target, recent, pending, activities, placeholders] = await Promise.all([
@@ -81,7 +83,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const targetKcal = target?.kcal ?? null;
 
   return (
-    <AppShell displayName={user.displayName} hasFab={aiOn}>
+    <AppShell displayName={user.displayName} hasFab>
       <div className="page-head">
         <div>
           <h1>{t("greeting", { name: user.displayName })}</h1>
@@ -176,7 +178,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             })}
           </section>
 
-          <section className="card"><AppDialog id="activities" title={activityT("title")} closeLabel={common("close")} triggerClassName="summary-trigger" trigger={<><span><strong>{activityT("title")}</strong><small>{activities.entries.length ? `${activities.entries.length} · ${activities.totalActiveKcal == null ? "–" : `${formatKcal(activities.totalActiveKcal, locale)} ${common("kcal")}`}` : activityT("empty")}</small></span><span aria-hidden="true">›</span></>}><ActivityEditor date={selectedDate} entries={activities.entries} totalActiveKcal={activities.totalActiveKcal} locale={locale} /></AppDialog></section>
+          <section className="card"><AppDialog id="activities" title={activityT("title")} closeLabel={common("close")} openEvent="open-activities" triggerClassName="summary-trigger" trigger={<><span><strong>{activityT("title")}</strong><small>{activities.entries.length ? `${activities.entries.length} · ${activities.totalActiveKcal == null ? "–" : `${formatKcal(activities.totalActiveKcal, locale)} ${common("kcal")}`}` : activityT("empty")}</small></span><span aria-hidden="true">›</span></>}><ActivityEditor date={selectedDate} entries={activities.entries} totalActiveKcal={activities.totalActiveKcal} locale={locale} /></AppDialog></section>
 
           <section className="card" aria-labelledby="micronutrients-heading">
             <div className="card-head">
@@ -238,20 +240,37 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         </aside>
       </div>
 
-      {aiOn ? (
-        <QuickMealDialog
-          triggerLabel={diaryT("ai.quickAction")}
-          title={diaryT("ai.title")}
-          hint={diaryT("ai.hint")}
-          closeLabel={common("close")}
-          initialOpen={params.quickMeal === "1"}
-        >
-          {params.error && ["unsafeUrl", "inputRequired", "imageInvalid", "imageTooLarge", "imageEmpty"].includes(params.error) ? (
-            <div className="notice notice-warn">{diaryT(`ai.errors.${params.error}`)}</div>
-          ) : null}
-          <QuickMealForm date={selectedDate} returnTo="/" />
-        </QuickMealDialog>
-      ) : null}
+      <QuickActionsFab
+        openLabel={quickT("open")}
+        closeLabel={quickT("close")}
+        menuLabel={quickT("menu")}
+        actions={[
+          { key: "recipe", label: quickT("createRecipe"), href: "/recipes/new" },
+          // The day's activities are a dialog on this page already, so the row
+          // opens that one instead of routing through a second copy of it.
+          { key: "activity", label: quickT("addActivity"), event: "open-activities" },
+          { key: "body", label: quickT("bodyCheckin"), href: "/progress?checkin=1" },
+        ]}
+        quickMeal={
+          aiOn
+            ? {
+                label: quickT("describeMeal"),
+                title: diaryT("ai.title"),
+                hint: diaryT("ai.hint"),
+                dialogCloseLabel: common("close"),
+                initialOpen: params.quickMeal === "1",
+                children: (
+                  <>
+                    {params.error && ["unsafeUrl", "inputRequired", "imageInvalid", "imageTooLarge", "imageEmpty"].includes(params.error) ? (
+                      <div className="notice notice-warn">{diaryT(`ai.errors.${params.error}`)}</div>
+                    ) : null}
+                    <QuickMealForm date={selectedDate} returnTo="/" />
+                  </>
+                ),
+              }
+            : null
+        }
+      />
     </AppShell>
   );
 }

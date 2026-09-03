@@ -24,7 +24,7 @@ export async function generateMetadata() {
   return { title: t("title") };
 }
 
-export default async function ProgressPage() {
+export default async function ProgressPage({ searchParams }: { searchParams: Promise<{ checkin?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
@@ -32,6 +32,9 @@ export default async function ProgressPage() {
   const bodyT = await getTranslations("bodyProgress");
   const scanT = await getTranslations("bodyScan");
   const locale = user.language;
+  // Today's quick-action menu links here for a measurement, so the form it
+  // means opens by itself instead of leaving the reader to find it.
+  const params = await searchParams;
 
   const [entries, profile, diaryDays, nutritionTargets, body, scan] = await Promise.all([
     prisma.weightEntry.findMany({ where: { userId: user.id }, orderBy: { date: "asc" }, take: 400 }),
@@ -75,7 +78,7 @@ export default async function ProgressPage() {
      provenance rather than a different feature. */
   const checkinControls = (
     <>
-      <BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} />
+      <BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} initialOpen={params.checkin === "1"} />
       <BodyScanForm
         today={formatDateKey(new Date())}
         heightCm={profile?.heightCm ? Number(profile.heightCm) : null}
@@ -161,11 +164,21 @@ export default async function ProgressPage() {
           </section>
         </div>
 
-        <aside>
+        <aside className="stack">
           <section className="card">
             <h2>{t("addWeight")}</h2>
             <WeightForm today={formatDateKey(new Date())} />
           </section>
+
+          {/* With both visualisations switched off the body section above is not
+              rendered, and with it went the only way to record a measurement at
+              all - including the one Today's quick-action menu links to. */}
+          {anyPanel(body.panels) ? null : (
+            <section className="card">
+              <h2>{bodyT("checkin.title")}</h2>
+              {checkinControls}
+            </section>
+          )}
         </aside>
       </div>
     </AppShell>

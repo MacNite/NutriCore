@@ -27,6 +27,13 @@
   --danger: #a3372c;
   --danger-bg: #fbeceb;
   --focus: #0b63c5;
+  /* Quick-action menu: one circle per kind of entry, so a row is recognised
+     before it is read. */
+  --action-meal: #1f6b48;
+  --action-recipe: #5c47a0;
+  --action-activity: #1f5fa8;
+  --action-body: #a2661f;
+  --action-contrast: #ffffff;
   --shadow: 0 6px 24px rgba(31, 63, 45, 0.08);
   --radius: 18px;
   --radius-sm: 10px;
@@ -63,6 +70,11 @@
     --danger: #f0938a;
     --danger-bg: #3a1f1c;
     --focus: #7fb6ff;
+    --action-meal: #5cc490;
+    --action-recipe: #b19ce4;
+    --action-activity: #7fb6ff;
+    --action-body: #e0aa63;
+    --action-contrast: #0b1a12;
     --shadow: none;
   }
 }
@@ -92,6 +104,11 @@
   --danger: #f0938a;
   --danger-bg: #3a1f1c;
   --focus: #7fb6ff;
+  --action-meal: #5cc490;
+  --action-recipe: #b19ce4;
+  --action-activity: #7fb6ff;
+  --action-body: #e0aa63;
+  --action-contrast: #0b1a12;
   --shadow: none;
 }
 
@@ -1204,10 +1221,6 @@ legend {
 }
 
 .fab {
-  position: fixed;
-  right: 22px;
-  bottom: 22px;
-  z-index: 4;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1225,6 +1238,97 @@ legend {
 .fab:hover {
   background: var(--accent-hover);
   text-decoration: none;
+}
+
+/* The quick-action menu. The button is round and unlabelled - it opens a list
+   whose rows name themselves - so nothing has to line up with a heading beside
+   it, which is what the labelled pill never managed on a narrow screen. */
+.fab-stack {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  /* Above the bottom navigation, which the menu and its backdrop cover. */
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.fab-toggle {
+  width: 60px;
+  height: 60px;
+  justify-content: center;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.fab-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  background: rgba(8, 18, 12, 0.45);
+}
+
+.fab-menu {
+  display: flex;
+  max-width: calc(100vw - 32px);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: var(--shadow), 0 10px 30px rgba(8, 18, 12, 0.18);
+}
+
+.fab-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+}
+
+.fab-action:hover {
+  text-decoration: none;
+}
+
+.fab-action-label {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.fab-action-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 20px;
+  color: var(--action-contrast);
+  background: var(--action-meal);
+}
+
+.fab-action-icon[data-tone="recipe"] { background: var(--action-recipe); }
+.fab-action-icon[data-tone="activity"] { background: var(--action-activity); }
+.fab-action-icon[data-tone="body"] { background: var(--action-body); }
+
+.fab-action:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+  border-radius: 26px;
 }
 
 .quick-meal-dialog {
@@ -1295,10 +1399,9 @@ legend {
     font-size: 20px;
   }
 
-  .fab {
+  .fab-stack {
     bottom: 82px;
     right: 16px;
-    padding: 13px 17px;
   }
 
   .bottom-nav {

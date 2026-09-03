@@ -31,9 +31,12 @@ const COMPOSITION = [
 export function BodyCheckinForm({
   today,
   measurements,
+  initialOpen = false,
 }: {
   today: string;
   measurements: BodyMeasurement[];
+  /** Set by the quick-action menu on Today, which links straight to this form. */
+  initialOpen?: boolean;
 }) {
   const t = useTranslations("bodyProgress");
   const common = useTranslations("common");
@@ -53,6 +56,7 @@ export function BodyCheckinForm({
       id={`${id}-checkin`}
       title={t("checkin.title")}
       closeLabel={common("close")}
+      initialOpen={initialOpen}
       triggerClassName="btn btn-primary"
       trigger={
         <>
