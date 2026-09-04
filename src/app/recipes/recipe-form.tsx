@@ -1,15 +1,18 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useActionState, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { saveRecipeAction } from "@/server/recipe-actions";
 import type { FormState } from "@/server/profile-actions";
 import { BarcodeScanner } from "@/components/barcode-scanner";
+import { SourceBadge } from "@/components/source-badge";
+import { useFoodSearch } from "@/components/use-food-search";
 import { allowedUnits } from "@/lib/units";
 import { effectiveDensity } from "@/lib/density";
+import { formatKcal, formatNumber } from "@/lib/format";
+import { isLocale, DEFAULT_LOCALE } from "@/i18n/locales";
 
 interface Ingredient { foodId: string; name: string; amount: number; unit: string; units?: string[] }
-interface SearchResult { id: string; name: string; brand: string | null; basisUnit: "G" | "ML"; densityGPerMl: number | null; servings: { label: string; amount: number; unit: string; gramEquivalent: number | null; mlEquivalent: number | null }[] }
 
 /**
  * What this ingredient may be measured in.
@@ -27,11 +30,15 @@ function unitOptions(item: Ingredient) {
 }
 
 export function RecipeForm({ recipe, createMode = false }: { recipe?: { id: string; name: string; description: string; servings: number; yieldWeightG: number | null; instructions: string; tags: string[]; ingredients: Ingredient[] }; createMode?: boolean }) {
-  const t = useTranslations("recipes"); const common = useTranslations("common"); const errors = useTranslations("errors");
+  const t = useTranslations("recipes"); const common = useTranslations("common"); const errors = useTranslations("errors"); const foods = useTranslations("foods");
+  const rawLocale = useLocale(); const locale = isLocale(rawLocale) ? rawLocale : DEFAULT_LOCALE;
   const [state, action, pending] = useActionState<FormState, FormData>(saveRecipeAction, {});
   const [ingredients, setIngredients] = useState<Ingredient[]>(recipe?.ingredients ?? []);
-  const [query, setQuery] = useState(""); const [results, setResults] = useState<SearchResult[]>([]);
-  useEffect(() => { if (query.trim().length < 2) { setResults([]); return; } const controller = new AbortController(); const timer = setTimeout(async () => { const response = await fetch(`/api/foods/search?q=${encodeURIComponent(query)}`, { signal: controller.signal }); if (response.ok) setResults(((await response.json()) as { results: SearchResult[] }).results); }, 300); return () => { clearTimeout(timer); controller.abort(); }; }, [query]);
+  // The same search the food page runs, so an ingredient can come from Open
+  // Food Facts or a barcode and not only from what is already stored. Drafts
+  // are left out: an unconfirmed recipe has no food entry to weigh.
+  const { query, setQuery, outcome, loading, status, scan, searchExternal } = useFoodSearch({ minQueryLength: 2 });
+  const results = outcome?.results ?? [];
   return <form action={action}>
     {recipe && !createMode ? <input type="hidden" name="id" value={recipe.id} /> : null}
     <input type="hidden" name="ingredients" value={JSON.stringify(ingredients.map(({ foodId, amount, unit }) => ({ foodId, amount, unit })))} />
@@ -45,17 +52,31 @@ export function RecipeForm({ recipe, createMode = false }: { recipe?: { id: stri
     </section><section className="card"><h2>{t("ingredients")}</h2>
       {/* The scanner sits inside the search line, as it does in the food search:
           scanning is a way of filling this field, not a separate action. */}
-      <div className="field"><label htmlFor="ingredient-search">{t("searchFood")}</label>
+      <div className="field" style={{ marginBottom: 0 }}><label htmlFor="ingredient-search">{foods("searchPlaceholder")}</label>
         <div className="search-with-action">
-          <input id="ingredient-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
-          <BarcodeScanner compact onScan={setQuery} />
+          {/* Enter here used to submit the recipe - from a search field, in the
+              middle of assembling it. It does what it does in the food search
+              instead: it asks the provider. */}
+          <input id="ingredient-search" type="search" inputMode="search" value={query} placeholder={foods("searchPlaceholder")}
+            autoComplete="off" aria-describedby="ingredient-search-status"
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => { if (event.key !== "Enter") return; event.preventDefault(); if (query.trim().length >= 3) searchExternal(); }} />
+          <BarcodeScanner compact onScan={scan} />
         </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, margin: "10px 0", alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" className="btn btn-quiet" disabled={loading || query.trim().length < 3} onClick={searchExternal}>{foods("searchExternal")}</button>
+        <span id="ingredient-search-status" role="status" aria-live="polite" className="muted" style={{ fontSize: 13 }}>{status}</span>
       </div>
       {results.map((food) => {
         // Through the same rule the save applies, so the dropdown cannot refuse
         // a food the AI import would convert - or offer one it would reject.
         const units = allowedUnits({ basisUnit: food.basisUnit, ...effectiveDensity(food), servings: food.servings });
-        return <div className="row" key={food.id}><div className="row-body"><strong>{food.name}</strong><span>{food.brand}</span></div>
+        return <div className="row" key={food.id}><div className="row-body"><strong>{food.name}</strong>
+          <span>{food.brand ? `${food.brand} · ` : ""}{food.nutrients.energyKcal == null ? "–" : `${formatKcal(food.nutrients.energyKcal, locale)} kcal`} {foods("perBasis", { amount: formatNumber(food.basisAmount, locale, 0), unit: food.basisUnit === "ML" ? "ml" : "g" })}</span></div>
+          {/* Which store the food came from, so a fresh Open Food Facts hit is
+              distinguishable from something already in the database. */}
+          <SourceBadge source={food.sourceType} />
           {/* A recipe ingredient has to end up with a weight, and a food sold by
               volume with no stored density has none. Saying so here beats adding
               it and failing the save with "Unbekannte Einheit". */}
