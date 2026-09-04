@@ -68,6 +68,30 @@ export function placeholderReason(failureKind: string | null): AiPlaceholderReas
   return "OTHER";
 }
 
+/**
+ * Machine tokens the worker stores as its own message. They name the step that
+ * failed rather than the problem, and each one already has a sentence in the
+ * reason above, so showing them again would only be noise in a tooltip.
+ */
+const OPAQUE_MESSAGES = /^(source-|unsafe-source:|scan-|AI processing failed$)/;
+
+/**
+ * The run's own last error line, for the reader who wants more than the reason.
+ *
+ * The five reasons above answer "is this mine to fix"; they deliberately say
+ * nothing about *what* went wrong, so a run that died on "Cannot resolve
+ * portion: density-required" reads exactly like any other end in an error and
+ * the one line that explains it is only in the admin queue. It is kept here so
+ * the failed row can carry it, and dropped when it is a token the reason has
+ * already said in words.
+ */
+export function placeholderDetail(errorMessage: string | null): string | undefined {
+  const message = errorMessage?.trim();
+  if (!message || OPAQUE_MESSAGES.test(message)) return undefined;
+  // A tooltip, not a log: one line of it is what a person will read.
+  return message.length > 200 ? `${message.slice(0, 199)}…` : message;
+}
+
 export interface AiPlaceholder {
   /** The AiJob id. Stable while the run lasts and gone once it produced its entry. */
   id: string;
@@ -85,6 +109,12 @@ export interface AiPlaceholder {
   meal?: MealType;
   /** Why it failed, in the terms the submitter can act on. FAILED only. */
   reason?: AiPlaceholderReason;
+  /**
+   * The failure in the worker's own words, where they add something to the
+   * reason. Shown on the row's failure tag rather than in the list itself: it
+   * is a diagnostic line, sometimes untranslated, and the row is one line high.
+   */
+  detail?: string;
   /**
    * Whether running it again has anything to run on. A photo is deleted the
    * moment its job fails - it is the most private thing the input holds and
@@ -122,6 +152,7 @@ const unfinishedWhere = (userId: string) => ({
 function failedFields(job: {
   status: string;
   failureKind: string | null;
+  errorMessage: string | null;
   metadata: unknown;
   ingestionInput: { text: string | null; sourceUrl: string | null; imageMime: string | null } | null;
 }) {
@@ -130,6 +161,7 @@ function failedFields(job: {
   const input = job.ingestionInput;
   return {
     reason: placeholderReason(job.failureKind),
+    detail: placeholderDetail(job.errorMessage),
     retryable: cached || Boolean(input?.text?.trim() || input?.sourceUrl?.trim() || input?.imageMime),
   };
 }
@@ -153,6 +185,7 @@ export async function mealPlaceholders(userId: string, date: string): Promise<Ai
       entityId: true,
       metadata: true,
       failureKind: true,
+      errorMessage: true,
       ingestionInput: { select: { text: true, sourceUrl: true, imageMime: true, meal: true } },
     },
   });
@@ -187,6 +220,7 @@ export async function recipePlaceholders(userId: string): Promise<AiPlaceholder[
       entityId: true,
       metadata: true,
       failureKind: true,
+      errorMessage: true,
       ingestionInput: { select: { text: true, sourceUrl: true, imageMime: true, intent: true } },
     },
   });

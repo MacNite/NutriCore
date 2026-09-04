@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const { findMany } = vi.hoisted(() => ({ findMany: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { aiJob: { findMany } } }));
-import { hasRunInFlight, mealPlaceholders, placeholderReason, recipePlaceholders } from "./ai-placeholders";
+import { hasRunInFlight, mealPlaceholders, placeholderDetail, placeholderReason, recipePlaceholders } from "./ai-placeholders";
 beforeEach(() => findMany.mockReset());
 describe("intent placeholders", () => {
   it("queries meal placeholders by stored intent", async () => { findMany.mockResolvedValue([]); await mealPlaceholders("u", "2026-09-03"); expect(findMany.mock.calls[0][0].where).toMatchObject({ entityType: "AI_INGESTION", ingestionInput: { intent: "MEAL" } }); });
@@ -55,6 +55,31 @@ describe("failed placeholders", () => {
     const [placeholder] = await recipePlaceholders("u");
     expect(placeholder).not.toHaveProperty("reason");
     expect(placeholder).not.toHaveProperty("retryable");
+  });
+
+  /**
+   * The five reasons are deliberately coarse, so "Der Lauf ist mit einem Fehler
+   * geendet" was all a run said however it died. The worker's own line is
+   * carried along for the tag's tooltip, minus the tokens that only name a step.
+   */
+  it("carries the run's own error line for the failures the reason cannot tell apart", async () => {
+    findMany.mockResolvedValue([failedJob({ failureKind: "UNKNOWN", errorMessage: "Cannot resolve portion: density-required" })]);
+    await expect(recipePlaceholders("u")).resolves.toMatchObject([
+      { reason: "OTHER", detail: "Cannot resolve portion: density-required" },
+    ]);
+  });
+
+  it("leaves out a message the reason has already said in words", async () => {
+    findMany.mockResolvedValue([failedJob({ failureKind: "SOURCE_UNAVAILABLE", errorMessage: "source-no-ingredients" })]);
+    const [placeholder] = await recipePlaceholders("u");
+    expect(placeholder.detail).toBeUndefined();
+  });
+
+  it("keeps the detail to a line a tooltip can hold", () => {
+    expect(placeholderDetail("x".repeat(400))).toHaveLength(200);
+    expect(placeholderDetail("  spaced  ")).toBe("spaced");
+    expect(placeholderDetail(null)).toBeUndefined();
+    expect(placeholderDetail("AI processing failed")).toBeUndefined();
   });
 
   it("reads every failure kind as something the submitter can act on", () => {
