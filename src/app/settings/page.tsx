@@ -57,6 +57,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               composition: profile?.showBodyComposition ?? DEFAULT_PANELS.composition,
               shape: profile?.showBodyShape ?? DEFAULT_PANELS.shape,
             }}
+            addActivityCalories={profile?.addActivityCalories ?? true}
           />
         </div>
 

@@ -21,7 +21,7 @@ const ACTIVITIES = ["SEDENTARY", "LIGHT", "MODERATE", "ACTIVE", "VERY_ACTIVE"] a
 const GOALS = ["LOSE", "MAINTAIN", "GAIN", "CUSTOM"] as const;
 
 /** Shared by onboarding and settings so the two can never drift apart. */
-export function ProfileFields({ values }: { values: ProfileValues }) {
+export function ProfileFields({ values, showLanguage = true }: { values: ProfileValues; showLanguage?: boolean }) {
   const t = useTranslations("profile");
 
   return (
@@ -31,13 +31,13 @@ export function ProfileFields({ values }: { values: ProfileValues }) {
         <input id="displayName" name="displayName" type="text" defaultValue={values.displayName} required maxLength={80} />
       </div>
 
-      <div className="field">
+      {showLanguage ? <div className="field">
         <label htmlFor="language">{t("language")}</label>
         <select id="language" name="language" defaultValue={values.language}>
           <option value="de">Deutsch</option>
           <option value="en">English</option>
         </select>
-      </div>
+      </div> : <input type="hidden" name="language" value={values.language} />}
 
       <div className="field-row">
         <div className="field">

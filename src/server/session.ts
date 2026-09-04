@@ -15,6 +15,7 @@ export interface SessionUser {
   onboarded: boolean;
   aiEnabled: boolean;
   researchEnabled: boolean;
+  addActivityCalories: boolean;
   role: "USER" | "ADMIN";
   mustChangePassword: boolean;
 }
@@ -45,6 +46,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     onboarded: Boolean(user.profile?.onboardedAt),
     aiEnabled: user.profile?.aiEnabled ?? true,
     researchEnabled: user.profile?.researchEnabled ?? false,
+    addActivityCalories: user.profile?.addActivityCalories ?? true,
     role: user.role,
     mustChangePassword: user.mustChangePassword,
   };

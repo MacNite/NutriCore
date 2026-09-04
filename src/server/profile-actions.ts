@@ -139,21 +139,25 @@ export async function saveTargetOverrideAction(_state: FormState, formData: Form
   return { ok: true };
 }
 
-/**
- * Language and the AI flags are saved separately because they no longer live on
- * the same page: an unchecked checkbox submits nothing, so one action reading
- * both would silently switch every AI flag off whenever the language form - the
- * only one a non-administrator sees - was submitted.
- */
-export async function saveLanguageAction(_state: FormState, formData: FormData): Promise<FormState> {
+/** Save every control in the single personalisation form atomically. */
+export async function savePersonalizationAction(_state: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   const parsed = z.enum(LOCALES).safeParse(formData.get("language"));
   if (!parsed.success) return { error: "validation" };
 
-  await prisma.userProfile.update({ where: { userId: user.id }, data: { language: parsed.data } });
+  await prisma.userProfile.update({
+    where: { userId: user.id },
+    data: {
+      language: parsed.data,
+      showBodyComposition: asBool(formData.get("showBodyComposition")),
+      showBodyShape: asBool(formData.get("showBodyShape")),
+      addActivityCalories: asBool(formData.get("addActivityCalories")),
+    },
+  });
 
   (await cookies()).set("NEXT_LOCALE", parsed.data, { path: "/", maxAge: 31_536_000, sameSite: "lax" });
   revalidatePath("/", "layout");
+  revalidatePath("/progress");
   return { ok: true };
 }
 
