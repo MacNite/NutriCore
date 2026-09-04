@@ -3,10 +3,8 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
-import { WeightChart } from "@/components/weight-chart";
 import { WeightLog } from "@/components/weight-log";
 import { NutritionProgressChart } from "@/components/nutrition-progress-chart";
-import { WeightForm } from "./weight-form";
 import { prisma } from "@/lib/db";
 import { formatDateKey } from "@/server/diary";
 import type { EntrySnapshot } from "@/server/diary";
@@ -38,7 +36,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
 
   const [entries, profile, diaryDays, nutritionTargets, body, scan] = await Promise.all([
     prisma.weightEntry.findMany({ where: { userId: user.id }, orderBy: { date: "asc" }, take: 400 }),
-    prisma.userProfile.findUnique({ where: { userId: user.id }, select: { targetWeightKg: true, heightCm: true } }),
+    prisma.userProfile.findUnique({ where: { userId: user.id }, select: { heightCm: true } }),
     prisma.diaryDay.findMany({ where: { userId: user.id }, include: { entries: true }, orderBy: { date: "desc" }, take: 90 }),
     prisma.nutritionTarget.findMany({ where: { userId: user.id }, orderBy: { validFrom: "asc" } }),
     loadBodyProgress(user.id),
@@ -77,7 +75,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
      produce the same measurements, and which one someone used is a detail of
      provenance rather than a different feature. */
   const checkinControls = (
-    <>
+    <span className="body-checkin-actions">
       <BodyCheckinForm today={formatDateKey(new Date())} measurements={body.measurements} initialOpen={params.checkin === "1"} />
       <BodyScanForm
         today={formatDateKey(new Date())}
@@ -91,7 +89,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
           {scanT(scan.state === "AWAITING_REVIEW" ? "capture.pendingReview" : "capture.pendingWorking")}
         </Link>
       ) : null}
-    </>
+    </span>
   );
 
   return (
@@ -145,15 +143,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
             {points.length === 0 ? (
               <p className="empty">{t("noWeightData")}</p>
             ) : (
-              <>
-                <WeightChart
-                  points={points}
-                  goalKg={profile?.targetWeightKg ? Number(profile.targetWeightKg) : null}
-                  locale={locale}
-                />
-
-                <WeightLog rows={weightRows} locale={locale} />
-              </>
+              <WeightLog rows={weightRows} locale={locale} />
             )}
           </section>
 
@@ -164,22 +154,19 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
           </section>
         </div>
 
-        <aside className="stack">
-          <section className="card">
-            <h2>{t("addWeight")}</h2>
-            <WeightForm today={formatDateKey(new Date())} />
-          </section>
-
-          {/* With both visualisations switched off the body section above is not
-              rendered, and with it went the only way to record a measurement at
-              all - including the one Today's quick-action menu links to. */}
-          {anyPanel(body.panels) ? null : (
+        {/* With both visualisations switched off the body section above is not
+            rendered, and with it went the only way to record a measurement at
+            all - including the one Today's quick-action menu links to. That
+            check-in is the only thing the column carries, so with the section
+            on screen there is no column. */}
+        {anyPanel(body.panels) ? null : (
+          <aside className="stack">
             <section className="card">
               <h2>{bodyT("checkin.title")}</h2>
               {checkinControls}
             </section>
-          )}
-        </aside>
+          </aside>
+        )}
       </div>
     </AppShell>
   );

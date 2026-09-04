@@ -240,8 +240,8 @@ export const METRIC_PANEL: Record<BodyMetricKey, keyof BodyPanels | null> = {
  * Weight rides along for as long as the section exists at all: it is the value
  * every other reading is understood against, and a history of circumferences
  * with no weight beside them is harder to read, not tidier. With both switches
- * off nothing is left - the section goes, weight included, because its own card
- * already covers it.
+ * off nothing is left - the section goes, weight included, and the weight card
+ * below it keeps the entries themselves.
  */
 export function panelMetrics(panels: BodyPanels): BodyMetricKey[] {
   if (!anyPanel(panels)) return [];

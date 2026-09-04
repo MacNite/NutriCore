@@ -1725,7 +1725,21 @@ legend {
 .food-search-message, .food-search-group { margin: 0; padding: 10px 12px; }
 .food-search-group { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }
 .food-search-actions { display: flex; align-items: center; gap: 10px; padding: 10px; flex-wrap: wrap; font-size: 13px; }
-@media (max-width: 600px) { .dialog-toolbar { align-items: center; } .dialog-toolbar > strong { white-space: nowrap; } .food-search-panel { position: absolute; left: min(-90px, 0px); right: 0; } }
+/* The dialog body scrolls, so it also clips: a meal with nothing in it yet is
+   shorter than the panel and cut the results off. While the panel is up the
+   body keeps room for it. */
+.app-dialog-body:has(.food-search-panel) { min-height: min(430px, 62dvh); }
+/* On a phone the panel takes the whole toolbar rather than just the input, so
+   it gains the width of the calorie total beside it. Measured against the
+   toolbar and not by a fixed offset: an offset wide enough for "1.234 kcal"
+   pushes the panel outside the dialog, which clips it, when the total is still
+   "0 kcal". */
+@media (max-width: 600px) {
+  .dialog-toolbar { align-items: center; position: relative; }
+  .dialog-toolbar > strong { white-space: nowrap; }
+  .dialog-toolbar > .food-search-dropdown { position: static; }
+  .food-search-panel { left: 0; right: 0; }
+}
 
 /* --------------------------------------------- Body progress (design preview)
    Prototype styles for /progress/body-preview. Everything below reuses the
@@ -1747,6 +1761,15 @@ legend {
 
 /* The picker and the check-in sit together in the card head. */
 .body-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Recording a measurement and starting a scan are two separate decisions, so
+   the buttons are not allowed to touch. */
+.body-checkin-actions {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -2254,8 +2277,19 @@ legend {
   gap: 12px;
 }
 
+/* Fields in a row are as tall as the tallest of them, and the spare height went
+   into the input: one box beside another was visibly taller whenever its label
+   wrapped or something sat under it. The label and the box keep their own
+   heights and the row's spare height stays at the bottom. */
 .body-checkin-grid .field {
   margin-bottom: 0;
+  align-content: start;
+}
+
+/* A date input asks for a little more height than a number input, which is
+   visible as soon as the two sit side by side, so both are told what to be. */
+.body-checkin-grid input {
+  height: 44px;
 }
 
 /* Two ways in, one per button. A phone opening its camera when someone meant

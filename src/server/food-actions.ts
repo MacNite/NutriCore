@@ -93,29 +93,3 @@ export async function createFoodAction(_state: FormState, formData: FormData): P
   const date = String(formData.get("date") ?? "");
   redirect(`/foods/${food.id}?meal=${meal}${date ? `&date=${date}` : ""}`);
 }
-
-const weightSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  weightKg: z.coerce.number().min(20).max(400),
-  note: z.string().trim().max(500).optional(),
-});
-
-export async function addWeightAction(_state: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireUser();
-  const parsed = weightSchema.safeParse({
-    date: formData.get("date"),
-    weightKg: formData.get("weightKg"),
-    note: formData.get("note") ?? "",
-  });
-  if (!parsed.success) return { error: "validation" };
-
-  const date = new Date(`${parsed.data.date}T00:00:00.000Z`);
-  await prisma.weightEntry.upsert({
-    where: { userId_date: { userId: user.id, date } },
-    create: { userId: user.id, date, weightKg: parsed.data.weightKg, note: parsed.data.note || null },
-    update: { weightKg: parsed.data.weightKg, note: parsed.data.note || null },
-  });
-
-  revalidatePath("/progress");
-  return { ok: true };
-}

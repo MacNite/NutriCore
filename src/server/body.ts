@@ -54,6 +54,7 @@ export async function loadBodyProgress(userId: string): Promise<BodyProgressData
       where: { userId },
       select: {
         heightCm: true,
+        targetWeightKg: true,
         birthDate: true,
         biologicalSex: true,
         bodyType: true,
@@ -125,6 +126,7 @@ export async function loadBodyProgress(userId: string): Promise<BodyProgressData
       heightCm: profile?.heightCm ? Number(profile.heightCm) : 0,
       sex: sex === "MALE" ? "male" : sex === "FEMALE" ? "female" : null,
       ageYears: ageInYears(profile?.birthDate ?? null),
+      targetWeightKg: profile?.targetWeightKg ? Number(profile.targetWeightKg) : null,
     },
     appearance: {
       type: profile?.bodyType ?? DEFAULT_APPEARANCE.type,

@@ -222,8 +222,9 @@ Specify at least ten distinct, production-ready previews. Include all of these:
 5. Recipe editor/nutrition coverage plus AI-imported draft review.
 6. Activity editor with activity, intensity, duration, and estimated active
    calories visibly separate from the daily allowance.
-7. Progress view with weight chart, seven-day average, goal line, nutrition
-   trend, accessible summary/table cue, and add-weight form.
+7. Progress view with the measurement series over time, its trailing average
+   and goal line, nutrition trend, accessible summary/table cue, and the
+   weight entry log.
 8. Manual body check-in and body-progress visualisation/history.
 9. Body-scan capture guidance: front/side, plain wall, close-fitting clothing,
    full body, arms about a hand’s width from the torso, and consent/expiry copy.

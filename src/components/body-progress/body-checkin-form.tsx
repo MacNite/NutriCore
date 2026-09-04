@@ -111,7 +111,6 @@ export function BodyCheckinForm({
                 step="0.1"
                 defaultValue={value("weightKg")}
               />
-              <span className="hint">{t("checkin.weightHint")}</span>
             </div>
           </div>
         </fieldset>

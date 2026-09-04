@@ -95,14 +95,23 @@ export function BodyMeasurementChart({
       .filter((point) => days == null || daysBetween(point.measurement.date, lastDate) <= days);
   }, [measurements, metric, range, profile.heightCm]);
 
+  /* The weight goal is the one value on this chart that is not a measurement,
+     so it is only drawn where it means something: on the weight series, and
+     inside the scale rather than pinned to its edge. */
+  const goalKg = metric === "weightKg" ? profile.targetWeightKg : null;
+
   const chart = useMemo(() => {
     if (points.length < 2) return null;
     const values = points.map((point) => point.value!);
+    /* The measured range is what the chart is described as covering; the goal
+       only widens the scale so its line has somewhere to sit. */
     const rawMin = Math.min(...values);
     const rawMax = Math.max(...values);
-    const pad = Math.max((rawMax - rawMin) * 0.15, 10 ** -def.digits);
-    const min = rawMin - pad;
-    const max = rawMax + pad;
+    const low = goalKg == null ? rawMin : Math.min(rawMin, goalKg);
+    const high = goalKg == null ? rawMax : Math.max(rawMax, goalKg);
+    const pad = Math.max((high - low) * 0.15, 10 ** -def.digits);
+    const min = low - pad;
+    const max = high + pad;
     const from = points[0].measurement.date;
     const span = Math.max(daysBetween(from, points[points.length - 1].measurement.date), 1);
     return {
@@ -113,7 +122,7 @@ export function BodyMeasurementChart({
       x: (date: string) => PAD.left + (daysBetween(from, date) / span) * (WIDTH - PAD.left - PAD.right),
       y: (value: number) => PAD.top + (1 - (value - min) / (max - min)) * (HEIGHT - PAD.top - PAD.bottom),
     };
-  }, [points, def.digits]);
+  }, [points, def.digits, goalKg]);
 
   const activePoint = points.find((point) => point.index === active) ?? null;
   const referenceInRange = points.some((point) => point.index === referenceIndex);
@@ -191,6 +200,29 @@ export function BodyMeasurementChart({
                   </text>
                 </g>
               ))}
+
+              {goalKg !== null ? (
+                <g>
+                  <line
+                    x1={PAD.left}
+                    x2={WIDTH - PAD.right}
+                    y1={chart.y(goalKg)}
+                    y2={chart.y(goalKg)}
+                    stroke="var(--accent)"
+                    strokeWidth="1.5"
+                    strokeDasharray="6 4"
+                  />
+                  <text
+                    x={WIDTH - PAD.right}
+                    y={chart.y(goalKg) - 5}
+                    fontSize="11"
+                    fill="var(--accent)"
+                    textAnchor="end"
+                  >
+                    {t("series.goalLine")}
+                  </text>
+                </g>
+              ) : null}
 
               {referenceInRange ? (
                 <g>

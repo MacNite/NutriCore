@@ -324,18 +324,15 @@
   "progress": {
     "title": "Fortschritt",
     "weight": "Gewicht",
-    "addWeight": "Gewicht eintragen",
     "weightValue": "Gewicht",
     "date": "Datum",
     "note": "Notiz",
     "trend": "7-Tage-Durchschnitt",
-    "goalLine": "Zielgewicht",
     "noWeightData": "Noch keine Gewichtseinträge.",
     "entries": "Einträge ({count})",
     "needMoreData": "Für einen gleitenden Durchschnitt werden mindestens 7 Einträge benötigt.",
     "chartSummary": "Gewicht von {from} bis {to}: {count} Einträge zwischen {min} und {max} kg.",
     "dayToDayNote": "Schwankungen von Tag zu Tag sind meist Wasser. Entscheidend ist der Trend.",
-    "saved": "Gewicht gespeichert.",
     "nutrition": {
       "title": "Ernährung",
       "subtitle": "Tägliche Zielerreichung deiner Kalorien, Makro- und Mikronährstoffe.",
@@ -499,6 +496,7 @@
       },
       "chartLabel": "{metric} im Verlauf, von {from} bis {to}, zwischen {min} und {max} {unit}.",
       "referenceMarker": "Referenz",
+      "goalLine": "Zielgewicht",
       "hint": "Punkt berühren oder fokussieren, um Wert und Veränderung zur Referenz anzuzeigen.",
       "pointLabel": "{date}, {metric} {value} {unit}, {delta} {deltaUnit} gegenüber der Referenz",
       "fromReference": "{delta} {unit} gegenüber der Referenz",
@@ -531,8 +529,7 @@
       "sourceOther": "Anderes Gerät",
       "save": "Messung speichern",
       "saved": "Messung gespeichert.",
-      "nothingEntered": "Trag mindestens einen Messwert ein.",
-      "weightHint": "Wird in deinem Gewichtsprotokoll gespeichert."
+      "nothingEntered": "Trag mindestens einen Messwert ein."
     },
     "figure": {
       "title": "Körperfigur",
