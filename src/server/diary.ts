@@ -255,6 +255,10 @@ export interface DiaryDayView {
     meal: MealType;
     entries: {
       id: string;
+      /** Set when the entry came from a food, so its row can lead to that food. */
+      foodId: string | null;
+      /** Same for a recipe: the row leads to the recipe it was logged from. */
+      recipeId: string | null;
       label: string;
       brand: string | null;
       quantity: number;
@@ -285,6 +289,8 @@ export async function getDiaryDay(userId: string, date: string): Promise<DiaryDa
     return {
       id: entry.id,
       meal: entry.meal,
+      foodId: entry.foodId,
+      recipeId: entry.recipeId,
       label: entry.label,
       brand: provenance?.brand ?? null,
       quantity: Number(entry.quantity),

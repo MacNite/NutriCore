@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { deleteEntryAction, updateEntryAction } from "@/server/diary-actions";
 import { formatKcal, formatNumber } from "@/lib/format";
@@ -14,6 +15,8 @@ export interface EntryView {
   unit: string;
   kcal: number | null;
   sourceType: string;
+  /** Detail page of what was logged, when the entry still points at one. */
+  href?: string | null;
 }
 
 export function DiaryEntryRow({
@@ -77,8 +80,12 @@ export function DiaryEntryRow({
     );
   }
 
-  return (
-    <div className="row">
+  // What the row says about the entry - name, amount, source, energy - is also
+  // the way to the food or recipe behind it. Only the reading part is the link:
+  // the edit and remove controls stay their own buttons next to it, and an
+  // entry whose food has since been deleted simply has nowhere to lead.
+  const body = (
+    <>
       <div className="row-body">
         <strong>{entry.label}</strong>
         <span>
@@ -90,6 +97,18 @@ export function DiaryEntryRow({
       {badge}
 
       <span className="row-value">{entry.kcal === null ? "–" : `${formatKcal(entry.kcal, locale)} kcal`}</span>
+    </>
+  );
+
+  return (
+    <div className={entry.href ? "row clickable-row" : "row"}>
+      {entry.href ? (
+        <Link className="row-main-link" href={entry.href} aria-label={a11y("openEntry", { name: entry.label })}>
+          {body}
+        </Link>
+      ) : (
+        body
+      )}
 
       <div className="row-actions">
         <button

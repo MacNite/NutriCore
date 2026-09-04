@@ -123,6 +123,34 @@ test("a user can create a custom food, log it and edit the portion", async ({ pa
   await expect(mealDialog.getByText(/250 kcal/).first()).toBeVisible();
 });
 
+test("an entry in a meal panel leads to the food behind it", async ({ page }) => {
+  await page.goto("/foods/new");
+  await page.getByLabel(/^name$/i).first().fill("Panelmilch");
+  await page.getByLabel(/^energy \(kcal\)|^energie \(kcal\)/i).fill("64");
+  await page.getByRole("button", { name: /^save$|^speichern$/i }).click();
+
+  // Saving lands on the new food's own page; "new" itself matches the shape of
+  // that path, so it has to be ruled out before the id is read off the URL.
+  await page.waitForURL(/\/foods\/(?!new)[^/]+/);
+  const foodPath = new URL(page.url()).pathname;
+  await page.getByLabel(/^move to$|^verschieben nach$/i).selectOption("BREAKFAST");
+  // The log button is named after the meal the page opened with, not the one
+  // just picked, so it is matched by any meal name.
+  await page.getByRole("button", { name: /breakfast|lunch|dinner|snacks|frühstück|mittagessen|abendessen/i }).click();
+  await page.waitForURL(/\/foods\?meal=BREAKFAST/);
+
+  // The row reads as the way back to the food, next to - not instead of - the
+  // controls that edit the amount or remove the entry.
+  await page.goto("/");
+  await mealRowTrigger(page, /breakfast|frühstück/i).click();
+  const mealDialog = page.getByRole("dialog", { name: /breakfast|frühstück/i });
+  await mealDialog.getByRole("link", { name: /Panelmilch/i }).click();
+
+  await page.waitForURL(new RegExp(`${foodPath}\\?`));
+  await expect(page).toHaveURL(/editMeal=BREAKFAST/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Panelmilch");
+});
+
 test("an unknown value is shown as a dash, never as zero", async ({ page }) => {
   await page.goto("/foods/new");
   await page.getByLabel(/^name$/i).first().fill("Unbekanntes Essen");

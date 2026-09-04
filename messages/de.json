@@ -758,6 +758,7 @@
     "openMenu": "Menü öffnen",
     "removeEntry": "{name} entfernen",
     "editEntry": "{name} bearbeiten",
+    "openEntry": "{name} öffnen",
     "addFood": "Lebensmittel hinzufügen",
     "toggleTheme": "Design wechseln",
     "changeLanguage": "Sprache wechseln"
