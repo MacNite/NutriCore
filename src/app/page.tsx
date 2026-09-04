@@ -10,8 +10,8 @@ import { SourceBadge } from "@/components/source-badge";
 import { QuickAddLink } from "@/components/quick-add";
 import { PendingProposals } from "@/components/pending-proposals";
 import { pendingProposals } from "@/server/pending-proposals";
-import { AiPlaceholderRow } from "@/components/ai-placeholder-row";
-import { mealPlaceholders } from "@/server/ai-placeholders";
+import { AiPlaceholderRow, aiPlaceholderLabels } from "@/components/ai-placeholder-row";
+import { hasRunInFlight, mealPlaceholders } from "@/server/ai-placeholders";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { QuickActionsFab } from "@/components/quick-actions-fab";
 import { AppDialog } from "@/components/app-dialog";
@@ -64,20 +64,17 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
     // followed submitting a meal, so one left undecided was invisible.
     pendingProposals(user.id),
     getActivityEntries(user.id, selectedDate),
-    // Meals the worker is still extracting. Until it finishes there is nothing
-    // to log yet, so each run stands in its own meal as a placeholder that only
-    // leads back to its review.
+    // Meals the worker is still extracting, and the ones whose run failed.
+    // Until it finishes there is nothing to log yet, so each run stands in its
+    // own meal as a placeholder that leads back to its review; a failed one
+    // stays put rather than vanishing, and carries the button that runs it
+    // again.
     mealPlaceholders(user.id, selectedDate),
   ]);
 
-  const placeholderLabels = {
-    name: placeholderT("name"),
-    hint: placeholderT("hint"),
-    queued: placeholderT("queued"),
-    running: placeholderT("running"),
-    tagAi: placeholderT("tagAi"),
-    tagDraft: placeholderT("tagDraft"),
-  };
+  const placeholderLabels = aiPlaceholderLabels((key) => placeholderT(key as "name"));
+  // Only a run that can still finish on its own is worth polling for.
+  const placeholdersInFlight = hasRunInFlight(placeholders);
 
   // The row previews the activities themselves, so a glance at the day says
   // what was done and not merely how many entries there are.
@@ -114,8 +111,9 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
       ) : null}
 
       {/* A finished run has to reach the page that is showing its placeholder,
-          or the stand-in would sit there until someone reloaded by hand. */}
-      {placeholders.length ? <AutoRefresh /> : null}
+          or the stand-in would sit there until someone reloaded by hand. A
+          failed one changes nothing until the reader acts, so it does not poll. */}
+      {placeholdersInFlight ? <AutoRefresh /> : null}
 
       <PendingProposals
         proposals={pending}
@@ -157,7 +155,14 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
               // the day's list, exactly like a meal that was never submitted.
               // Named once however many runs are in flight, since repeating one
               // fixed name would say nothing that the first one did not.
-              const preview = [...(mealPending.length ? [placeholderLabels.name] : []), ...entries.map((e) => e.label)];
+              const preview = [
+                ...(mealPending.some((placeholder) => placeholder.status !== "FAILED") ? [placeholderLabels.name] : []),
+                // A run that failed is named as failed here too: reading the
+                // day's list must not suggest a meal is on its way when the
+                // only thing waiting is a run that has already given up.
+                ...(mealPending.some((placeholder) => placeholder.status === "FAILED") ? [placeholderLabels.failedName] : []),
+                ...entries.map((e) => e.label),
+              ];
 
               return (
                 <div className="row clickable-row" key={meal}>
@@ -173,8 +178,8 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                     secondaryAutoFocusTarget=".meal-search-input"
                   >
                     <div className="dialog-toolbar"><strong>{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</strong><FoodSearchField variant="dropdown" meal={meal} date={selectedDate} editMeal={meal} locale={locale} researchAvailable={research.available} researchUnavailableReason={research.reason} /></div>
-                    {mealPending.map((placeholder) => <AiPlaceholderRow key={placeholder.id} placeholder={placeholder} labels={placeholderLabels} />)}
-                    {mealPending.length ? <p className="muted" style={{ margin: "8px 0 0" }}>{placeholderT("mealHint")}</p> : null}
+                    {mealPending.map((placeholder) => <AiPlaceholderRow key={placeholder.id} placeholder={placeholder} labels={placeholderLabels} returnTo="/" />)}
+                    {mealPending.length ? <p className="muted" style={{ margin: "8px 0 0" }}>{mealPending.some((placeholder) => placeholder.status !== "FAILED") ? placeholderT("mealHint") : placeholderT("failedHint")}</p> : null}
                     {entries.length === 0 && mealPending.length === 0 ? <p className="empty">{diaryT("empty")}</p> : entries.map((entry) => <DiaryEntryRow key={entry.id} entry={{ id: entry.id, label: entry.label, brand: entry.brand, quantity: entry.quantity, unit: entry.unit, kcal: entry.nutrients.energyKcal ?? null, sourceType: entry.sourceType }} date={selectedDate} locale={locale} badge={<SourceBadge source={entry.sourceType} />} />)}
                   </AppDialog>
                 </div>

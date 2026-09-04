@@ -9,8 +9,8 @@ import { validDateKey } from "@/lib/date";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { AiPlaceholderRow } from "@/components/ai-placeholder-row";
-import { recipePlaceholders } from "@/server/ai-placeholders";
+import { AiPlaceholderRow, aiPlaceholderLabels } from "@/components/ai-placeholder-row";
+import { hasRunInFlight, recipePlaceholders } from "@/server/ai-placeholders";
 
 export async function generateMetadata() {
   const t = await getTranslations("foods");
@@ -34,21 +34,17 @@ export default async function FoodsPage({
     orderBy: { updatedAt: "desc" },
     include: { _count: { select: { ingredients: true } } },
   });
-  // Recipes an AI run is still writing. They are listed alongside the real ones
-  // so a queued import is visible where its result will appear, rather than only
-  // on the page the submission happened to redirect to.
+  // Recipes an AI run is still writing, and the ones whose run failed. They are
+  // listed alongside the real ones so a queued import is visible where its
+  // result will appear, rather than only on the page the submission happened to
+  // redirect to - and so a failed one is still here to be re-run instead of
+  // having quietly disappeared with its input.
   const placeholders = await recipePlaceholders(user.id);
+  const inFlight = hasRunInFlight(placeholders);
   const recipesT = await getTranslations("recipes");
   const placeholderT = await getTranslations("aiPlaceholder");
   const common = await getTranslations("common");
-  const placeholderLabels = {
-    name: placeholderT("name"),
-    hint: placeholderT("hint"),
-    queued: placeholderT("queued"),
-    running: placeholderT("running"),
-    tagAi: placeholderT("tagAi"),
-    tagDraft: placeholderT("tagDraft"),
-  };
+  const placeholderLabels = aiPlaceholderLabels((key) => placeholderT(key as "name"));
 
   return (
     <AppShell displayName={user.displayName}>
@@ -80,17 +76,16 @@ export default async function FoodsPage({
           <Link className="btn btn-primary" href="/recipes/new">{recipesT("create")}</Link>
         </div>
         {placeholders.map((placeholder) => (
-          <AiPlaceholderRow key={placeholder.id} placeholder={placeholder} labels={placeholderLabels} />
+          <AiPlaceholderRow key={placeholder.id} placeholder={placeholder} labels={placeholderLabels} returnTo="/foods" />
         ))}
         {placeholders.length ? (
-          <>
-            <p className="muted" style={{ margin: "8px 0 0" }}>{placeholderT("recipeHint")}</p>
-            {/* Nothing here changes until the worker is done, so the list polls
-                for it: the placeholder then goes and the draft takes its place
-                without the reader reloading anything. */}
-            <AutoRefresh />
-          </>
+          <p className="muted" style={{ margin: "8px 0 0" }}>{inFlight ? placeholderT("recipeHint") : placeholderT("failedHint")}</p>
         ) : null}
+        {/* Nothing here changes until the worker is done, so the list polls for
+            it: the placeholder then goes and the draft takes its place without
+            the reader reloading anything. A failed run changes nothing on its
+            own, so a list holding only those does not poll at all. */}
+        {inFlight ? <AutoRefresh /> : null}
         {recipes.length === 0 && placeholders.length === 0 ? <p className="empty">{common("noData")}</p> : recipes.map((recipe) => (
           <div className="row" key={recipe.id}>
             <div className="row-body">

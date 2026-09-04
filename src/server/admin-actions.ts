@@ -11,7 +11,7 @@ import { deliverInvitation, issueInvitation, redeemableInvitation } from "./admi
 import { encryptMailPassword, getMailConfiguration } from "@/lib/mail";
 import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { ENRICHMENT_BATCH_LIMIT, ENRICHMENT_RETRY_MS, missingNutritionKeys } from "./food-enrichment";
-import { AI_JOB_OPERATIONS, AI_JOB_SELECTION_OPERATIONS, jobPriority, STUCK_RUNNING_MS, type AiJobOperation } from "./ai-types";
+import { AI_JOB_OPERATIONS, AI_JOB_REQUEUE_DATA, AI_JOB_SELECTION_OPERATIONS, jobPriority, STUCK_RUNNING_MS, type AiJobOperation } from "./ai-types";
 import { discardMealInputImages } from "./meal-image";
 
 /**
@@ -137,24 +137,12 @@ export async function setUserActiveAction(formData: FormData) {
   redirect("/admin");
 }
 
-/** Shared by every path that puts a job back on the queue. */
-const requeueData = {
-  status: "QUEUED" as const,
-  errorMessage: null,
-  errorDetail: null,
-  failureKind: null,
-  failedAt: null,
-  startedAt: null,
-  completedAt: null,
-  retryCount: 0,
-};
-
 /** A manual retry hands the job a fresh budget, not one more attempt on an exhausted one. */
 export async function retryAiJobAction(formData: FormData) {
   await requireAdmin();
   await prisma.aiJob.updateMany({
     where: { id: String(formData.get("jobId")), status: "FAILED" },
-    data: requeueData,
+    data: AI_JOB_REQUEUE_DATA,
   });
   redirect("/admin");
 }
@@ -191,7 +179,7 @@ export async function manageAiJobsAction(formData: FormData) {
   };
   switch (operation) {
     case "requeue": {
-      const result = await prisma.aiJob.updateMany({ where: { id: { in: ids } }, data: requeueData });
+      const result = await prisma.aiJob.updateMany({ where: { id: { in: ids } }, data: AI_JOB_REQUEUE_DATA });
       affected = result.count;
       break;
     }
@@ -213,7 +201,7 @@ export async function manageAiJobsAction(formData: FormData) {
       break;
     }
     case "requeueAllFailed": {
-      const result = await prisma.aiJob.updateMany({ where: { status: "FAILED" }, data: requeueData });
+      const result = await prisma.aiJob.updateMany({ where: { status: "FAILED" }, data: AI_JOB_REQUEUE_DATA });
       affected = result.count;
       break;
     }
@@ -232,7 +220,7 @@ export async function manageAiJobsAction(formData: FormData) {
     case "unstickRunning": {
       const result = await prisma.aiJob.updateMany({
         where: { status: "RUNNING", startedAt: { lt: new Date(Date.now() - STUCK_RUNNING_MS) } },
-        data: requeueData,
+        data: AI_JOB_REQUEUE_DATA,
       });
       affected = result.count;
       break;

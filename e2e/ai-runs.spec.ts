@@ -164,3 +164,44 @@ test("opening a finished run later stays on its review, which is the only way ba
   await page.waitForTimeout(5000);
   await expect(page).toHaveURL(new RegExp(`/ai-review/${input.id}$`));
 });
+
+test("a failed run stays in the recipe list, says why, and re-runs from there", async ({ page }) => {
+  // When Ollama cannot be reached the job burns its retries and ends FAILED,
+  // and the stand-in used to disappear with it: no recipe, no error, nothing to
+  // retry, so the submitted work looked silently thrown away.
+  const user = await registerAndOnboard(page);
+  await completeOnboarding(page);
+  const account = await accountOf(user.username);
+
+  const record = await prisma.aiIngestionInput.create({
+    data: { userId: account.id, intent: "RECIPE", text: "Hüttenkäse-Pizza", servings: 2 },
+  });
+  const job = await prisma.aiJob.create({
+    data: {
+      userId: account.id,
+      entityType: "AI_INGESTION",
+      entityId: record.id,
+      ingestionInputId: record.id,
+      status: "FAILED",
+      failedAt: new Date(),
+      retryCount: 2,
+      failureKind: "MODEL_UNREACHABLE",
+      errorMessage: "Ollama request failed",
+    },
+  });
+
+  await page.goto("/foods");
+  const row = page.locator(".ai-placeholder-failed").filter({ hasText: "Hüttenkäse-Pizza" });
+  await expect(row).toBeVisible();
+  await expect(row.getByText(/fehlgeschlagen|failed/i).first()).toBeVisible();
+  await expect(row.getByText(/Ollama/)).toBeVisible();
+
+  await row.getByRole("button", { name: /erneut versuchen|re-run/i }).click();
+
+  // Back on the queue with a fresh budget, and the row says so instead of
+  // reporting the failure it has just been given another attempt at.
+  await expect
+    .poll(async () => (await prisma.aiJob.findUniqueOrThrow({ where: { id: job.id }, select: { status: true, retryCount: true } })))
+    .toEqual({ status: "QUEUED", retryCount: 0 });
+  await expect(page.getByText(/In der Warteschlange|Queued/i)).toBeVisible();
+});
