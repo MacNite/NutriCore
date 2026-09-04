@@ -19,19 +19,23 @@ import {
 import { NUTRIENT_BY_KEY } from "@/lib/nutrients";
 import type { NutritionProgressPoint } from "@/lib/nutrition-progress";
 import {
+  ACTIVITY_SERIES,
   MACRO_KEYS,
   NUTRITION_SERIES,
+  activitySeriesPoints,
   availableMicros,
   axisScale,
   axesFor,
   bodySeriesPoints,
   expandSelection,
+  isActivitySeries,
   isNutritionSeries,
   isOverLimit,
   nutritionSeriesPoints,
   toggleSeries,
   trailingAverage,
   withinRange,
+  type ActivityDayPoint,
   type AxisKey,
   type ProgressSeriesKey,
   type Scale,
@@ -89,12 +93,14 @@ interface DrawnSeries {
   deltaUnit: string;
   metric?: BodySeriesMetricKey;
   nutrient?: string;
+  activity?: true;
   points: SeriesPoint[];
 }
 
 /**
- * The one time chart on the progress page: body measurements and daily target
- * attainment on a single time axis, several at once.
+ * The one time chart on the progress page: body measurements, daily target
+ * attainment and the calories sport and activity added, on a single time axis,
+ * several at once.
  *
  * Any number of chips can be on together. Series that share a unit share a
  * scale, and at most two scales are drawn — one on each side — because a third
@@ -109,6 +115,7 @@ export function BodyMeasurementChart({
   onCurrentIndex,
   metrics,
   nutritionPoints,
+  activityPoints = [],
   profile,
   locale,
 }: {
@@ -121,11 +128,14 @@ export function BodyMeasurementChart({
   metrics: BodySeriesMetricKey[];
   /** One point per diary day, as a share of that day's targets. */
   nutritionPoints: NutritionProgressPoint[];
+  /** One point per day with recorded sport or activity, in active kilocalories. */
+  activityPoints?: ActivityDayPoint[];
   profile: BodyProfile | null;
   locale: Locale;
 }) {
   const t = useTranslations("bodyProgress");
   const nt = useTranslations("progress.nutrition");
+  const at = useTranslations("progress.activity");
 
   const microKeys = useMemo(() => availableMicros(nutritionPoints), [nutritionPoints]);
   /* Nutrition sits between the two body figures it belongs with: what the body
@@ -133,9 +143,13 @@ export function BodyMeasurementChart({
   const chips: ProgressSeriesKey[] = useMemo(() => {
     const body = [...metrics];
     const nutrition: ProgressSeriesKey[] = nutritionPoints.length > 0 ? [...NUTRITION_SERIES] : [];
+    /* What sport added to a day reads against what was eaten that day, so the
+       activity chip sits at the end of that group rather than among the body
+       measurements. */
+    if (activityPoints.length > 0) nutrition.push(ACTIVITY_SERIES);
     const after = body.indexOf("bmi") + 1;
     return after > 0 ? [...body.slice(0, after), ...nutrition, ...body.slice(after)] : [...body, ...nutrition];
-  }, [metrics, nutritionPoints.length]);
+  }, [metrics, nutritionPoints.length, activityPoints.length]);
 
   const [selection, setSelection] = useState<ProgressSeriesKey[]>(() => chips.slice(0, 1));
   const [enabledMacros, setEnabledMacros] = useState<string[]>(MACRO_KEYS);
@@ -149,9 +163,11 @@ export function BodyMeasurementChart({
   /* The window is measured back from the newest data of any kind, so switching
      a chip does not slide the range under the reader. */
   const lastDate = useMemo(() => {
-    const dates = [measurements.at(-1)?.date, nutritionPoints.at(-1)?.date].filter((date): date is string => !!date);
+    const dates = [measurements.at(-1)?.date, nutritionPoints.at(-1)?.date, activityPoints.at(-1)?.date].filter(
+      (date): date is string => !!date,
+    );
     return dates.length === 0 ? null : dates.sort().at(-1)!;
-  }, [measurements, nutritionPoints]);
+  }, [measurements, nutritionPoints, activityPoints]);
 
   const series = useMemo<DrawnSeries[]>(() => {
     const sources = expandSelection(selection, enabledMacros, selectedMicros);
@@ -174,6 +190,17 @@ export function BodyMeasurementChart({
             points: withinRange(bodySeriesPoints(measurements, source.metric, profile), lastDate, days),
           };
         }
+        if (source.activity) {
+          return {
+            ...source,
+            color,
+            label: at("label"),
+            digits: 0,
+            unit: at("unit"),
+            deltaUnit: at("unit"),
+            points: withinRange(activitySeriesPoints(activityPoints), lastDate, days),
+          };
+        }
         const nutrient = NUTRIENT_BY_KEY.get(source.nutrient!);
         return {
           ...source,
@@ -186,7 +213,7 @@ export function BodyMeasurementChart({
         };
       })
       .filter((entry) => entry.points.length > 0);
-  }, [selection, enabledMacros, selectedMicros, measurements, nutritionPoints, profile, lastDate, days, locale, t]);
+  }, [selection, enabledMacros, selectedMicros, measurements, nutritionPoints, activityPoints, profile, lastDate, days, locale, t, at]);
 
   /* The weight goal is the one value on this chart that is not measured, so it
      is only drawn where it means something: on the weight scale. */
@@ -232,8 +259,14 @@ export function BodyMeasurementChart({
     const scale = scales.get(axis)!;
     return scale.min + (scale.max - scale.min) * fraction;
   };
-  const axisLabel = (axis: AxisKey, value: number) =>
-    axis === "target" ? `${formatNumber(value, locale, 0)} %` : formatMeasure(value, locale, 1);
+  /* Active calories name their unit once, on the shortest label of the axis,
+     rather than on every gridline where a four-digit day would run into the
+     plot. */
+  const axisLabel = (axis: AxisKey, value: number, withUnit = false) => {
+    if (axis === "target") return `${formatNumber(value, locale, 0)} %`;
+    if (axis === "activeKcal") return `${formatNumber(value, locale, 0)}${withUnit ? ` ${at("unit")}` : ""}`;
+    return formatMeasure(value, locale, 1);
+  };
 
   /* The reference marks a measurement session, so it is only drawn where a
      measurement is: on a chart of nutrition alone it would mark nothing. */
@@ -267,10 +300,37 @@ export function BodyMeasurementChart({
   const averages = series.length === 1 && series[0].metric ? trailingAverage(series[0].points.map((point) => point.value)) : null;
 
   const onlyNutrition = series.length > 0 && series.every((entry) => entry.nutrient);
-  const heading = metrics.length > 0 ? t("series.title") : nt("title");
-  const subtitle = metrics.length > 0 ? t("series.subtitle") : nt("subtitle");
+  const onlyActivity = series.length > 0 && series.every((entry) => entry.activity);
+  const readingHint = onlyActivity ? at("hint") : onlyNutrition ? nt("interactionHint") : t("series.hint");
+  /* With no body measurement to chart the card is named after whatever it does
+     hold, so a chart of activity alone is not headed "Nutrition". */
+  const onlyActivityAvailable = metrics.length === 0 && nutritionPoints.length === 0;
+  const heading = metrics.length > 0 ? t("series.title") : onlyActivityAvailable ? at("title") : nt("title");
+  const subtitle = metrics.length > 0 ? t("series.subtitle") : onlyActivityAvailable ? at("subtitle") : nt("subtitle");
   const emptyMessage =
     selection.includes("micros") && microKeys.length === 0 ? nt("noMicroTargets") : t("series.empty");
+
+  /**
+   * The line under the chart for whichever point is being read: a nutrient
+   * against its target, active calories against the range's own average, and a
+   * measurement against the reference session.
+   */
+  function activeDetail(entry: DrawnSeries, point: SeriesPoint) {
+    if (entry.activity) {
+      const average = entry.points.reduce((sum, item) => sum + item.value, 0) / entry.points.length;
+      return at("average", { value: formatNumber(average, locale, 0) });
+    }
+    if (entry.nutrient && activeDay) {
+      const coverage = activeDay.coverage[entry.nutrient];
+      const note = coverage != null && coverage < 1 ? ` · ${nt("coverage", { value: formatNumber(coverage * 100, locale, 0) })}` : "";
+      return `${formatNutrient(activeDay.values[entry.nutrient], locale)} / ${formatNutrient(activeDay.targets[entry.nutrient], locale)} ${nutrientUnit(entry.nutrient)}${note}`;
+    }
+    const delta = deltaBetween(point.value, referenceValue(entry), entry.digits);
+    return t("series.fromReference", {
+      delta: delta ? formatDelta(delta.absolute, locale, entry.digits) : "–",
+      unit: entry.deltaUnit,
+    });
+  }
 
   /**
    * Which scale a line is read against. Two of them are the labelled edges;
@@ -301,7 +361,7 @@ export function BodyMeasurementChart({
       <div
         className="progress-tabs body-metric-tabs"
         role="group"
-        aria-label={metrics.length > 0 ? t("series.selectMetric") : nt("selectNutrients")}
+        aria-label={metrics.length > 0 ? t("series.selectMetric") : onlyActivityAvailable ? at("title") : nt("selectNutrients")}
       >
         {chips.map((key) => {
           const selected = selection.includes(key);
@@ -319,7 +379,7 @@ export function BodyMeasurementChart({
                 setActive(null);
               }}
             >
-              {isNutritionSeries(key) ? nt(key) : t(`metric.${key}`)}
+              {isActivitySeries(key) ? at("label") : isNutritionSeries(key) ? nt(key) : t(`metric.${key}`)}
             </button>
           );
         })}
@@ -419,11 +479,11 @@ export function BodyMeasurementChart({
                       strokeWidth="1"
                     />
                     <text x={4} y={yPos + 4} fontSize="11" fill="var(--text-muted)">
-                      {axisLabel(leftAxis, axisValue(leftAxis, fraction))}
+                      {axisLabel(leftAxis, axisValue(leftAxis, fraction), fraction === 0)}
                     </text>
                     {rightAxis ? (
                       <text x={WIDTH - 4} y={yPos + 4} textAnchor="end" fontSize="11" fill="var(--text-muted)">
-                        {axisLabel(rightAxis, axisValue(rightAxis, fraction))}
+                        {axisLabel(rightAxis, axisValue(rightAxis, fraction), fraction === 0)}
                       </text>
                     ) : null}
                   </g>
@@ -523,7 +583,7 @@ export function BodyMeasurementChart({
                         strokeWidth={isCurrent ? 3 : 2}
                         tabIndex={0}
                         role="button"
-                        aria-label={pointLabel(entry, point, referenceValue(entry), locale, t, nt, nutritionPoints)}
+                        aria-label={pointLabel(entry, point, referenceValue(entry), locale, t, nt, at, nutritionPoints)}
                         style={{ cursor: "pointer" }}
                         onMouseEnter={() => setActive({ id: entry.id, date: point.date })}
                         onMouseLeave={() => setActive(null)}
@@ -581,27 +641,10 @@ export function BodyMeasurementChart({
                       : `${formatMeasure(activePoint.value, locale, activeSeries.digits)} ${activeSeries.unit}`
                   }`}
                 </strong>
-                <span>
-                  {activeSeries.nutrient && activeDay
-                    ? `${formatNutrient(activeDay.values[activeSeries.nutrient], locale)} / ${formatNutrient(
-                        activeDay.targets[activeSeries.nutrient],
-                        locale,
-                      )} ${nutrientUnit(activeSeries.nutrient)}${
-                        activeDay.coverage[activeSeries.nutrient] != null && activeDay.coverage[activeSeries.nutrient]! < 1
-                          ? ` · ${nt("coverage", { value: formatNumber(activeDay.coverage[activeSeries.nutrient]! * 100, locale, 0) })}`
-                          : ""
-                      }`
-                    : t("series.fromReference", {
-                        delta: (() => {
-                          const delta = deltaBetween(activePoint.value, referenceValue(activeSeries), activeSeries.digits);
-                          return delta ? formatDelta(delta.absolute, locale, activeSeries.digits) : "–";
-                        })(),
-                        unit: activeSeries.deltaUnit,
-                      })}
-                </span>
+                <span>{activeDetail(activeSeries, activePoint)}</span>
               </>
             ) : (
-              <span>{onlyNutrition ? nt("interactionHint") : t("series.hint")}</span>
+              <span>{readingHint}</span>
             )}
           </figcaption>
         </figure>
@@ -627,8 +670,12 @@ function pointLabel(
   locale: Locale,
   t: Translate,
   nt: Translate,
+  at: Translate,
   nutritionPoints: NutritionProgressPoint[],
 ) {
+  if (entry.activity) {
+    return at("pointLabel", { date: formatDate(point.date, locale), value: formatNumber(point.value, locale, 0) });
+  }
   if (entry.nutrient) {
     const day = nutritionPoints.find((candidate) => candidate.date === point.date);
     return nt("pointLabel", {

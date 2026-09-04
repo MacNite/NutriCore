@@ -19,6 +19,7 @@ import {
   type BodyShapeStyle,
 } from "@/lib/body-visualization";
 import type { NutritionProgressPoint } from "@/lib/nutrition-progress";
+import type { ActivityDayPoint } from "@/lib/progress-series";
 import { BodyFigurePicker } from "./body-figure-picker";
 import { BodyMeasurementChart } from "./body-measurement-chart";
 import { BodyMetricSummary } from "./body-metric-summary";
@@ -43,6 +44,7 @@ export function BodyProgressSection({
   shapeStyle,
   panels,
   nutritionPoints,
+  activityPoints,
   checkin,
   locale,
 }: {
@@ -55,6 +57,8 @@ export function BodyProgressSection({
   panels: BodyPanels;
   /** Daily target attainment, charted on the same time axis as the measurements. */
   nutritionPoints: NutritionProgressPoint[];
+  /** What sport and activity added to a day, charted on that same time axis. */
+  activityPoints: ActivityDayPoint[];
   /** The check-in dialog, rendered by the page so it sits in the card head. */
   checkin: React.ReactNode;
   locale: Locale;
@@ -132,9 +136,10 @@ export function BodyProgressSection({
         </ShareablePanel>
       ) : null}
 
-      {/* One chart for the whole page: what the body measures and what went
-          into it read against each other, or either one on its own. */}
-      {(measurements.length > 1 && seriesMetrics.length > 0) || nutritionPoints.length > 0 ? (
+      {/* One chart for the whole page: what the body measures, what went into
+          it and what sport took back out, read against each other or each on
+          its own. */}
+      {(measurements.length > 1 && seriesMetrics.length > 0) || nutritionPoints.length > 0 || activityPoints.length > 0 ? (
         <ShareablePanel title={t("series.title")} fileName="nutricore-measurements-chart">
           <BodyMeasurementChart
             measurements={measurements}
@@ -143,6 +148,7 @@ export function BodyProgressSection({
             onCurrentIndex={selectCurrent}
             metrics={measurements.length > 1 ? seriesMetrics : []}
             nutritionPoints={nutritionPoints}
+            activityPoints={activityPoints}
             profile={profile}
             locale={locale}
           />

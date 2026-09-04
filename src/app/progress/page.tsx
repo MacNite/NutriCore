@@ -15,7 +15,6 @@ import { BodyMeasurementChart } from "@/components/body-progress/body-measuremen
 import { loadBodyProgress } from "@/server/body";
 import { pendingScan } from "@/server/body-scan";
 import { anyPanel } from "@/lib/body-visualization";
-import { ActivityProgressChart } from "@/components/activity-progress-chart";
 
 export async function generateMetadata() {
   const t = await getTranslations("progress");
@@ -126,6 +125,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
               shapeStyle={body.shapeStyle}
               panels={body.panels}
               nutritionPoints={nutritionPoints}
+              activityPoints={activityPoints}
               locale={locale}
               checkin={checkinControls}
             />
@@ -143,10 +143,11 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
 
       <div className="grid-main">
         <div className="stack">
-          {/* Nutrition normally rides along in the body section's one chart.
-              Without a measurement to plot it against there is no such chart,
-              so it gets its own card rather than falling off the page. */}
-          {chartInBodySection ? null : nutritionPoints.length === 0 ? (
+          {/* Nutrition and the calories sport added normally ride along in the
+              body section's one chart. Without a measurement to plot them
+              against there is no such chart, so they get their own card rather
+              than falling off the page. */}
+          {chartInBodySection ? null : nutritionPoints.length === 0 && activityPoints.length === 0 ? (
             <section className="card" aria-labelledby="nutrition-heading">
               <h2 id="nutrition-heading">{t("nutrition.title")}</h2>
               <p className="muted nutrition-subtitle">{t("nutrition.subtitle")}</p>
@@ -159,16 +160,11 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
               currentIndex={0}
               metrics={[]}
               nutritionPoints={nutritionPoints}
+              activityPoints={activityPoints}
               profile={body.profile}
               locale={locale}
             />
           )}
-
-          <section className="card" aria-labelledby="activity-progress-heading">
-            <h2 id="activity-progress-heading">{t("activity.title")}</h2>
-            <p className="muted nutrition-subtitle">{t("activity.subtitle")}</p>
-            <ActivityProgressChart points={activityPoints} locale={locale} />
-          </section>
         </div>
 
         {/* With both visualisations switched off the body section above is not

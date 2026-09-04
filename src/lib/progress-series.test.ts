@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyMeasurement, type BodyMeasurement, type BodyProfile } from "./body-metrics";
 import {
+  activitySeriesPoints,
   axesFor,
   axisOf,
   axisScale,
@@ -36,6 +37,7 @@ describe("progress series axes", () => {
     expect(axisOf("muscleKg")).toBe("muscleKg");
     expect(axisOf("bmi")).toBe("bmi");
     expect(axisOf("calories")).toBe("target");
+    expect(axisOf("activity")).toBe("activeKcal");
     expect(axisOf("macros")).toBe("target");
     expect(axisOf("micros")).toBe("target");
   });
@@ -66,6 +68,22 @@ describe("progress series expansion", () => {
       { id: "weightKg", chip: "weightKg", axis: "weightKg", metric: "weightKg" },
       { id: "protein", chip: "macros", axis: "target", nutrient: "protein" },
       { id: "fat", chip: "macros", axis: "target", nutrient: "fat" },
+    ]);
+  });
+
+  it("draws sport and activity as one line on its own scale", () => {
+    expect(expandSelection(["activity"], [], [])).toEqual([
+      { id: "activeKcal", chip: "activity", axis: "activeKcal", activity: true },
+    ]);
+    expect(axesFor(["weightKg", "calories", "activity"])).toEqual(["weightKg", "target", "activeKcal"]);
+    expect(
+      activitySeriesPoints([
+        { date: "2026-09-01", activeKcal: 320 },
+        { date: "2026-09-02", activeKcal: 0 },
+      ]),
+    ).toEqual([
+      { date: "2026-09-01", value: 320, index: null },
+      { date: "2026-09-02", value: 0, index: null },
     ]);
   });
 
@@ -106,6 +124,12 @@ describe("progress series scales", () => {
     const withGoal = axisScale("weightKg", [98, 100], 1, 80)!;
     expect(withGoal.min).toBeLessThan(80);
     expect(withGoal.max).toBeGreaterThan(100);
+  });
+
+  it("reads active calories against zero, with headroom above the hardest day", () => {
+    expect(axisScale("activeKcal", [120, 480], 0)).toEqual({ min: 0, max: 550 });
+    /* A day of nothing must not collapse the scale onto the axis. */
+    expect(axisScale("activeKcal", [0], 0)).toEqual({ min: 0, max: 50 });
   });
 
   it("still yields a readable window when every value is identical", () => {
