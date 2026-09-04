@@ -883,7 +883,6 @@
     "instructions": "Zubereitung",
     "tags": "Schlagwörter (kommagetrennt)",
     "ingredients": "Zutaten",
-    "searchFood": "Vorhandene Lebensmittel suchen",
     "noIngredients": "Mindestens ein Lebensmittel hinzufügen.",
     "amount": "Menge",
     "unit": "Einheit",

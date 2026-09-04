@@ -883,7 +883,6 @@
     "instructions": "Instructions",
     "tags": "Tags (comma-separated)",
     "ingredients": "Ingredients",
-    "searchFood": "Search existing foods",
     "noIngredients": "Add at least one food.",
     "amount": "Amount",
     "unit": "Unit",

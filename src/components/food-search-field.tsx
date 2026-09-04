@@ -1,41 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { SourceBadge } from "@/components/source-badge";
 import { BarcodeScanner } from "@/components/barcode-scanner";
+import { providerName, useFoodSearch, type FoodSearchResult } from "@/components/use-food-search";
 import { formatKcal, formatNumber } from "@/lib/format";
 import type { Locale } from "@/i18n/locales";
-
-interface Result {
-  id: string;
-  name: string;
-  brand: string | null;
-  barcode: string | null;
-  sourceType: string;
-  basisAmount: number;
-  basisUnit: string;
-  nutrients: Record<string, number | null>;
-  favorite: boolean;
-  recipeId: string | null;
-}
-
-interface Outcome {
-  results: Result[];
-  recipeDrafts: { id: string; name: string; ingredientCount: number }[];
-  barcode: string | null;
-  providerError: {
-    provider: string;
-    reason: "RATE_LIMITED" | "TIMEOUT" | "NETWORK" | "HTTP_ERROR" | "UNAVAILABLE";
-    retryAfterSeconds?: number;
-  } | null;
-  suggestResearch: boolean;
-}
-
-const DEBOUNCE_MS = 500;
-
-const providerName = (provider: string) => (provider === "OPEN_FOOD_FACTS" ? "Open Food Facts" : provider);
 
 export interface FoodSearchFieldProps {
   meal: string; date: string; locale: Locale; autoFocus?: boolean; researchAvailable: boolean;
@@ -53,97 +25,19 @@ export function FoodSearchField({
   variant,
 }: FoodSearchFieldProps) {
   const t = useTranslations("foods");
-  const [query, setQuery] = useState("");
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [loading, setLoading] = useState(false);
   const uid = useId().replace(/:/g, "");
   const statusId = `${uid}-status`;
   const listboxId = `${uid}-listbox`;
   const root = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const controller = useRef<AbortController | null>(null);
-  const immediateQuery = useRef<string | null>(null);
-
-  const run = useCallback(
-    async (value: string, remote = false) => {
-      controller.current?.abort();
-
-      const next = new AbortController();
-      controller.current = next;
-      setLoading(true);
-
-      try {
-        const barcode = /^\d{8}$|^\d{12,14}$/.test(value.trim());
-        const params = new URLSearchParams({ q: value, meal, remote: remote || barcode ? "1" : "0", drafts: "1" });
-        const response = await fetch(`/api/foods/search?${params}`, { signal: next.signal });
-        if (!response.ok) {
-          if (response.status === 429) {
-            const retryAfterSeconds = Number(response.headers.get("Retry-After")) || undefined;
-            setOutcome((current) => ({
-              results: current?.results ?? [], recipeDrafts: current?.recipeDrafts ?? [], barcode: current?.barcode ?? null, suggestResearch: current?.suggestResearch ?? true,
-              providerError: { provider: "NUTRICORE", reason: "RATE_LIMITED", retryAfterSeconds },
-            }));
-            return;
-          }
-          throw new Error(String(response.status));
-        }
-        const responseOutcome = (await response.json()) as Outcome;
-        setOutcome(responseOutcome);
-        if (variant === "dropdown") setOpen(true);
-      } catch (error) {
-        // An aborted request is the normal result of typing another character.
-        if ((error as Error).name !== "AbortError") {
-          setOutcome({
-            results: [],
-            recipeDrafts: [],
-            barcode: null,
-            providerError: { provider: "UNKNOWN", reason: "UNAVAILABLE" },
-            suggestResearch: true,
-          });
-        }
-      } finally {
-        setLoading(false);
-      }
-    },
-    [meal, variant],
-  );
-
-  // Autocomplete is PostgreSQL-only: OFF is contacted by the button, or by a
-  // complete barcode as one discrete remote lookup.
-  useEffect(() => {
-    if (immediateQuery.current === query) {
-      immediateQuery.current = null;
-      return;
-    }
-    const timer = setTimeout(() => void run(query), DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [query, run]);
-
-  useEffect(() => () => controller.current?.abort(), []);
-
-  const providerErrorMessage = useCallback(
-    (error: NonNullable<Outcome["providerError"]>) => {
-      const provider = providerName(error.provider);
-      if (error.reason === "RATE_LIMITED") return error.retryAfterSeconds
-        ? t("providerRateLimitedRetry", { provider, seconds: error.retryAfterSeconds })
-        : t("providerRateLimited", { provider });
-      if (error.reason === "TIMEOUT") return t("providerTimeout", { provider });
-      if (error.reason === "HTTP_ERROR") return t("providerHttpError", { provider });
-      return t("providerUnavailable", { provider });
-    },
-    [t],
-  );
-
-  const status = useMemo(() => {
-    if (loading) return t("searching");
-    if (!outcome) return "";
-    if (outcome.results.length === 0 && outcome.recipeDrafts.length === 0) {
-      if (outcome.providerError) return providerErrorMessage(outcome.providerError);
-      return t("noResults");
-    }
-    return `${outcome.results.length}`;
-  }, [loading, outcome, providerErrorMessage, t]);
+  // The shared food search: the same local-first pipeline, remote lookups and
+  // status wording that every other search field in the app uses.
+  const { query, setQuery, outcome, loading, status, scan, searchExternal, providerErrorMessage } = useFoodSearch({
+    meal,
+    drafts: true,
+    onOutcome: () => { if (variant === "dropdown") setOpen(true); },
+  });
 
   const selectable = [...(outcome?.results ?? []), ...(outcome?.recipeDrafts ?? [])];
   useEffect(() => {
@@ -152,7 +46,7 @@ export function FoodSearchField({
     return () => document.removeEventListener("pointerdown", close);
   }, []);
 
-  const resultHref = (result: Result) => `/foods/${result.id}?meal=${meal}&date=${date}${editMeal ? `&editMeal=${editMeal}` : ""}`;
+  const resultHref = (result: FoodSearchResult) => `/foods/${result.id}?meal=${meal}&date=${date}${editMeal ? `&editMeal=${editMeal}` : ""}`;
 
   if (variant === "dropdown") {
     const showPanel = open && query.trim().length > 0 && (loading || outcome !== null);
@@ -173,7 +67,7 @@ export function FoodSearchField({
     };
 
     return <div className="food-search-dropdown" ref={root}>
-      <form onSubmit={(event) => { event.preventDefault(); void run(query, true); }}>
+      <form onSubmit={(event) => { event.preventDefault(); searchExternal(); }}>
         <div className="search-with-action">
           <input className="meal-search-input" type="search" inputMode="search" value={query} autoFocus={autoFocus}
             onFocus={() => { if (outcome) setOpen(true); }}
@@ -181,7 +75,7 @@ export function FoodSearchField({
             onKeyDown={handleKeyDown} placeholder={t("searchPlaceholder")} autoComplete="off"
             role="combobox" aria-expanded={showPanel} aria-controls={listboxId} aria-autocomplete="list"
             aria-activedescendant={activeIndex >= 0 ? `${uid}-option-${activeIndex}` : undefined} aria-describedby={statusId} />
-          <BarcodeScanner compact onScan={(barcode) => { immediateQuery.current = barcode; setQuery(barcode); setOpen(true); void run(barcode, true); }} />
+          <BarcodeScanner compact onScan={(barcode) => { setOpen(true); scan(barcode); }} />
         </div>
         <span id={statusId} role="status" aria-live="polite" className="sr-only">{status}</span>
         {showPanel ? <div className="food-search-panel" id={listboxId} role="listbox">
@@ -207,7 +101,7 @@ export function FoodSearchField({
   return (
     <>
       <section className="card" style={{ marginBottom: 20 }}>
-        <form onSubmit={(event) => { event.preventDefault(); void run(query, true); }}>
+        <form onSubmit={(event) => { event.preventDefault(); searchExternal(); }}>
         <div className="field" style={{ marginBottom: 0 }}>
           <label htmlFor="food-query">{t("searchPlaceholder")}</label>
           <div className="search-with-action">
@@ -222,11 +116,7 @@ export function FoodSearchField({
               aria-describedby={statusId}
               autoComplete="off"
             />
-            <BarcodeScanner compact onScan={(barcode) => {
-              immediateQuery.current = barcode;
-              setQuery(barcode);
-              void run(barcode, true);
-            }} />
+            <BarcodeScanner compact onScan={scan} />
           </div>
         </div>
 
@@ -251,7 +141,7 @@ export function FoodSearchField({
             className="btn btn-quiet"
             style={{ padding: "2px 8px", fontSize: 13 }}
             disabled={loading}
-            onClick={() => void run(query, true)}
+            onClick={searchExternal}
           >
             {t("retrySearch")}
           </button>
@@ -280,7 +170,7 @@ export function FoodSearchField({
                   {t("createCustom")}
                 </Link>
                 {outcome?.providerError ? (
-                  <button type="button" className="btn" style={{ marginLeft: 8 }} disabled={loading} onClick={() => void run(query, true)}>
+                  <button type="button" className="btn" style={{ marginLeft: 8 }} disabled={loading} onClick={searchExternal}>
                     {t("retrySearch")}
                   </button>
                 ) : null}
