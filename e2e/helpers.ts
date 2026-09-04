@@ -45,3 +45,13 @@ export async function completeOnboarding(page: Page) {
 export function mealRowTrigger(page: Page, meal: RegExp) {
   return page.locator("button.row-main-button").filter({ hasText: meal });
 }
+
+/**
+ * Today's quick-action menu. Everything it offers - a meal, a recipe, a
+ * workout, a measurement - is behind the one round button, so a test has to
+ * open it before it can click a row.
+ */
+export async function openQuickActions(page: Page) {
+  await page.getByRole("button", { name: /add an entry|eintrag hinzufügen/i }).click();
+  return page.locator(".fab-menu");
+}

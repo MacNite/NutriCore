@@ -171,8 +171,7 @@
     "snapshotNote": "Einträge behalten die Nährwerte vom Zeitpunkt der Eintragung.",
     "micronutrients": "Mikronährstoffe",
     "ai": {
-      "quickAction": "Schnelle Mahlzeit",
-      "title": "Schnelle Mahlzeit mit KI",
+      "title": "Mahlzeit beschreiben",
       "hint": "Wird sofort gespeichert; die Anreicherung läuft im Hintergrund.",
       "describe": "Beschreibe deine Mahlzeit",
       "placeholder": "2 Scheiben Roggenbrot mit Butter, 2 Spiegeleier und 1 Banane",
@@ -200,6 +199,15 @@
       "servingsUp": "Eine Portion mehr",
       "servingsDown": "Eine Portion weniger"
     }
+  },
+  "quickActions": {
+    "open": "Eintrag hinzufügen",
+    "close": "Menü schließen",
+    "menu": "Schnelleinträge",
+    "describeMeal": "Mahlzeit beschreiben",
+    "createRecipe": "Rezept erstellen",
+    "addActivity": "Sport / Aktivität hinzufügen",
+    "bodyCheckin": "Körpermessung"
   },
   "micronutrients": {
     "hint": "Ein Strich bedeutet, dass für die eingetragenen Lebensmittel keine Werte vorliegen.",

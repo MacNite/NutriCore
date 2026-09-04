@@ -171,8 +171,7 @@
     "snapshotNote": "Entries keep the nutrition values from the moment they were logged.",
     "micronutrients": "Micronutrients",
     "ai": {
-      "quickAction": "Quick meal",
-      "title": "Quick meal with AI",
+      "title": "Describe a meal",
       "hint": "Saved straight away; enrichment runs in the background.",
       "describe": "Describe your meal",
       "placeholder": "2 slices rye bread with butter, 2 fried eggs and 1 banana",
@@ -200,6 +199,15 @@
       "servingsUp": "One serving more",
       "servingsDown": "One serving fewer"
     }
+  },
+  "quickActions": {
+    "open": "Add an entry",
+    "close": "Close menu",
+    "menu": "Quick entries",
+    "describeMeal": "Describe a meal",
+    "createRecipe": "Create recipe",
+    "addActivity": "Add sport / activity",
+    "bodyCheckin": "Body measurement"
   },
   "micronutrients": {
     "hint": "A dash means that no values are available for the foods you logged.",

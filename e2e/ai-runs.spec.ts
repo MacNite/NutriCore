@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
-import { completeOnboarding, registerAndOnboard } from "./helpers";
+import { completeOnboarding, openQuickActions, registerAndOnboard } from "./helpers";
 
 const prisma = new PrismaClient();
 test.afterAll(async () => prisma.$disconnect());
@@ -35,20 +35,23 @@ async function draftRecipe(userId: string, name: string, importId?: string) {
   });
 }
 
-test("the quick-meal button is gone once the user switches AI off", async ({ page }) => {
+test("the quick-meal row is gone once the user switches AI off", async ({ page }) => {
   // The quick meal is an AI run and nothing else, but it was the one entry
   // point that never asked whether the user wanted AI at all: with the switch
-  // off, the floating button still queued an extraction.
+  // off, the floating button still queued an extraction. The rest of the menu
+  // needs no AI, so only that row goes.
   const user = await registerAndOnboard(page);
   await completeOnboarding(page);
-  const quickMeal = page.getByRole("button", { name: /quick meal|schnelle mahlzeit/i });
-  await expect(quickMeal).toBeVisible();
+  const describeMeal = /describe a meal|mahlzeit beschreiben/i;
+  await expect((await openQuickActions(page)).getByRole("button", { name: describeMeal })).toBeVisible();
 
   const account = await prisma.user.findUniqueOrThrow({ where: { username: user.username }, select: { id: true } });
   await prisma.userProfile.update({ where: { userId: account.id }, data: { aiEnabled: false } });
 
   await page.goto("/");
-  await expect(quickMeal).toHaveCount(0);
+  const menu = await openQuickActions(page);
+  await expect(menu.getByRole("button", { name: describeMeal })).toHaveCount(0);
+  await expect(menu.getByRole("link", { name: /create recipe|rezept erstellen/i })).toBeVisible();
 });
 
 test("a finished recipe import opens the recipe it produced", async ({ page }) => {
