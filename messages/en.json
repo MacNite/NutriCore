@@ -539,15 +539,6 @@
       "axisRight": "(right scale)",
       "selectionLimit": "Four measurements at a time. Switch another one off first."
     },
-    "table": {
-      "title": "Measurement detail",
-      "subtitle": "Current session compared with the reference session of {date}.",
-      "measurement": "Measurement",
-      "current": "Current",
-      "deltaReference": "Δ reference",
-      "source": "Source",
-      "foldLabel": "All measurements ({count})"
-    },
     "checkin": {
       "open": "Body check-in",
       "title": "Body check-in",

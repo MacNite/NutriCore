@@ -539,15 +539,6 @@
       "axisRight": "(rechte Achse)",
       "selectionLimit": "Höchstens vier Messwerte zugleich. Schalte einen anderen aus."
     },
-    "table": {
-      "title": "Messwerte im Detail",
-      "subtitle": "Aktuelle Messung im Vergleich zur Referenzmessung vom {date}.",
-      "measurement": "Messwert",
-      "current": "Aktuell",
-      "deltaReference": "Δ Referenz",
-      "source": "Quelle",
-      "foldLabel": "Alle Messwerte ({count})"
-    },
     "checkin": {
       "open": "Körpermessung",
       "title": "Körpermessung eintragen",

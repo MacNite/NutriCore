@@ -21,7 +21,6 @@ import {
 import type { NutritionProgressPoint } from "@/lib/nutrition-progress";
 import { BodyFigurePicker } from "./body-figure-picker";
 import { BodyMeasurementChart } from "./body-measurement-chart";
-import { BodyMeasurementTable } from "./body-measurement-table";
 import { BodyMetricSummary } from "./body-metric-summary";
 import { BodyProgressCard } from "./body-progress-card";
 import { ShareablePanel } from "../shareable-panel";
@@ -34,10 +33,8 @@ import { ShareablePanel } from "../shareable-panel";
  *
  * The switches reach past the drawings into the cards below them, because those
  * cards are the same measurements in another form: the key figures are all
- * waist- and hip-derived, and the history and the table list exactly the
- * metrics the two panels are made of. Showing a table of body-fat readings to
- * someone who switched the composition panel off would be the same panel with
- * extra steps.
+ * waist- and hip-derived, and the history lists exactly the metrics the two
+ * panels are made of.
  */
 export function BodyProgressSection({
   measurements,
@@ -151,15 +148,6 @@ export function BodyProgressSection({
           />
         </ShareablePanel>
       ) : null}
-
-      <BodyMeasurementTable
-        current={measurements[currentIndex]}
-        reference={measurements[hasReference ? referenceIndex : currentIndex]}
-        referenceLabel={referenceLabel}
-        hasReference={hasReference}
-        metrics={metrics}
-        locale={locale}
-      />
 
       {/* The disclaimer is about the drawn figure, so it goes when the figure does. */}
       {panels.shape ? <p className="body-caption">{t("figure.disclaimer")}</p> : null}
