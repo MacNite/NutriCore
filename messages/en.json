@@ -965,7 +965,19 @@
     "tagDraft": "Draft",
     "openReview": "Open the AI review",
     "mealHint": "A placeholder only: it leads back to the AI review and is replaced by the real entry once the run is done.",
-    "recipeHint": "A placeholder only: it leads back to the AI review and is replaced by the finished draft recipe once the run is done."
+    "recipeHint": "A placeholder only: it leads back to the AI review and is replaced by the finished draft recipe once the run is done.",
+    "failedName": "AI draft failed",
+    "failed": "Failed",
+    "retry": "Re-run",
+    "retryUnavailable": "The photo was deleted when the run failed – please submit it again.",
+    "failedHint": "The run failed and saved nothing. Its input stays here: “Re-run” puts it back on the queue.",
+    "reasons": {
+      "MODEL_UNREACHABLE": "NutriCore could not reach Ollama.",
+      "MODEL_TIMEOUT": "Ollama did not answer in time.",
+      "MODEL_MISSING": "The configured model is not available in Ollama.",
+      "SOURCE_UNAVAILABLE": "The given source could not be read.",
+      "OTHER": "The run ended with an error."
+    }
   },
   "admin": {
     "title": "Administration",

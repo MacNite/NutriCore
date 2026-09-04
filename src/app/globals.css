@@ -1046,6 +1046,49 @@ legend {
   flex-wrap: wrap;
 }
 
+/* A run that failed. Marked by its own state text and this line, never by the
+   colour alone, and kept dashed like every other stand-in for a missing entry. */
+.ai-placeholder-failed .row-body strong {
+  color: var(--text);
+}
+
+.ai-placeholder-failed .row-body .ai-placeholder-reason {
+  color: var(--danger);
+}
+
+.ai-placeholder-retry {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ai-placeholder-retry .btn {
+  padding: 6px 11px;
+  font-size: 13px;
+}
+
+/* On a phone the row has no width to spare for a button beside the text: the
+   tags, the state and the re-run drop onto their own line rather than squeezing
+   the submitted input down to one letter per line. */
+@media (max-width: 700px) {
+  .ai-placeholder-failed {
+    flex-wrap: wrap;
+  }
+
+  .ai-placeholder-failed .row-main-link {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+
+  .ai-placeholder-failed .row-body {
+    flex-basis: 100%;
+  }
+
+  .ai-placeholder-retry {
+    margin-left: auto;
+  }
+}
+
 /* ------------------------------------------------------------------ Messages */
 
 .notice {

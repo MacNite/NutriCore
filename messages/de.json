@@ -965,7 +965,19 @@
     "tagDraft": "Entwurf",
     "openReview": "KI-Prüfung öffnen",
     "mealHint": "Nur ein Platzhalter: Er führt zurück zur KI-Prüfung und wird durch den echten Eintrag ersetzt, sobald der Lauf fertig ist.",
-    "recipeHint": "Nur ein Platzhalter: Er führt zurück zur KI-Prüfung und wird durch den fertigen Rezeptentwurf ersetzt, sobald der Lauf fertig ist."
+    "recipeHint": "Nur ein Platzhalter: Er führt zurück zur KI-Prüfung und wird durch den fertigen Rezeptentwurf ersetzt, sobald der Lauf fertig ist.",
+    "failedName": "KI-Entwurf fehlgeschlagen",
+    "failed": "Fehlgeschlagen",
+    "retry": "Erneut versuchen",
+    "retryUnavailable": "Das Foto wurde nach dem Fehlschlag gelöscht – bitte neu einreichen.",
+    "failedHint": "Der Lauf ist fehlgeschlagen und hat nichts gespeichert. Die Eingabe bleibt hier stehen: „Erneut versuchen“ stellt sie noch einmal in die Warteschlange.",
+    "reasons": {
+      "MODEL_UNREACHABLE": "NutriCore hat Ollama nicht erreicht.",
+      "MODEL_TIMEOUT": "Ollama hat nicht rechtzeitig geantwortet.",
+      "MODEL_MISSING": "Das eingestellte Modell steht in Ollama nicht bereit.",
+      "SOURCE_UNAVAILABLE": "Die angegebene Quelle war nicht lesbar.",
+      "OTHER": "Der Lauf ist mit einem Fehler geendet."
+    }
   },
   "admin": {
     "title": "Administration",

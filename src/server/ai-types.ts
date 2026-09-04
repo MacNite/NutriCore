@@ -405,3 +405,24 @@ export type AiJobStatusName = (typeof AI_JOB_STATUSES)[number];
  * never accidentally starved - only background work opts down.
  */
 export const jobPriority = (entityType: string) => (entityType === "FOOD_ENRICHMENT" ? 0 : 10);
+
+/**
+ * The state a job is put back into when someone asks for it to run again.
+ *
+ * Every trace of the failed attempt is cleared, `retryCount` included: a manual
+ * retry hands the job a fresh budget rather than one more attempt on an
+ * exhausted one, or a job that failed three times could never be run again.
+ * Shared by the admin queue panel and the re-run button on a failed placeholder,
+ * so the two cannot drift apart. It lives here rather than in either action
+ * module because a `"use server"` module may only export async functions.
+ */
+export const AI_JOB_REQUEUE_DATA = {
+  status: "QUEUED" as const,
+  errorMessage: null,
+  errorDetail: null,
+  failureKind: null,
+  failedAt: null,
+  startedAt: null,
+  completedAt: null,
+  retryCount: 0,
+};

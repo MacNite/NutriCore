@@ -121,13 +121,24 @@ keeps work a user is waiting for ahead of background enrichment, and the worker
 reclaims jobs left `RUNNING` by a worker that died, since a claim is conditional
 on `QUEUED` and nothing else would ever pick them up.
 
-A run that is still going is visible where its result will land. `ai-placeholders.ts`
-derives a stand-in entry from every `QUEUED` or `RUNNING` job - listed in the meal
-it will be written into and among the recipes it will become - tagged AI and draft,
-and doing nothing but linking back to that run's review page. It is derived, never
-stored: the query stops returning it the moment the job leaves those states, so the
-real diary entry or draft recipe replaces it with nothing to clean up, and a worker
-that dies cannot leave a dummy row behind in the user's own data.
+A run that has not produced its entry is visible where that entry will land.
+`ai-placeholders.ts` derives a stand-in from every `QUEUED`, `RUNNING` or recently
+`FAILED` job - listed in the meal it will be written into and among the recipes it
+will become - tagged AI and draft, and doing nothing but linking back to that run's
+review page. It is derived, never stored: the query stops returning it the moment
+the job produces its result, so the real diary entry or draft recipe replaces it
+with nothing to clean up, and a worker that dies cannot leave a dummy row behind in
+the user's own data.
+
+A failed run keeps its stand-in for a week rather than disappearing. When Ollama is
+unreachable every job in flight burns its retries against a connection that is not
+there and ends `FAILED`, and a stand-in that vanished made that look like work
+silently thrown away: no entry, no error, nothing to retry. The row now reads
+"failed", names the cause in the terms a submitter can act on, and carries a re-run
+button that queues the same input again with a fresh retry budget
+(`ai-placeholder-actions.ts`, scoped to the caller's own failed jobs). A submission
+whose only input was a photo cannot be re-run - the photo is deleted the moment its
+job fails - and says so instead of offering a button that would fail again.
 
 Research is a persisted state machine. Every path to `ACCEPTED` runs through
 `AWAITING_CONFIRMATION`, so nothing is stored without the user confirming it. A
