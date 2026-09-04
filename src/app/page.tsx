@@ -88,7 +88,10 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   // what was done and not merely how many entries there are.
   const activityPreview = activities.entries.map((entry) => activityT(`names.${entry.activityKey}`));
 
-  const consumed = day.totals.energyKcal ?? 0;
+  // A source may omit a nutrient (BLS uses this for values it did not
+  // determine). Keep using the sum of the values we do know for the day's
+  // headline instead of allowing one incomplete food to blank the whole day.
+  const consumed = day.knownTotals.energyKcal ?? 0;
   const dailyTarget = targetWithActivity(target, activities.totalActiveKcal, user.addActivityCalories);
   const targetKcal = dailyTarget?.kcal ?? null;
 
@@ -148,7 +151,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
               })}
             </h2>
 
-            <DailyEnergySummary consumed={consumed} totals={day.totals} target={dailyTarget} locale={locale} />
+            <DailyEnergySummary consumed={consumed} totals={day.knownTotals} target={dailyTarget} locale={locale} />
           </section>
 
           <section className="card" aria-labelledby="meals-heading">
