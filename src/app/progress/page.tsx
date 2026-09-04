@@ -3,7 +3,6 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
-import { WeightLog } from "@/components/weight-log";
 import { prisma } from "@/lib/db";
 import { formatDateKey } from "@/server/diary";
 import type { EntrySnapshot } from "@/server/diary";
@@ -35,8 +34,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   // means opens by itself instead of leaving the reader to find it.
   const params = await searchParams;
 
-  const [entries, profile, diaryDays, nutritionTargets, activityEntries, body, scan] = await Promise.all([
-    prisma.weightEntry.findMany({ where: { userId: user.id }, orderBy: { date: "asc" }, take: 400 }),
+  const [profile, diaryDays, nutritionTargets, activityEntries, body, scan] = await Promise.all([
     prisma.userProfile.findUnique({ where: { userId: user.id }, select: { heightCm: true, addActivityCalories: true } }),
     prisma.diaryDay.findMany({ where: { userId: user.id }, include: { entries: true }, orderBy: { date: "desc" }, take: 90 }),
     prisma.nutritionTarget.findMany({ where: { userId: user.id }, orderBy: { validFrom: "asc" } }),
@@ -53,16 +51,6 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   }
   const activityPoints = [...activityByDate].map(([date, activeKcal]) => ({ date, activeKcal }));
 
-  const points = entries.map((entry) => ({
-    date: entry.date.toISOString().slice(0, 10),
-    weightKg: Number(entry.weightKg),
-  }));
-  const weightRows = [...entries].reverse().map((entry) => ({
-    id: entry.id,
-    date: entry.date.toISOString().slice(0, 10),
-    weightKg: Number(entry.weightKg),
-    note: entry.note,
-  }));
   const targets: ProgressTarget[] = nutritionTargets.map((target) => ({
     validFrom: target.validFrom.toISOString(),
     values: {
@@ -155,15 +143,6 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
 
       <div className="grid-main">
         <div className="stack">
-          <section className="card" aria-labelledby="weight-heading">
-            <h2 id="weight-heading">{t("weight")}</h2>
-            {points.length === 0 ? (
-              <p className="empty">{t("noWeightData")}</p>
-            ) : (
-              <WeightLog rows={weightRows} locale={locale} />
-            )}
-          </section>
-
           {/* Nutrition normally rides along in the body section's one chart.
               Without a measurement to plot it against there is no such chart,
               so it gets its own card rather than falling off the page. */}
