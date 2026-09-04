@@ -20,6 +20,9 @@ import { BodySourceBadge, DeltaText, UNIT_KEY } from "./body-value";
  * exactly the metrics they do: switching a panel off takes its rows with it. On
  * narrow screens each row folds into a compact card via CSS, so the table never
  * scrolls sideways on a phone.
+ *
+ * It is the exact numbers behind the charts above rather than a reading of its
+ * own, so it stays collapsed at every width until someone asks for it.
  */
 export function BodyMeasurementTable({
   current,
@@ -51,6 +54,7 @@ export function BodyMeasurementTable({
         label={t("table.foldLabel", { count: metrics.length })}
         open={open}
         onToggle={() => setOpen(!open)}
+        always
       >
         <table className="table body-detail-table">
         <thead>

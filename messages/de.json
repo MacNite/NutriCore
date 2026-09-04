@@ -343,16 +343,15 @@
       "calories": "Kalorien",
       "macros": "Makros",
       "micros": "Mikros",
-      "chartType": "Diagrammansicht",
       "selectNutrients": "Angezeigte Nährstoffe",
       "targetLine": "Tagesziel",
-      "summary": "Ernährungsverlauf in Prozent des jeweiligen Tagesziels. Der Zielbereich liegt zwischen 90 und 110 Prozent.",
       "todayReached": "Zuletzt {reached} von {total} Nährstoffzielen im Zielbereich",
       "balancedHint": "90–110 % gelten hier als ausgewogen",
       "coverage": "{value} % Datenabdeckung",
       "interactionHint": "Datenpunkt berühren oder fokussieren, um Verbrauch und Ziel anzuzeigen.",
       "empty": "Noch nicht genügend Ernährungsdaten vorhanden.",
-      "noMicroTargets": "Für Mikronährstoffe sind noch keine persönlichen Tagesziele konfiguriert. Erfasste Werte werden deshalb nicht als irreführende 0 % dargestellt."
+      "noMicroTargets": "Für Mikronährstoffe sind noch keine persönlichen Tagesziele konfiguriert. Erfasste Werte werden deshalb nicht als irreführende 0 % dargestellt.",
+      "pointLabel": "{date}, {nutrient} {percent} % des Tagesziels, {value} von {target} {unit}"
     }
   },
   "bodyProgress": {
@@ -488,8 +487,8 @@
     },
     "series": {
       "title": "Messwerte im Verlauf",
-      "subtitle": "Die Referenzmessung ist auf der Zeitachse markiert. Ein ausgewählter Punkt wird zur aktuellen Messung.",
-      "selectMetric": "Angezeigter Messwert",
+      "subtitle": "Mehrere Messwerte lassen sich zugleich anzeigen, auch Kalorien, Makros und Mikros. Die Referenzmessung ist auf der Zeitachse markiert, ein ausgewählter Punkt wird zur aktuellen Messung.",
+      "selectMetric": "Angezeigte Messwerte",
       "selectRange": "Zeitraum",
       "range": {
         "m1": "1M",
@@ -498,13 +497,17 @@
         "y1": "1J",
         "all": "ALLE"
       },
-      "chartLabel": "{metric} im Verlauf, von {from} bis {to}, zwischen {min} und {max} {unit}.",
+      "chartLabel": "{metrics} im Verlauf, von {from} bis {to}.",
       "referenceMarker": "Referenz",
       "goalLine": "Zielgewicht",
       "hint": "Punkt berühren oder fokussieren, um Wert und Veränderung zur Referenz anzuzeigen.",
       "pointLabel": "{date}, {metric} {value} {unit}, {delta} {deltaUnit} gegenüber der Referenz",
       "fromReference": "{delta} {unit} gegenüber der Referenz",
-      "empty": "Nicht genügend Messungen in diesem Zeitraum."
+      "empty": "Nicht genügend Daten in diesem Zeitraum.",
+      "multiHint": "Mehrfachauswahl möglich, bis zu vier zugleich. Jeder Messwert hat seine eigene Skala: die ersten beiden sind links und rechts beschriftet, die übrigen nennen ihren Bereich in der Legende.",
+      "axisLeft": "(linke Achse)",
+      "axisRight": "(rechte Achse)",
+      "selectionLimit": "Höchstens vier Messwerte zugleich. Schalte einen anderen aus."
     },
     "table": {
       "title": "Messwerte im Detail",

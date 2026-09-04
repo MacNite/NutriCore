@@ -3,9 +3,11 @@
 import { useId } from "react";
 
 /**
- * A disclosure that exists only on small screens. Above the breakpoint the
- * toggle is hidden and the content always shows, so the desktop layout is
- * untouched; below it the content collapses behind the toggle.
+ * A disclosure. By default it exists only on small screens: above the
+ * breakpoint the toggle is hidden and the content always shows, so the desktop
+ * layout is untouched; below it the content collapses behind the toggle.
+ * `always` keeps the disclosure at every width, for a block that is detail
+ * rather than the point of its card.
  *
  * The switch is pure CSS rather than a measured viewport, which keeps the
  * server and client markup identical and avoids a flash of the wrong state.
@@ -16,17 +18,20 @@ export function BodyFold({
   label,
   open,
   onToggle,
+  always = false,
   children,
 }: {
   label: string;
   open: boolean;
   onToggle: () => void;
+  /** Collapse at every width, not just below the breakpoint. */
+  always?: boolean;
   children: React.ReactNode;
 }) {
   const id = useId();
 
   return (
-    <div className="body-fold">
+    <div className={always ? "body-fold body-fold-always" : "body-fold"}>
       <button
         type="button"
         className="body-fold-toggle"
