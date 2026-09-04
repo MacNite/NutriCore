@@ -760,6 +760,7 @@
     "openMenu": "Open menu",
     "removeEntry": "Remove {name}",
     "editEntry": "Edit {name}",
+    "openEntry": "Open {name}",
     "addFood": "Add food",
     "toggleTheme": "Change theme",
     "changeLanguage": "Change language"

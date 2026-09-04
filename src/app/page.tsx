@@ -29,6 +29,17 @@ import { FoodSearchField } from "@/components/food-search-field";
 import { researchAvailability } from "@/server/research";
 import { aiAvailable } from "@/server/ai-availability";
 
+// A logged entry keeps pointing at the food or recipe it came from, so its row
+// in the meal dialog reads as the way there. The day and meal ride along, the
+// way they do from search results, so logging again from that page comes back
+// to this meal instead of to a bare day. An entry whose food or recipe has been
+// deleted since keeps its snapshot but has nowhere to lead.
+function entryHref(entry: { foodId: string | null; recipeId: string | null }, meal: string, date: string) {
+  if (entry.foodId) return `/foods/${entry.foodId}?meal=${meal}&date=${date}&editMeal=${meal}`;
+  if (entry.recipeId) return `/recipes/${entry.recipeId}`;
+  return null;
+}
+
 export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string; quickMeal?: string; editMeal?: string; error?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
@@ -180,7 +191,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                     <div className="dialog-toolbar"><strong>{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</strong><FoodSearchField variant="dropdown" meal={meal} date={selectedDate} editMeal={meal} locale={locale} researchAvailable={research.available} researchUnavailableReason={research.reason} /></div>
                     {mealPending.map((placeholder) => <AiPlaceholderRow key={placeholder.id} placeholder={placeholder} labels={placeholderLabels} returnTo="/" />)}
                     {mealPending.length ? <p className="muted" style={{ margin: "8px 0 0" }}>{mealPending.some((placeholder) => placeholder.status !== "FAILED") ? placeholderT("mealHint") : placeholderT("failedHint")}</p> : null}
-                    {entries.length === 0 && mealPending.length === 0 ? <p className="empty">{diaryT("empty")}</p> : entries.map((entry) => <DiaryEntryRow key={entry.id} entry={{ id: entry.id, label: entry.label, brand: entry.brand, quantity: entry.quantity, unit: entry.unit, kcal: entry.nutrients.energyKcal ?? null, sourceType: entry.sourceType }} date={selectedDate} locale={locale} badge={<SourceBadge source={entry.sourceType} />} />)}
+                    {entries.length === 0 && mealPending.length === 0 ? <p className="empty">{diaryT("empty")}</p> : entries.map((entry) => <DiaryEntryRow key={entry.id} entry={{ id: entry.id, label: entry.label, brand: entry.brand, quantity: entry.quantity, unit: entry.unit, kcal: entry.nutrients.energyKcal ?? null, sourceType: entry.sourceType, href: entryHref(entry, meal, selectedDate) }} date={selectedDate} locale={locale} badge={<SourceBadge source={entry.sourceType} />} />)}
                   </AppDialog>
                 </div>
               );
