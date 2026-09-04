@@ -1,10 +1,20 @@
 import { useTranslations } from "next-intl";
 
-export type SourceKey = "OPEN_FOOD_FACTS" | "USDA" | "USER" | "RECIPE" | "AI_RESEARCH" | "IMPORTED";
+export type SourceKey =
+  | "OPEN_FOOD_FACTS"
+  | "USDA"
+  | "BLS"
+  | "FATSECRET"
+  | "USER"
+  | "RECIPE"
+  | "AI_RESEARCH"
+  | "IMPORTED";
 
 const CLASS: Record<SourceKey, string> = {
   OPEN_FOOD_FACTS: "badge-off",
   USDA: "badge-usda",
+  BLS: "badge-bls",
+  FATSECRET: "badge-fatsecret",
   USER: "badge-user",
   RECIPE: "badge-recipe",
   AI_RESEARCH: "badge-ai",

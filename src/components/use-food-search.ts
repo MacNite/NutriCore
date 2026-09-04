@@ -40,7 +40,22 @@ export interface FoodSearchOutcome {
 
 const DEBOUNCE_MS = 500;
 
-export const providerName = (provider: string) => (provider === "OPEN_FOOD_FACTS" ? "Open Food Facts" : provider);
+/**
+ * The name to show for a provider in an error notice.
+ *
+ * Proper names only, and no translation: these are the products' own names.
+ * An unknown identifier is shown as it came rather than hidden, so a provider
+ * added later still produces a readable message.
+ */
+const PROVIDER_NAMES: Record<string, string> = {
+  OPEN_FOOD_FACTS: "Open Food Facts",
+  USDA_FDC: "USDA FoodData Central",
+  USDA: "USDA FoodData Central",
+  FATSECRET: "FatSecret",
+  BLS: "Bundeslebensmittelschlüssel",
+};
+
+export const providerName = (provider: string) => PROVIDER_NAMES[provider] ?? provider;
 
 export interface UseFoodSearchOptions {
   /** Ranks results towards what is usually eaten at this meal. */

@@ -44,12 +44,27 @@ export function rankFood(s: RankSignals) {
   return score;
 }
 
-/** Relative trust per source, feeding the `sourceTrust` signal. */
+/**
+ * Relative trust per source, feeding the `sourceTrust` signal.
+ *
+ * This orders candidates that have already been found. It does NOT decide
+ * which source is asked - that is the tier order in
+ * src/providers/food-sources.ts - and it is deliberately too small a term to
+ * override an identity match: a barcode hit short-circuits ranking entirely,
+ * and an exact name is worth 500 points against the 100 the whole trust scale
+ * spans. A better-trusted generic food can therefore never displace the
+ * branded product the user actually scanned.
+ *
+ * BLS and a user's own food are equally trusted: one is the German national
+ * nutrient database, the other is what this person measured themselves.
+ */
 export const SOURCE_TRUST: Record<string, number> = {
   USER: 0.95,
+  BLS: 0.95,
+  USDA: 0.92,
   RECIPE: 0.9,
+  FATSECRET: 0.9,
   OPEN_FOOD_FACTS: 0.85,
-  USDA: 0.9,
   IMPORTED: 0.6,
   AI_RESEARCH: 0.25,
 };

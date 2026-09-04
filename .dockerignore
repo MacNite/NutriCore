@@ -10,3 +10,7 @@ playwright-report
 test-results
 e2e
 *.md
+# The upstream food-database downloads (291 MB) are a build input for
+# scripts/convert-food-datasets.mjs, never something the runtime reads. Only
+# the converted artifacts in datasets/bundled ship in the image.
+datasets/raw

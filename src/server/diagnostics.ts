@@ -4,6 +4,9 @@ import { OllamaProvider } from "@/providers/ollama";
 import { userAgentLooksAnonymous } from "@/providers/open-food-facts";
 import { AIUnavailableError } from "@/providers/ai";
 import { SearxngClient } from "@/providers/searxng";
+import { FatSecretProvider } from "@/providers/fatsecret";
+import { ProviderUnavailableError } from "@/providers/food";
+import { DATASET_KEYS } from "./food-datasets/import";
 
 export type CheckStatus = "ok" | "error" | "disabled" | "unknown";
 
@@ -121,15 +124,79 @@ export async function runDiagnostics(): Promise<Check[]> {
       : { key: "openFoodFactsUserAgent", status: "ok", detail: config.OPENFOODFACTS_USER_AGENT }
     : { key: "openFoodFactsUserAgent", status: "disabled" };
 
-  const usda: Check = config.USDA_ENABLED
-    ? {
-        key: "usda",
-        // Phase 2: the adapter is designed but not implemented, so this only
-        // reports whether the credential is present.
-        status: hasSecret("USDA_API_KEY") ? "unknown" : "error",
-        detail: hasSecret("USDA_API_KEY") ? "key configured" : "key missing",
-      }
-    : { key: "usda", status: "disabled" };
+  // The bundled food databases: whether they are imported, not whether they
+  // are configured. An enabled source with nothing imported is the one failure
+  // mode a deployment actually hits, and it is fixed by one command.
+  const imports = await prisma.datasetImport.findMany({ select: { key: true, version: true, recordCount: true } });
+  const importedBy = new Map(imports.map((row) => [row.key, row]));
+  const bundled = (key: string, enabled: boolean, label: string): Check => {
+    if (!enabled) return { key, status: "disabled" };
+    const rows = DATASET_KEYS.filter((dataset) => dataset === label || dataset.startsWith(`${label}-`)).map((dataset) =>
+      importedBy.get(dataset),
+    );
+    const present = rows.filter((row) => row && row.recordCount > 0);
+    if (present.length === 0) {
+      return { key, status: "error", detail: "bundled but not imported — run `npm run db:import:foods`" };
+    }
+    const foods = present.reduce((total, row) => total + (row?.recordCount ?? 0), 0);
+    return { key, status: "ok", detail: `${foods.toLocaleString("en-US")} foods — ${present[0]?.version ?? ""}`.trim() };
+  };
+
+  const bls = bundled("bls", config.BLS_ENABLED, "bls");
+
+  // Two capabilities behind one switch: the bundled releases, which always
+  // work, and the FoodData Central API, which needs a key. Reported together
+  // so "USDA" cannot look broken merely because no key is configured.
+  const usda: Check = !config.USDA_ENABLED
+    ? { key: "usda", status: "disabled" }
+    : await (async (): Promise<Check> => {
+        const local = bundled("usda", true, "usda");
+        if (!hasSecret("USDA_API_KEY")) {
+          return local.status === "ok"
+            ? { key: "usda", status: "ok", detail: `${local.detail} — bundled only, no API key` }
+            : { key: "usda", status: local.status, detail: local.detail };
+        }
+        const reachable = await timed(() => probe(`${config.USDA_BASE_URL}/foods/search?query=apple&pageSize=1&api_key=${encodeURIComponent(config.USDA_API_KEY ?? "")}`));
+        return {
+          key: "usda",
+          status: reachable === "ok" ? "ok" : "error",
+          detail:
+            reachable === "ok"
+              ? `${local.detail} — API reachable`
+              : `${local.detail} — API unreachable or key rejected`,
+        };
+      })();
+
+  /**
+   * FatSecret, including the mistake a self-hosted deployment actually makes.
+   *
+   * The Platform API authorises by IP address, so credentials that are
+   * perfectly valid are refused from an unregistered address. Reporting that
+   * as "error: check the IP allowlist" is the difference between a five-minute
+   * fix and an afternoon.
+   */
+  const fatSecret: Check = !config.FATSECRET_ENABLED
+    ? { key: "fatSecret", status: "disabled" }
+    : !hasSecret("FATSECRET_CLIENT_ID") || !hasSecret("FATSECRET_CLIENT_SECRET")
+      ? { key: "fatSecret", status: "error", detail: "enabled but FATSECRET_CLIENT_ID/SECRET are not set" }
+      : await (async (): Promise<Check> => {
+          try {
+            const results = await new FatSecretProvider().search("apple", { limit: 1 });
+            return {
+              key: "fatSecret",
+              status: "ok",
+              detail: `${results.length > 0 ? "answering" : "reachable, no result"}${config.FATSECRET_REGION ? ` — region ${config.FATSECRET_REGION}` : ""}`,
+            };
+          } catch (error) {
+            const detail =
+              error instanceof ProviderUnavailableError && error.message.includes("IP address")
+                ? "this deployment's outbound IP address is not registered with the FatSecret account"
+                : error instanceof ProviderUnavailableError
+                  ? error.reason.toLowerCase()
+                  : "unreachable";
+            return { key: "fatSecret", status: "error", detail };
+          }
+        })();
 
   // SearXNG is the implemented source-discovery provider. RESEARCH_PROVIDER is
   // reserved for a future provider API and must not make a configured SearXNG
@@ -145,7 +212,7 @@ export async function runDiagnostics(): Promise<Check[]> {
       }
     : { key: "research", status: "disabled", detail: "SEARXNG_URL not configured" };
 
-  return [database, ollama, model, aiWorker, openFoodFacts, openFoodFactsSearch, openFoodFactsIdentity, usda, research];
+  return [database, ollama, model, aiWorker, bls, openFoodFacts, openFoodFactsSearch, openFoodFactsIdentity, usda, fatSecret, research];
 }
 
 const formatDuration = (seconds: number) =>

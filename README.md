@@ -67,10 +67,13 @@ src/app/        App Router pages and route handlers
 src/components/ Shared UI
 src/server/     Session, authorisation and domain services
 src/lib/        Pure domain logic (nutrition, calories, units, ranking, …)
-src/providers/  External adapters (Open Food Facts, Ollama)
+src/providers/  External adapters and the food source registry
+                (Open Food Facts, USDA FoodData Central, FatSecret, Ollama)
 src/i18n/       Locale resolution
 messages/       de.json / en.json translation catalogues
 prisma/         Schema, migrations and the optional development seed
+datasets/raw/     Upstream food-database downloads (a build input, not shipped)
+datasets/bundled/ The converted, versioned artifacts that do ship
 e2e/            Playwright end-to-end specs
 tests/          Authorisation and i18n integration tests
 ```
@@ -192,7 +195,12 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | no | Optional SMTP authentication credentials |
 | `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | with environment SMTP | Sender address and display name for invitation email |
 | `OLLAMA_TIMEOUT_SECONDS` | no | Model generation timeout; default `600` seconds |
-| `USDA_ENABLED` / `USDA_API_KEY` | no | Phase 2 |
+| `BLS_ENABLED` | no | Default `true`. The bundled Bundeslebensmittelschlüssel 4.0; needs no credentials and makes no network request |
+| `USDA_ENABLED` | no | Default `true` (**changed**: it defaulted to `false` while USDA was API-only). Enables the bundled Foundation and SR Legacy releases |
+| `USDA_API_KEY` | no | Optional. Extends USDA search beyond the bundled releases to newer, Survey (FNDDS) and Branded records. Server-side only |
+| `FATSECRET_ENABLED` | no | Default `false`. Optional external fallback; nothing changes for an installation that leaves it off |
+| `FATSECRET_CLIENT_ID` / `FATSECRET_CLIENT_SECRET` | with FatSecret | OAuth 2.0 client credentials, exchanged server-side only. The Platform API also requires this deployment's outbound IP address to be registered with your FatSecret account |
+| `FATSECRET_REGION` / `FATSECRET_LANGUAGE` | no | Premier-plan localisation. Left empty on a basic plan, where the capability is skipped rather than substituted |
 | `RESEARCH_ENABLED` | no | Default `false`; only enables web sources for AI research |
 | `RESEARCH_PROVIDER` / `SEARCH_API_*` | no | Reserved for Phase 2; leave unset when using SearXNG |
 | `LOG_LEVEL` | no | `debug`, `info` (default), `warn`, `error` |
@@ -484,6 +492,142 @@ Only the first 512 KB of a page is read and the rest is abandoned mid-transfer;
 a larger page is used up to that point rather than rejected, since only the
 first 20,000 characters of text ever reach a prompt.
 
+## Food sources
+
+NutriCore searches several databases, in an order that depends on the user's
+language, and stops as soon as it has a good enough answer. Two of them ship
+with the application and need no network at all.
+
+| Source | Ships with the app | Responsibility |
+| --- | --- | --- |
+| Your own foods and recipes | — | Everything you created, plus the public foods a previous lookup already stored |
+| **BLS 4.0** | yes, 7,140 foods | Generic German foods. The German national nutrient database |
+| **USDA FoodData Central** | yes, 8,156 foods | Generic English/US foods. Optionally extended over the FDC API |
+| **Open Food Facts** | no | Branded and packaged products, and every barcode |
+| **FatSecret** | no | Optional verified fallback, off by default |
+
+### The order sources are asked in
+
+German text search:
+
+```
+Local / your own foods
+        |
+    BLS 4.0                  (bundled, no network)
+        |
+ Open Food Facts
+        |
+   FatSecret                 (only if enabled)
+        |
+USDA FoodData Central
+```
+
+English text search:
+
+```
+Local / your own foods
+        |
+USDA FoodData Central        (bundled, then the API if a key is set)
+        |
+ Open Food Facts
+        |
+   FatSecret                 (only if enabled)
+```
+
+Barcode, in every language:
+
+```
+Local cache / your own foods
+        |
+ Open Food Facts
+        |
+   FatSecret                 (only if its plan supports barcodes)
+```
+
+A barcode identifies one packaged product, so the generic ingredient databases
+are never asked for one: BLS and the USDA generic releases hold no barcodes,
+and querying them would only add latency to a scan.
+
+Two rules keep this predictable:
+
+* **Tier order decides which source is asked.** It lives in
+  `src/providers/food-sources.ts`, as one map per locale, so adding a language
+  is a new entry rather than a language check spread through the code.
+* **Ranking decides how the answers are ordered.** It lives in
+  `src/lib/ranking.ts` and is a deterministic weighted sum. It is deliberately
+  too small a term to override an identity match, so a better-trusted generic
+  food can never displace the branded product you actually scanned.
+
+Traversal stops when a result both matches exactly — a barcode, a name, a
+synonym or an official translation — and carries at least three of the four
+primary nutrients (`src/server/food-search-policy.ts`). A merely *similar*
+result never stops it, which is why a German search for a branded product
+still reaches Open Food Facts. Typing never reaches a network provider at all:
+only an explicit request for remote results or a complete barcode does.
+
+A source that is unreachable is skipped, with the results from earlier tiers
+kept and the next tier still consulted. A provider outage degrades the result
+list; it never fails the search.
+
+### How long each source may be kept
+
+Persistence is a licensing question before it is a caching question, so it
+belongs to the source (`PersistencePolicy` in `src/providers/food.ts`):
+
+| Source | Policy | Effect |
+| --- | --- | --- |
+| BLS, USDA | permanent | Imported into PostgreSQL and kept |
+| Open Food Facts | permanent | Unchanged behaviour; ODbL permits it, and an expired answer is still served during an outage |
+| FatSecret | cache with TTL | Content expires after 24 hours and is pruned once no diary entry, favourite or recipe references it. An expired answer is *not* served during an outage |
+
+### Importing the bundled databases
+
+The upstream downloads in `datasets/raw` (291 MB of .xlsx and JSON) are a build
+input, not a runtime dependency. They are converted once into about 5 MB of
+gzipped NDJSON in `datasets/bundled`, which is what ships:
+
+```bash
+npm run datasets:convert        # regenerate datasets/bundled after a new release
+npm run db:import:foods         # import into PostgreSQL (idempotent)
+npm run db:import:foods -- bls  # just one of them
+```
+
+The import is safe to repeat: it compares the artifact's checksum against the
+last import and stops immediately when nothing has changed, and it finds each
+food again by its own identifier (a BLS code, an FDC id) and updates it in
+place — so food ids, diary entries and recipe ingredients all stay valid. A
+food that a newer release no longer lists is counted and left alone rather than
+deleted.
+
+You do not normally have to run anything: the worker imports the bundled
+databases in the background on start-up, and **Administrator Panel → Food
+databases** shows what is bundled versus imported, with a button to import or
+force a re-import.
+
+### What the importers do and do not assume
+
+* BLS marks a nutrient it never determined with the string `-`, a trace with
+  `TR`, and a value below the detection or quantification limit with
+  `<LOD`/`<LOQ`. All four stay unknown; none of them ever becomes `0`. A zero
+  BLS states as a fact (`Logische Null` — there is no alcohol in oats) is kept
+  as a real zero.
+* Units are converted explicitly and only between known pairs. BLS states
+  sodium in mg where NutriCore stores g, and copper, manganese and vitamin B6
+  in µg where NutriCore stores mg. A future release that changes a unit fails
+  the import instead of rescaling every value by a thousand.
+* Both importers record the source's own number and unit alongside the
+  converted value, so a conversion stays auditable.
+* Nutrients whose mapping is uncertain are not mapped. BLS 4.0 publishes no
+  selenium and no trans fat; FDC publishes no total omega-3, omega-6 or salt;
+  FatSecret's calcium, iron, vitamin A and vitamin C have been published both
+  as masses and as percentages of a daily value, so NutriCore imports none of
+  them. In every case the nutrient stays unknown rather than becoming a guess.
+* Names come from the source. BLS supplies an official German and English name
+  for all 7,140 of its foods, so a German user reads German and an English user
+  reads English; slash-separated synonyms
+  ("Speisesalz/Siedesalz/Tafelsalz") become searchable aliases. Nothing is
+  machine-translated, and a branded product is never translated at all.
+
 ## Database migrations, upgrade, backup and restore
 
 The container runs `prisma migrate deploy` at start-up. It deliberately does
@@ -590,7 +734,24 @@ retrieval timestamp so they remain identifiable as OFF-derived. Redistributing a
 database derived from OFF may carry share-alike obligations.
 
 **USDA FoodData Central** data is generally public domain (CC0) and is
-attributed regardless.
+attributed regardless. The Foundation Foods and SR Legacy releases are bundled
+with the application.
+
+**Bundeslebensmittelschlüssel (BLS) 4.0** is Germany's national nutrient
+database, developed and maintained by the
+[Max Rubner-Institut](https://www.mri.bund.de/), the German Federal Research
+Institute of Nutrition and Food. Its own documentation lists among the changes
+for version 4.0 a provision free of charge and free of licence
+("kostenfreie und lizenzfreie Bereitstellung") and states no restriction on
+redistribution. Obtained from <https://blsdb.de/download>; the version bundled
+here is **BLS 4.0, data release 2025**, recorded in
+`datasets/bundled/manifest.json` with a checksum of both the source files and
+the converted artifact.
+
+**FatSecret** is optional and off by default. Its Platform API terms do not
+permit building a copy of their database, which is why NutriCore caches
+FatSecret content for 24 hours and prunes it, rather than storing it the way it
+stores the sources above.
 
 This is operational documentation, not legal advice. The same information is
 shown in the app at `/about/data-sources`. Add your own licence in `LICENSE`.
@@ -644,7 +805,12 @@ ever exposed (this invalidates existing sessions).
 ## Deferred to Phase 2
 
 These have interfaces, schemas and unit tests, but no user-facing flow yet:
-web research provider search (source URLs are supplied by hand today), the
-USDA adapter, browser barcode
-scanning (manual entry works), adaptive TDEE, photo/voice input, meal planning,
-household sharing and offline sync.
+web research provider search (source URLs are supplied by hand today), browser
+barcode scanning (manual entry works), adaptive TDEE, photo/voice input, meal
+planning, household sharing and offline sync.
+
+The FatSecret adapter is complete and unit tested, but it has not been
+exercised against the live Platform API — no account was available — so treat
+its first enablement as a configuration exercise and check
+**Administrator Panel → Diagnostics**, which reports the IP-allowlist refusal
+that a self-hosted deployment is most likely to hit.

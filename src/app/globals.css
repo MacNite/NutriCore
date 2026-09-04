@@ -1101,6 +1101,22 @@ legend {
   border-color: transparent;
 }
 
+/* The bundled German reference database, and the optional external fallback.
+   The badge always carries the source's name as text and a full name for a
+   screen reader, so these only ever help someone scan a list - they never
+   carry the meaning on their own. FatSecret keeps the neutral badge and is
+   set apart by weight alone, because it is the one source that is off in
+   almost every installation. */
+.badge-bls {
+  background: var(--fat-soft);
+  color: var(--fat);
+  border-color: transparent;
+}
+
+.badge-fatsecret {
+  border-style: dashed;
+}
+
 /* An AI estimate is marked by text and an icon, never by colour alone. */
 .badge-ai {
   background: var(--warn-bg);

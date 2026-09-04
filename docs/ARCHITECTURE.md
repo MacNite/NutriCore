@@ -12,9 +12,9 @@ exhaustively.
 | --- | --- | --- |
 | UI | `src/app`, `src/components` | Rendering, forms, accessibility |
 | Entry | route handlers, server actions | Session, authorisation, validation, rate limiting |
-| Services | `src/server` | Diary, foods, targets, export, diagnostics |
+| Services | `src/server` | Diary, foods, food-dataset import, targets, export, diagnostics |
 | Domain | `src/lib` | Nutrition, calories, units, ranking, research, guards |
-| Adapters | `src/providers` | Open Food Facts, Ollama, provider interfaces |
+| Adapters | `src/providers` | Open Food Facts, USDA FoodData Central, FatSecret, Ollama; the food source registry and provider interfaces |
 | Storage | `prisma` | Schema, migrations, seed |
 
 ## Nutrition model
@@ -54,13 +54,96 @@ is unaffected. Editing an amount rescales from the entry's own frozen per-basis
 values rather than re-reading the food, so an edit cannot silently pull in newer
 data either.
 
-## Search and ranking
+## Food sources and search
 
-The pipeline is local-first: barcode, exact local match, favourites, recent and
-frequent foods, personal recipes and custom foods, cached external foods, fuzzy
-matches, and only then a remote provider — which is skipped entirely when a
-strong local result already exists. Queries are debounced client-side and
-cached server-side for a day. `pg_trgm` GIN indexes back the fuzzy match.
+### The sources
+
+Five sources, with different responsibilities and different rules about how
+long their data may be kept:
+
+| Source | `SourceType` | Reached by | Persistence |
+| --- | --- | --- | --- |
+| The user's own foods, their recipes as foods, and previously stored public foods | `USER`, `RECIPE`, `AI_RESEARCH`, `IMPORTED`, and stored provider rows | PostgreSQL | permanent |
+| Bundeslebensmittelschlüssel 4.0 | `BLS` | PostgreSQL (bundled and imported) | permanent |
+| USDA FoodData Central | `USDA` | PostgreSQL (bundled) plus the optional FDC API | permanent |
+| Open Food Facts | `OPEN_FOOD_FACTS` | network | permanent, expired answers served during an outage |
+| FatSecret | `FATSECRET` | network, optional | cache with a 24 h TTL, then pruned |
+
+Each is a distinct `SourceType`, never a stand-in for another, so provenance
+survives into the UI, the diary snapshot and an export.
+
+### Tier order versus ranking
+
+These are two different decisions and they are kept apart:
+
+* **Tier order decides which source is asked**, and lives in
+  `src/providers/food-sources.ts` as one map per locale plus one for barcodes.
+  A new language is a new entry there and nothing else — deliberately, rather
+  than a language check wherever a source is used.
+* **Ranking decides how the answers are ordered**, and lives in
+  `src/lib/ranking.ts`. It is a deterministic weighted sum, no model.
+
+Ranking cannot subvert tier order, and trust cannot subvert identity: a barcode
+match short-circuits ranking entirely, an exact name is worth 500 points, and
+the whole source-trust scale spans 100. A slightly better-trusted generic food
+therefore cannot displace the product that was actually scanned.
+
+```
+German text          English text        Barcode (any locale)
+
+Local/User           Local/User          Local cache
+    |                    |                    |
+   BLS                  USDA                 OFF
+    |                    |                    |
+   OFF                   OFF              FatSecret
+    |                    |
+FatSecret            FatSecret
+    |
+  USDA
+```
+
+A barcode identifies one packaged product, so the generic ingredient databases
+are never queried for one — BLS and the USDA generic releases contain no
+barcodes at all.
+
+### When the walk stops
+
+`src/server/food-search-policy.ts` holds the one rule, so that how much network
+traffic a keystroke causes is readable in a single place rather than emergent
+from three components. Traversal stops when a candidate both
+
+* matches by identity — a barcode, an exact name, an exact name-and-brand, an
+  exact synonym or an exact official translation — or is a food this user has
+  eaten before with a close name, **and**
+* carries at least three of the four primary nutrients.
+
+Similarity alone is never enough. "Nutella" is ~0.8 similar to a dozen BLS
+nut-spread entries, and if that stopped the walk no German search would ever
+reach Open Food Facts. The completeness half is what lets a weak BLS record
+fall through to a fuller answer instead of ending the search.
+
+Local tiers always run; a network tier runs only when the UI asked for remote
+results or a complete barcode was scanned. Nothing an earlier tier found is
+discarded when a later one is consulted — everything is ranked together — so
+tiering reduces requests without hiding alternatives. Sources are walked
+strictly one after another rather than in parallel, because the point is to
+spend fewer requests, not to spend them faster.
+
+A source that fails is recorded, skipped and followed by the next one. The
+outcome carries a `tiers` report saying what was consulted, what each
+contributed, and why anything was skipped.
+
+### Caching and provider behaviour
+
+TTLs and persistence are per source rather than global. Open Food Facts keeps
+its existing behaviour exactly: search answers cached for a day, content for a
+week, and an expired answer served in preference to an error, because data that
+was correct yesterday beats a banner. FatSecret's terms allow a live cache and
+nothing more, so its foods carry `Food.cacheExpiresAt`, an expired answer is
+*not* served during an outage, and the worker prunes expired rows once no diary
+entry, favourite or recipe references them. A diary entry freezes its own
+nutrition and holds its food with `onDelete: SetNull`, so pruning can never
+rewrite a logged meal.
 
 Text search and barcode lookup hit different Open Food Facts services. Search
 goes to Search-a-licious (`search.openfoodfacts.org`), the Elasticsearch
@@ -71,18 +154,42 @@ macronutrients, so its results are marked partial: a partial product adds the
 values it knows and never overwrites the ones it does not, which keeps a search
 hit from erasing micronutrients an earlier barcode lookup established.
 
-Remote calls are treated as unreliable by design. Outbound requests are paced
-below the provider's published per-minute limits (`src/lib/rate-gate.ts`), a
-transient failure is retried with a jittered backoff, and when the provider is
-still unreachable an expired cache entry is served in preference to an error:
-food data that was correct yesterday is a better answer than a banner. Only a
-query that has never been answered surfaces the outage to the user, and even
-then the local results stay on screen.
+Outbound requests are paced below each provider's published per-minute limit
+(`src/lib/rate-gate.ts`), a transient failure is retried with a jittered
+backoff, and only a query that has never been answered surfaces an outage to
+the user — even then the local results stay on screen. Provider secrets are
+read inside the adapter that needs them and never reach the browser.
 
-Ranking is a deterministic weighted sum, not a model. A barcode match is an
-identity match and short-circuits everything. An AI estimate always carries a
-penalty scaled by its confidence, so it can never outrank a good exact match
-from a trusted database.
+### Bundled databases
+
+`datasets/raw` holds the upstream downloads and is a build input:
+`scripts/convert-food-datasets.mjs` turns 291 MB of .xlsx and JSON into about
+5 MB of gzipped NDJSON in `datasets/bundled`, plus a manifest recording each
+dataset's version and a checksum of both the source and the artifact. Only the
+converted artifacts ship in the image; the raw downloads are excluded by
+`.dockerignore` and are not under `public/`, which Next.js would serve to the
+internet.
+
+`src/server/food-datasets/` imports them. The readers (`bls.ts`, `usda.ts`) map
+a source record onto one `ImportableFood` shape and make every semantic
+decision — nutrient identity, unit conversion, what a missing value means, what
+kind of food it is — where it can be unit tested against the real files.
+`import.ts` writes them in chunked transactions, keyed on the source's own
+identifier, so a re-run reconciles instead of duplicating and a food keeps its
+id and therefore its diary references. The worker runs it in the background on
+start-up; an unchanged dataset costs one query.
+
+Values a source did not determine stay `NULL`. BLS distinguishes four kinds of
+"no number" — never determined (`-`), traces (`TR`), and below the detection or
+quantification limit (`<LOD`/`<LOQ`) — and `FoodNutrient.qualifier` keeps that
+distinction rather than flattening it, while a zero the source states as a fact
+is kept as a real zero. `FoodNutrient.origin` records how the source obtained
+the value, in the source's own vocabulary.
+
+Per-locale names come from `FoodTranslation`: BLS publishes an official German
+and English name for every food, so the reader's language decides which is
+shown. Nothing is machine-translated, and a branded product is never
+translated.
 
 ## AI and research trust boundary
 
