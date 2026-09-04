@@ -966,8 +966,9 @@
     "failedName": "KI-Entwurf fehlgeschlagen",
     "failed": "Fehlgeschlagen",
     "retry": "Erneut versuchen",
+    "discard": "Verwerfen",
     "retryUnavailable": "Das Foto wurde nach dem Fehlschlag gelöscht – bitte neu einreichen.",
-    "failedHint": "Der Lauf ist fehlgeschlagen und hat nichts gespeichert. Die Eingabe bleibt hier stehen: „Erneut versuchen“ stellt sie noch einmal in die Warteschlange.",
+    "failedHint": "Der Lauf ist fehlgeschlagen und hat nichts gespeichert. Die Eingabe bleibt hier stehen: ↻ stellt sie noch einmal in die Warteschlange, ✕ verwirft sie.",
     "reasons": {
       "MODEL_UNREACHABLE": "NutriCore hat Ollama nicht erreicht.",
       "MODEL_TIMEOUT": "Ollama hat nicht rechtzeitig geantwortet.",
