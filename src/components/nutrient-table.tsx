@@ -1,64 +1,95 @@
-import { getTranslations } from "next-intl/server";
+"use client";
+
+import { useTranslations } from "next-intl";
 import { NUTRIENTS } from "@/lib/nutrients";
 import { formatNutrient } from "@/lib/format";
 import type { Locale } from "@/i18n/locales";
+
+/** An extra column of values, headed by the portion they belong to. */
+export interface NutrientColumn {
+  /** Column heading, e.g. "for 200 g". */
+  label: string;
+  /** Second heading line, e.g. the resolved weight of a named portion. */
+  hint?: string | null;
+  /** Values for the column, or null when the portion cannot be resolved. */
+  nutrients: Record<string, number | null> | null;
+}
 
 /**
  * Renders every nutrient in the catalogue. An unknown value shows a dash with
  * an explicit "unknown" label for screen readers, never a zero.
  */
-export async function NutrientTable({
+export function NutrientTable({
   nutrients,
   basisAmount,
   basisUnit,
   locale,
+  column,
 }: {
   nutrients: Record<string, number | null>;
   basisAmount: number;
   basisUnit: string;
   locale: Locale;
+  column?: NutrientColumn | null;
 }) {
-  const t = await getTranslations("nutrients");
-  const common = await getTranslations("common");
-  const foods = await getTranslations("foods");
+  const t = useTranslations("nutrients");
+  const common = useTranslations("common");
+  const foods = useTranslations("foods");
 
   const rows = NUTRIENTS.filter((n) => nutrients[n.key] !== undefined || n.category !== "vitamin");
+  const basisLabel = foods("perBasis", { amount: String(basisAmount), unit: basisUnit === "ML" ? "ml" : "g" });
+
+  const value = (values: Record<string, number | null> | null, key: string, unit: string) => {
+    const amount = values ? (values[key] ?? null) : null;
+    return amount === null ? (
+      <>
+        <span aria-hidden="true">–</span>
+        <span className="sr-only">{common("unknown")}</span>
+      </>
+    ) : (
+      `${formatNutrient(amount, locale)} ${unit}`
+    );
+  };
 
   return (
     <div className="table-scroll">
-      <table className="table">
-        <caption className="sr-only">
-          {foods("perBasis", { amount: String(basisAmount), unit: basisUnit === "ML" ? "ml" : "g" })}
-        </caption>
+      <table className={column ? "table nutrient-table" : "table"}>
+        <caption className="sr-only">{basisLabel}</caption>
         <thead>
           <tr>
             <th scope="col">{foods("form.nutrients")}</th>
             <th scope="col" className="num">
-              {foods("perBasis", { amount: String(basisAmount), unit: basisUnit === "ML" ? "ml" : "g" })}
+              {basisLabel}
             </th>
+            {column ? (
+              <th scope="col" className="num">
+                {column.label}
+                {column.hint ? (
+                  <>
+                    <br />
+                    <span className="muted" style={{ fontWeight: 400 }}>
+                      {column.hint}
+                    </span>
+                  </>
+                ) : null}
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
-          {rows.map((nutrient) => {
-            const value = nutrients[nutrient.key] ?? null;
-            return (
-              <tr key={nutrient.key}>
-                <th scope="row" style={{ fontWeight: 500 }}>
-                  {t(nutrient.key as "protein")}
-                </th>
-                <td className="num">
-                  {value === null ? (
-                    <>
-                      <span aria-hidden="true">–</span>
-                      <span className="sr-only">{common("unknown")}</span>
-                    </>
-                  ) : (
-                    `${formatNutrient(value, locale)} ${nutrient.unit}`
-                  )}
+          {rows.map((nutrient) => (
+            <tr key={nutrient.key}>
+              <th scope="row" style={{ fontWeight: 500 }}>
+                {t(nutrient.key as "protein")}
+              </th>
+              <td className="num">{value(nutrients, nutrient.key, nutrient.unit)}</td>
+              {column ? (
+                <td className="num" style={{ fontWeight: 600 }}>
+                  {value(column.nutrients, nutrient.key, nutrient.unit)}
                 </td>
-              </tr>
-            );
-          })}
+              ) : null}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

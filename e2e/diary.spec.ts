@@ -100,6 +100,12 @@ test("a user can create a custom food, log it and edit the portion", async ({ pa
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Testbrot");
 
   await page.getByLabel(/^amount$|^menge$/i).fill("200");
+
+  // The nutrient table previews the portion being logged beside the basis values.
+  const energyRow = page.getByRole("row").filter({ has: page.getByRole("rowheader", { name: /^energy$|^energie$/i }) }).first();
+  await expect(energyRow).toContainText("250 kcal");
+  await expect(energyRow).toContainText("500 kcal");
+
   await page.getByLabel(/^move to$|^verschieben nach$/i).selectOption("DINNER");
   await page.getByRole("button", { name: /breakfast|lunch|dinner|snacks|frühstück|mittagessen|abendessen|snacks/i }).click();
   await page.waitForURL(/\/foods\?meal=DINNER&date=\d{4}-\d{2}-\d{2}$/);

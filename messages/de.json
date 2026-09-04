@@ -237,6 +237,9 @@
     "providerRateLimited": "{provider} erhält gerade zu viele Anfragen. Die Trefferliste kann unvollständig sein. Versuch es bitte gleich noch einmal.",
     "providerTimeout": "Die Suche bei {provider} hat zu lange gedauert. Die Trefferliste kann unvollständig sein. Versuch es bitte noch einmal.",
     "perBasis": "je {amount} {unit}",
+    "forPortion": "für {amount} {unit}",
+    "forPortionUnknown": "für die Portion",
+    "portionEquivalent": "entspricht {amount} {unit}",
     "servingLabel": "Portion",
     "source": {
       "OPEN_FOOD_FACTS": "OFF",

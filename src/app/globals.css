@@ -1275,6 +1275,14 @@ legend {
   font-variant-numeric: tabular-nums;
 }
 
+/* The nutrient table carries a second value column for the entered portion.
+   Values stay on one line so the two columns line up and stay comparable; the
+   surrounding .table-scroll takes the width on a narrow screen. */
+.nutrient-table td.num,
+.nutrient-table th.num {
+  white-space: nowrap;
+}
+
 .table-scroll {
   overflow-x: auto;
 }
