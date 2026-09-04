@@ -32,6 +32,13 @@ export interface SaveRecipeOptions {
   sourceType?: SourceType;
   /** The AI import this recipe was extracted from, kept for the draft review. */
   importId?: string;
+  /**
+   * The publication this recipe was copied from, with its author's name as it
+   * read then. Carried on the recipe rather than followed through the relation
+   * because the copy is independent: the publication may be withdrawn or the
+   * author's account deleted, and the credit has to survive both.
+   */
+  forkedFrom?: { publicationId: string; authorName: string };
 }
 
 const foodInclude = {
@@ -141,6 +148,9 @@ export async function saveRecipe(userId: string, input: RecipeInput, recipeId?: 
       status,
       ...(options.sourceType ? { sourceType: options.sourceType } : {}),
       ...(options.importId ? { importId: options.importId } : {}),
+      ...(options.forkedFrom
+        ? { forkedFromPublicationId: options.forkedFrom.publicationId, forkedFromAuthorSnapshot: options.forkedFrom.authorName }
+        : {}),
     };
     const recipe = recipeId
       ? await tx.recipe.update({ where: { id: recipeId }, data })

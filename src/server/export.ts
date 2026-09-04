@@ -8,8 +8,12 @@ import type { EntrySnapshot, ProvenanceSnapshot } from "./diary";
  * 2 added `bodyMeasurements` and `bodyScans`. Version 1 omitted the body
  * timeline entirely: an export that claimed to be everything personal was
  * silently missing every tape session the user had ever recorded.
+ *
+ * 3 added `recipePublications`: what the user has shared with the other members
+ * of this instance is theirs, and an export that stopped at their private
+ * recipes would not say what any of them had been published as.
  */
-export const EXPORT_FORMAT_VERSION = 2;
+export const EXPORT_FORMAT_VERSION = 3;
 
 /**
  * Everything personal, in one documented envelope. Password hashes and session
@@ -47,6 +51,9 @@ export async function exportUserData(userId: string) {
         },
       },
       recipes: { include: { ingredients: true } },
+      /* What this user has shared, as it currently reads publicly, including a
+         publication whose private recipe they have since deleted. */
+      publications: { include: { ingredients: { orderBy: { position: "asc" } } }, orderBy: { publishedAt: "asc" } },
       diaryDays: { include: { entries: { orderBy: { createdAt: "asc" } } }, orderBy: { date: "asc" } },
       research: { include: { sources: true, candidates: true } },
     },
@@ -66,6 +73,7 @@ export async function exportUserData(userId: string) {
     usageStats: user.usage,
     foods: user.foods,
     recipes: user.recipes,
+    recipePublications: user.publications,
     diary: user.diaryDays,
     research: user.research,
     notice:

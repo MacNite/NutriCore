@@ -190,11 +190,12 @@ model User {
   favorites         Favorite[]
   usage             FoodUsageStats[]
   research          ResearchJob[]
-  invitationsSent   UserInvitation[]   @relation("InvitationSender")
+  invitationsSent   UserInvitation[]    @relation("InvitationSender")
   aiJobs            AiJob[]
   aiIngestionInputs AiIngestionInput[]
   activityEntries   ActivityEntry[]
   bodyScans         BodyScan[]
+  publications      RecipePublication[]
 }
 
 model UserInvitation {
@@ -741,33 +742,41 @@ model FoodNutrient {
 }
 
 model Recipe {
-  id              String       @id @default(cuid())
-  ownerId         String
-  name            String
-  alternativeName String?
-  description     String?
-  servings        Decimal      @db.Decimal(8, 2)
-  yieldWeightG    Decimal?     @db.Decimal(10, 2)
-  instructions    String?
-  tags            String[]
-  favorite        Boolean      @default(false)
-  sourceType      SourceType   @default(RECIPE)
-  status          RecipeStatus @default(ACTIVE)
+  id                       String       @id @default(cuid())
+  ownerId                  String
+  name                     String
+  alternativeName          String?
+  description              String?
+  servings                 Decimal      @db.Decimal(8, 2)
+  yieldWeightG             Decimal?     @db.Decimal(10, 2)
+  instructions             String?
+  tags                     String[]
+  favorite                 Boolean      @default(false)
+  sourceType               SourceType   @default(RECIPE)
+  status                   RecipeStatus @default(ACTIVE)
   /// The AI import this draft came from, so the review can still name the
   /// ingredients that could not be matched or converted.
-  importId        String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  importId                 String?
+  /// The publication this recipe was saved from, and who wrote it. The copy is
+  /// independent - it reads none of the author's rows - so the attribution has
+  /// to be carried here rather than followed through a relation that may go.
+  forkedFromPublicationId  String?
+  forkedFromAuthorSnapshot String?
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
 
-  owner        User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  import       AiIngestionInput?  @relation(fields: [importId], references: [id], onDelete: SetNull)
+  owner        User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  import       AiIngestionInput?   @relation(fields: [importId], references: [id], onDelete: SetNull)
   ingredients  RecipeIngredient[]
   diaryEntries DiaryEntry[]
   sources      RecipeSource[]
+  publications RecipePublication[]
+  forkedFrom   RecipePublication?  @relation("RecipeForkedFrom", fields: [forkedFromPublicationId], references: [id], onDelete: SetNull)
 
   @@index([ownerId, name])
   @@index([ownerId, status])
   @@index([importId])
+  @@index([forkedFromPublicationId])
 }
 
 model RecipeSource {
@@ -794,7 +803,13 @@ model RecipeIngredient {
   position        Int      @default(0)
 
   recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  food   Food   @relation(fields: [foodId], references: [id])
+  /// Cascade, not the default restrict. The one case where a food a recipe
+  /// uses is deleted at all is the account cascade - the prune explicitly
+  /// keeps a food a recipe references, and nothing else deletes one - and
+  /// there the recipe is going too. Left restricting, deleting an account
+  /// failed outright as soon as the user had built a recipe from a food they
+  /// had created themselves.
+  food   Food   @relation(fields: [foodId], references: [id], onDelete: Cascade)
 
   @@index([recipeId])
   @@index([foodId])
@@ -973,4 +988,92 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+/// A recipe as it was shared with the other members of this instance.
+///
+/// Deliberately a snapshot rather than a readable view of the author's private
+/// `Recipe`: editing the private recipe must not silently rewrite what other
+/// members are reading, deleting it must not break the copies they saved, and
+/// publishing must never make the author's private food rows reachable. The
+/// same reasoning the diary already applies to `nutritionSnapshot`.
+model RecipePublication {
+  id                 String            @id @default(cuid())
+  authorId           String
+  /// The private recipe this was taken from, kept so the author can see that a
+  /// recipe is published and withdraw it. `SetNull`, never cascade: deleting
+  /// the private recipe leaves the publication and every saved copy standing.
+  sourceRecipeId     String?
+  /// The author's display name as it read at publication time. A rename must
+  /// not silently re-attribute a recipe, and an account that is gone must still
+  /// credit someone.
+  authorNameSnapshot String
+  title              String
+  description        String?
+  servings           Decimal           @db.Decimal(8, 2)
+  yieldWeightG       Decimal?          @db.Decimal(10, 2)
+  instructions       String?
+  tags               String[]
+  locale             Locale?
+  /// Per-serving and per-100 g nutrition with its coverage, frozen at
+  /// publication time, so the listing never has to read the author's foods.
+  nutritionSnapshot  Json
+  status             PublicationStatus @default(PUBLISHED)
+  publishedAt        DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  author       User                          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  sourceRecipe Recipe?                       @relation(fields: [sourceRecipeId], references: [id], onDelete: SetNull)
+  ingredients  RecipePublicationIngredient[]
+  copies       Recipe[]                      @relation("RecipeForkedFrom")
+
+  @@index([status, publishedAt])
+  @@index([authorId, publishedAt])
+  @@index([sourceRecipeId])
+}
+
+enum PublicationStatus {
+  PUBLISHED
+  WITHDRAWN
+}
+
+/// One ingredient of a publication, carrying both what to display and enough
+/// provenance for a recipient to find the same food again.
+///
+/// `foodId` is deliberately absent. A recipe ingredient points at a `Food` that
+/// may be the author's own private row, and a publication that referenced it
+/// would hand every reader a private record - the one boundary
+/// `visibleFoodWhere` exists to hold.
+model RecipePublicationIngredient {
+  publicationId     String
+  position          Int
+  displayName       String
+  brand             String?
+  amount            Decimal    @db.Decimal(10, 3)
+  unit              String
+  /// The resolved measures, so a copy is weighed exactly as the publication was
+  /// rather than re-resolving a household unit against a different food.
+  weightG           Decimal    @db.Decimal(10, 3)
+  normalizedMl      Decimal?   @db.Decimal(10, 3)
+  basisAmount       Decimal    @db.Decimal(10, 3)
+  basisUnit         BasisUnit
+  /// The food's per-basis nutrition at publication time.
+  nutritionSnapshot Json
+  /// How a recipient may find the same food: the shared provider row first, its
+  /// barcode second. Both may be absent for a food the author created.
+  sourceType        SourceType
+  externalProvider  String?
+  externalId        String?
+  barcode           String?
+  densityGPerMl     Decimal?   @db.Decimal(10, 5)
+  /// Whether a recipient may keep these values permanently. False for a source
+  /// whose terms allow caching but not storage (`PersistencePolicy`): such an
+  /// ingredient may be re-used while the shared row still exists, but its
+  /// numbers are never copied into a permanent private food.
+  permanent         Boolean    @default(true)
+
+  publication RecipePublication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@id([publicationId, position])
+  @@index([publicationId])
 }

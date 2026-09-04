@@ -33,6 +33,10 @@ Implemented and covered by tests:
   optional density. Empty fields stay unknown.
 - **Recipes** — create and edit recipes from existing foods, inspect nutrition
   per serving and per 100 g with coverage, and log immutable recipe snapshots.
+- **Sharing recipes with the instance** — opt-in: publish one of your recipes
+  for the other members of this installation, browse what they have shared, and
+  save a shared recipe as your own independent copy. See
+  [Sharing recipes](#sharing-recipes).
 - **Weight tracking** — entries, chart with a 7-day moving average and goal
   line, plus an accessible text summary and table.
 - **Settings** — profile, target override, language, AI and research toggles.
@@ -41,8 +45,8 @@ Implemented and covered by tests:
   links, activate and deactivate accounts, watch the AI job queue with its
   retries and errors, and check service reachability (diagnostics). Reachable
   from Settings → Administration.
-- **Export** — versioned JSON of all personal records, plus diary and weight
-  CSV. Credentials are excluded.
+- **Export** — versioned JSON of all personal records, including what you have
+  published, plus diary and weight CSV. Credentials are excluded.
 - **German and English** throughout, with locale-correct number formatting
   (`1.234,5 kcal` / `1,234.5 kcal`).
 - **Light / dark / system themes**, responsive layout with bottom navigation on
@@ -783,6 +787,52 @@ photo taken earlier can be used without the camera taking over. Live camera
 capture additionally needs an HTTPS origin; on a plain-HTTP LAN deployment both
 buttons open the file picker and everything else works the same.
 
+## Sharing recipes
+
+Off by default in the only sense that matters: nothing is shared until you open
+one of your recipes and publish it. There is no feed of anything else, no
+profiles, no comments, and no ranking - just the recipes members of this
+installation have chosen to publish, newest first, at **Foods → Shared
+recipes**.
+
+Publishing takes a **snapshot**. The title, description, instructions and tags
+are yours to edit in the publish form before anything is public, and what is
+published is that text, the ingredient names with their amounts, and the
+nutrition calculated from them. Your display name is shown as the author. Your
+private recipe is not touched, and no food row of yours becomes readable: a
+publication deliberately stores no food ids, because `Food.ownerId` is the
+whole boundary between two members and a shared id would give it away.
+
+Saving somebody's shared recipe **copies** it:
+
+- you get your own recipe, owned by you;
+- each ingredient resolves to a food you may already read - the shared provider
+  row it was made with, matched by provider id or barcode;
+- an ingredient with no such row (the author's own custom food) becomes a
+  private food of yours, marked `IMPORTED`, carrying the snapshot's values;
+- the nutrition is recalculated by the same code path a manual edit uses.
+
+Nothing the author does afterwards reaches your copy. They can edit, withdraw
+or delete the original and your recipe is unaffected - which is the entire
+reason for copying rather than linking.
+
+One case is refused rather than fudged. A food from a source whose licence
+allows caching but not storage (FatSecret, see
+[How long each source may be kept](#how-long-each-source-may-be-kept)) may be
+re-used while the shared row still exists, but its values are never copied into
+somebody's permanent private food. When that row has already been pruned, the
+ingredient is left out of your copy and named on the recipe, rather than
+quietly turning expiring provider content into a permanent public dataset.
+
+An AI draft cannot be published: confirm it first. Withdrawing takes a
+publication out of the list and out of reach by its address, but leaves the
+copies other members saved alone - they are their recipes now, and an author
+changing their mind is not a reason to strip the credit off them.
+
+Publishing is rate limited per account. Everything here is instance-local:
+there is no public access, no federation and no discovery beyond the members of
+this installation.
+
 ## Security considerations
 
 - Argon2id password hashing with OWASP-aligned parameters
@@ -797,6 +847,9 @@ buttons open the file picker and everything else works the same.
 - No advertising SDKs, no third-party analytics, no telemetry
 - Uploaded photos are validated by their bytes, not their filename or declared
   type, held for minutes at most and swept by the worker
+- A published recipe carries no food ids, so sharing cannot expose the author's
+  private food rows; a saved copy only ever references foods the recipient may
+  read
 
 Report the usual caveats: run behind a reverse proxy with TLS, keep the host
 patched, restrict access to a trusted network, and rotate `APP_SECRET` if it is
