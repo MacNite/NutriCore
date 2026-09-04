@@ -18,8 +18,8 @@ import { AppDialog } from "@/components/app-dialog";
 import { DiaryEntryRow } from "@/components/diary-entry-row";
 import { CopyPreviousDay } from "@/components/copy-previous-day";
 import { QuickMealForm } from "@/components/quick-meal-form";
-import { prisma } from "@/lib/db";
 import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
+import { recentFoods } from "@/server/recent-foods";
 import { getCurrentTarget, targetWithActivity } from "@/server/targets";
 import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
 import { shiftDateKey, validDateKey } from "@/lib/date";
@@ -65,12 +65,9 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const [day, target, recent, pending, activities, placeholders] = await Promise.all([
     getDiaryDay(user.id, selectedDate),
     getCurrentTarget(user.id),
-    prisma.foodUsageStats.findMany({
-      where: { userId: user.id },
-      orderBy: [{ lastUsedAt: "desc" }],
-      take: 5,
-      include: { food: { select: { id: true, name: true, brand: true, sourceType: true } } },
-    }),
+    // The portion each food was last logged with, read from the diary rather
+    // than from a use counter: see `recentFoods`.
+    recentFoods(user.id, 5),
     // A proposal was previously reachable only through the redirect that
     // followed submitting a meal, so one left undecided was invisible.
     pendingProposals(user.id),
@@ -264,16 +261,16 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
               <p className="empty">{t("noRecent")}</p>
             ) : (
               recent.map((item) => (
-                <div className="row" key={item.foodId}>
+                <div className="row" key={item.id}>
                   <div className="row-body">
-                    <strong>{item.food.name}</strong>
+                    <strong>{item.name}</strong>
                     <span>
-                      {item.food.brand ? `${item.food.brand} · ` : ""}
-                      {formatNumber(item.count, locale, 0)}×
+                      {item.brand ? `${item.brand} · ` : ""}
+                      {formatNumber(item.quantity, locale)} {item.unit}
                     </span>
                   </div>
-                  <SourceBadge source={item.food.sourceType} />
-                  <QuickAddLink meal="SNACKS" date={selectedDate} foodId={item.food.id} label={`${item.food.name}`} />
+                  <SourceBadge source={item.sourceType} />
+                  <QuickAddLink meal="SNACKS" date={selectedDate} foodId={item.id} label={`${item.name}`} />
                 </div>
               ))
             )}
