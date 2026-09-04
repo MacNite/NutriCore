@@ -2556,7 +2556,7 @@ legend {
 
   /* A source badge does not fit a cell this narrow in either language, so it
      is read out rather than drawn. The same provenance stays visible in the
-     detail line under the strip and in the measurement detail table. */
+     detail line under the strip. */
   .body-stat-name .badge {
     position: absolute;
     width: 1px;
@@ -2578,54 +2578,5 @@ legend {
 
   .body-stat .body-delta {
     font-size: 11px;
-  }
-}
-
-/* The measurement detail folds into compact cards rather than scrolling
-   sideways, because four narrow columns are unreadable on a phone. */
-@media (max-width: 620px) {
-  .body-detail-table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-  }
-
-  .body-detail-table tr {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 2px 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .body-detail-table th,
-  .body-detail-table td {
-    border: 0;
-    padding: 0;
-  }
-
-  .body-detail-table [data-col="name"] {
-    grid-area: 1 / 1;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .body-detail-table [data-col="value"] {
-    grid-area: 1 / 2;
-  }
-
-  .body-detail-table [data-col="delta"] {
-    grid-area: 2 / 1;
-    text-align: left;
-  }
-
-  .body-detail-table [data-col="source"] {
-    grid-area: 2 / 2;
-    justify-self: end;
   }
 }

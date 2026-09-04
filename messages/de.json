@@ -441,8 +441,8 @@
     "panels": {
       "title": "Körperfortschritt anzeigen",
       "hint": "Wähle, welche Darstellungen und Messwerte auf der Fortschrittsseite erscheinen. Beide sind standardmäßig aktiv. Sind beide aus, entfällt der Körperfortschritt ganz und die Seite zeigt nur noch Gewicht und Ernährung. Ausgeblendet wird nur die Anzeige — deine Messwerte bleiben gespeichert und im Datenexport enthalten.",
-      "compositionHint": "Das Vier-Achsen-Diagramm sowie Körperfett, Muskelmasse, Körperwasser und Knochenmasse in Verlauf und Tabelle.",
-      "shapeHint": "Die schematische Körperkontur mit Veränderung nach Region sowie die Kennzahlen und alle Umfänge in Verlauf und Tabelle."
+      "compositionHint": "Das Vier-Achsen-Diagramm sowie Körperfett, Muskelmasse, Körperwasser und Knochenmasse im Verlauf.",
+      "shapeHint": "Die schematische Körperkontur mit Veränderung nach Region sowie die Kennzahlen und alle Umfänge im Verlauf."
     },
     "change": {
       "microHead": "Veränderung nach Region",
