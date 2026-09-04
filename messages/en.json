@@ -355,6 +355,13 @@
       "interactionHint": "Touch or focus a data point to show consumption and target.",
       "empty": "Not enough nutrition data yet.",
       "noMicroTargets": "No personal daily micronutrient targets are configured yet. Logged values are therefore not shown as misleading 0% values."
+    },
+    "activity": {
+      "title": "Additional calories from sport & activity",
+      "subtitle": "Recorded active calories by day over time.",
+      "empty": "No active calories recorded yet.",
+      "summary": "Active calories from {from} to {to}, up to {max} kcal.",
+      "hint": "Touch or focus a point to show that day's value."
     }
   },
   "bodyProgress": {
@@ -676,6 +683,10 @@
       "system": "System"
     },
     "language": "Language",
+    "personalize": "Personalize",
+    "personalizeHint": "Adjust your language, progress display, and how recorded active calories are counted.",
+    "addActivityCalories": "Add calories from daily activity and sport to the daily calorie target",
+    "addActivityCaloriesHint": "Raises each day's calorie target by the active calories actually recorded for that day.",
     "privacy": "Privacy and AI",
     "aiEnabled": "Enable AI features",
     "aiEnabledHint": "When off, no request ever leaves this server for AI purposes.",

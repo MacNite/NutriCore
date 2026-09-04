@@ -379,6 +379,8 @@ model UserProfile {
    */
   showBodyComposition Boolean         @default(true)
   showBodyShape       Boolean         @default(true)
+  /// Add exercise calories recorded for a date to that date's energy allowance.
+  addActivityCalories Boolean         @default(true)
   onboardedAt         DateTime?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt

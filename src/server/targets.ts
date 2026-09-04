@@ -124,3 +124,9 @@ export async function getCurrentTarget(userId: string) {
 }
 
 export type CurrentTarget = NonNullable<Awaited<ReturnType<typeof getCurrentTarget>>>;
+
+/** Applies the date-specific exercise allowance without changing the stored base target. */
+export function targetWithActivity<T extends { kcal: number | null }>(target: T | null, activeKcal: number | null, enabled: boolean): T | null {
+  if (!target || !enabled || target.kcal === null || activeKcal === null) return target;
+  return { ...target, kcal: target.kcal + activeKcal };
+}

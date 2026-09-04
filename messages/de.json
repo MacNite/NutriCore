@@ -355,6 +355,13 @@
       "interactionHint": "Datenpunkt berühren oder fokussieren, um Verbrauch und Ziel anzuzeigen.",
       "empty": "Noch nicht genügend Ernährungsdaten vorhanden.",
       "noMicroTargets": "Für Mikronährstoffe sind noch keine persönlichen Tagesziele konfiguriert. Erfasste Werte werden deshalb nicht als irreführende 0 % dargestellt."
+    },
+    "activity": {
+      "title": "Zusätzliche Kalorien durch Sport & Aktivität",
+      "subtitle": "Täglich erfasste aktive Kalorien im Verlauf.",
+      "empty": "Noch keine aktiven Kalorien erfasst.",
+      "summary": "Aktive Kalorien von {from} bis {to}, maximal {max} kcal.",
+      "hint": "Punkt berühren oder fokussieren, um den Tageswert anzuzeigen."
     }
   },
   "bodyProgress": {
@@ -676,6 +683,10 @@
       "system": "System"
     },
     "language": "Sprache",
+    "personalize": "Personalisieren",
+    "personalizeHint": "Passe Sprache, Fortschrittsansicht und die Berücksichtigung deiner aktiven Kalorien an.",
+    "addActivityCalories": "Kalorien aus täglicher Aktivität und Sport zum täglichen Kalorienziel hinzufügen",
+    "addActivityCaloriesHint": "Erhöht dein Kalorienziel für jeden Tag um die tatsächlich erfassten aktiven Kalorien.",
     "privacy": "Privatsphäre und KI",
     "aiEnabled": "KI-Funktionen aktivieren",
     "aiEnabledHint": "Ist die Option aus, verlässt für KI-Zwecke keine Anfrage diesen Server.",

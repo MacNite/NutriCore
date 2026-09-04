@@ -20,7 +20,7 @@ import { CopyPreviousDay } from "@/components/copy-previous-day";
 import { QuickMealForm } from "@/components/quick-meal-form";
 import { prisma } from "@/lib/db";
 import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
-import { getCurrentTarget } from "@/server/targets";
+import { getCurrentTarget, targetWithActivity } from "@/server/targets";
 import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
 import { shiftDateKey, validDateKey } from "@/lib/date";
 import { ActivityEditor } from "@/components/activity-panel";
@@ -92,7 +92,8 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const activityPreview = activities.entries.map((entry) => activityT(`names.${entry.activityKey}`));
 
   const consumed = day.totals.energyKcal ?? 0;
-  const targetKcal = target?.kcal ?? null;
+  const dailyTarget = targetWithActivity(target, activities.totalActiveKcal, user.addActivityCalories);
+  const targetKcal = dailyTarget?.kcal ?? null;
 
   return (
     <AppShell displayName={user.displayName} hasFab>
@@ -150,7 +151,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
               })}
             </h2>
 
-            <DailyEnergySummary consumed={consumed} totals={day.totals} target={target} locale={locale} />
+            <DailyEnergySummary consumed={consumed} totals={day.totals} target={dailyTarget} locale={locale} />
           </section>
 
           <section className="card" aria-labelledby="meals-heading">

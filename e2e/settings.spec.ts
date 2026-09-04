@@ -22,9 +22,11 @@ test("the interface can be switched between German and English", async ({ page }
   // The onboarding default is German.
   await expect(page.getByRole("heading", { name: /einstellungen/i })).toBeVisible();
 
-  // The language selector has its own form now that the AI switches moved to
-  // /admin, so the save button is scoped by that field rather than by them.
+  // Language lives with the other personalisation choices rather than in a
+  // separate one-purpose panel.
   const languageForm = page.locator("form").filter({ has: page.locator("#settings-language") });
+  await expect(page.getByRole("heading", { name: /personalisieren|personalize/i })).toBeVisible();
+  await expect(page.locator("#addActivityCalories")).toBeChecked();
   await languageForm.getByLabel(/sprache|language/i).selectOption("en");
   await languageForm.getByRole("button", { name: /speichern|save/i }).click();
 

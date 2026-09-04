@@ -16,6 +16,7 @@ import { BodyProgressSection } from "@/components/body-progress/body-progress-se
 import { loadBodyProgress } from "@/server/body";
 import { pendingScan } from "@/server/body-scan";
 import { anyPanel } from "@/lib/body-visualization";
+import { ActivityProgressChart } from "@/components/activity-progress-chart";
 
 export async function generateMetadata() {
   const t = await getTranslations("progress");
@@ -34,14 +35,23 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   // means opens by itself instead of leaving the reader to find it.
   const params = await searchParams;
 
-  const [entries, profile, diaryDays, nutritionTargets, body, scan] = await Promise.all([
+  const [entries, profile, diaryDays, nutritionTargets, activityEntries, body, scan] = await Promise.all([
     prisma.weightEntry.findMany({ where: { userId: user.id }, orderBy: { date: "asc" }, take: 400 }),
-    prisma.userProfile.findUnique({ where: { userId: user.id }, select: { heightCm: true } }),
+    prisma.userProfile.findUnique({ where: { userId: user.id }, select: { heightCm: true, addActivityCalories: true } }),
     prisma.diaryDay.findMany({ where: { userId: user.id }, include: { entries: true }, orderBy: { date: "desc" }, take: 90 }),
     prisma.nutritionTarget.findMany({ where: { userId: user.id }, orderBy: { validFrom: "asc" } }),
+    prisma.activityEntry.findMany({ where: { userId: user.id }, orderBy: { date: "asc" }, take: 1000 }),
     loadBodyProgress(user.id),
     pendingScan(user.id),
   ]);
+
+  const activityByDate = new Map<string, number>();
+  for (const entry of activityEntries) {
+    if (entry.activeKcalSnapshot === null) continue;
+    const date = entry.date.toISOString().slice(0, 10);
+    activityByDate.set(date, (activityByDate.get(date) ?? 0) + Number(entry.activeKcalSnapshot));
+  }
+  const activityPoints = [...activityByDate].map(([date, activeKcal]) => ({ date, activeKcal }));
 
   const points = entries.map((entry) => ({
     date: entry.date.toISOString().slice(0, 10),
@@ -65,10 +75,11 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   }));
   const nutritionPoints = [...diaryDays].reverse().flatMap((day) => {
     const date = day.date.toISOString().slice(0, 10);
+    const dailyTargets = targets.map((target) => ({ ...target, values: { ...target.values, energyKcal: profile?.addActivityCalories !== false && target.values.energyKcal != null ? target.values.energyKcal + (activityByDate.get(date) ?? 0) : target.values.energyKcal } }));
     const point = aggregateNutritionDay(date, day.entries.map((entry) => {
       const snapshot = entry.nutritionSnapshot as unknown as EntrySnapshot;
       return { amount: snapshot?.amount ?? Number(entry.normalizedAmount ?? 0), nutrients: snapshot?.nutrients ?? {} };
-    }), targets);
+    }), dailyTargets);
     return point ? [point] : [];
   });
 
@@ -152,6 +163,12 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
             <h2 id="nutrition-heading">{t("nutrition.title")}</h2>
             <p className="muted nutrition-subtitle">{t("nutrition.subtitle")}</p>
             {nutritionPoints.length === 0 ? <p className="empty">{t("nutrition.empty")}</p> : <NutritionProgressChart points={nutritionPoints} locale={locale} />}
+          </section>
+
+          <section className="card" aria-labelledby="activity-progress-heading">
+            <h2 id="activity-progress-heading">{t("activity.title")}</h2>
+            <p className="muted nutrition-subtitle">{t("activity.subtitle")}</p>
+            <ActivityProgressChart points={activityPoints} locale={locale} />
           </section>
         </div>
 
