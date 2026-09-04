@@ -441,8 +441,8 @@
     "panels": {
       "title": "Body progress display",
       "hint": "Choose which drawings and measurements appear on the progress page. Both are on by default. With both off, body progress goes entirely and the page shows only weight and nutrition. Only the display is hidden — your measurements stay recorded and stay in the data export.",
-      "compositionHint": "The four-axis diagram, plus body fat, muscle mass, body water and bone mass in the history and the table.",
-      "shapeHint": "The schematic body outline with its change by region, plus the key figures and every circumference in the history and the table."
+      "compositionHint": "The four-axis diagram, plus body fat, muscle mass, body water and bone mass in the history.",
+      "shapeHint": "The schematic body outline with its change by region, plus the key figures and every circumference in the history."
     },
     "change": {
       "microHead": "Regional change",
@@ -538,15 +538,6 @@
       "axisLeft": "(left scale)",
       "axisRight": "(right scale)",
       "selectionLimit": "Four measurements at a time. Switch another one off first."
-    },
-    "table": {
-      "title": "Measurement detail",
-      "subtitle": "Current session compared with the reference session of {date}.",
-      "measurement": "Measurement",
-      "current": "Current",
-      "deltaReference": "Δ reference",
-      "source": "Source",
-      "foldLabel": "All measurements ({count})"
     },
     "checkin": {
       "open": "Body check-in",

@@ -59,28 +59,21 @@ test("each body-progress visualisation can be switched off on its own", async ({
   const shape = page.locator(".body-micro-head", { hasText: /^körperform$/i });
   const bodyCard = page.locator("#body-hero-heading");
   const keyFigures = page.getByRole("heading", { name: /^kennzahlen$/i });
-  const table = page.getByRole("heading", { name: /messwerte im detail/i });
   const nutrition = page.getByRole("heading", { name: /^ernährung$/i });
-  // Body fat belongs to composition, the waist to shape: the detail table is
-  // the readable proof of which switch each measurement answers to.
-  const bodyFatRow = page.getByRole("rowheader", { name: /^körperfett$/i });
-  const waistRow = page.getByRole("rowheader", { name: /^taille$/i });
-  // The table is a disclosure at every width, collapsed on load, so its rows
-  // are only readable — and a hidden row only meaningful — once it is open.
-  const openTable = async () => {
-    const toggle = page.getByRole("button", { name: /alle messwerte/i });
-    await expect(toggle).toBeVisible();
-    if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  };
+  // Body fat belongs to composition, the waist to shape. Each panel now carries
+  // its own readings — the composition axes their values and sources, the
+  // region list the circumferences — so those lists are the readable proof of
+  // which switch a measurement answers to. Both sit in a disclosure that is
+  // open at this viewport, so the rows are readable without a click.
+  const bodyFat = page.locator(".body-stat-name", { hasText: /fett/i });
+  const waist = page.locator(".body-region-name", { hasText: /^taille$/i });
 
   await page.goto("/progress");
   await expect(composition).toBeVisible();
   await expect(shape).toBeVisible();
   await expect(keyFigures).toBeVisible();
-  await openTable();
-  await expect(bodyFatRow).toBeVisible();
-  await expect(waistRow).toBeVisible();
+  await expect(bodyFat).toBeVisible();
+  await expect(waist).toBeVisible();
 
   // Its own form, so saving it cannot disturb the language or profile fields.
   const panelForm = page.locator("form").filter({ has: page.locator("#showBodyShape") });
@@ -94,7 +87,7 @@ test("each body-progress visualisation can be switched off on its own", async ({
   await expect(page.locator("#showBodyShape")).toBeChecked();
 
   // Composition only: the key figures are all waist-derived, so they go too,
-  // and the table keeps the four composition rows without the circumferences.
+  // and the four composition axes stay without any circumference.
   await page.locator("#showBodyShape").uncheck();
   await save();
 
@@ -102,9 +95,8 @@ test("each body-progress visualisation can be switched off on its own", async ({
   await expect(composition).toBeVisible();
   await expect(shape).toBeHidden();
   await expect(keyFigures).toBeHidden();
-  await openTable();
-  await expect(bodyFatRow).toBeVisible();
-  await expect(waistRow).toBeHidden();
+  await expect(bodyFat).toBeVisible();
+  await expect(waist).toBeHidden();
 
   // Shape only: the mirror image.
   await page.goto("/settings");
@@ -115,9 +107,8 @@ test("each body-progress visualisation can be switched off on its own", async ({
   await page.goto("/progress");
   await expect(shape).toBeVisible();
   await expect(keyFigures).toBeVisible();
-  await openTable();
-  await expect(waistRow).toBeVisible();
-  await expect(bodyFatRow).toBeHidden();
+  await expect(waist).toBeVisible();
+  await expect(bodyFat).toBeHidden();
 
   // Both off: body progress goes entirely, nutrition stays.
   await page.goto("/settings");
@@ -127,7 +118,8 @@ test("each body-progress visualisation can be switched off on its own", async ({
   await page.goto("/progress");
   await expect(bodyCard).toBeHidden();
   await expect(keyFigures).toBeHidden();
-  await expect(table).toBeHidden();
+  await expect(bodyFat).toBeHidden();
+  await expect(waist).toBeHidden();
   await expect(nutrition).toBeVisible();
 
   // Nothing was deleted: switching them back on restores every panel and row.
@@ -140,9 +132,8 @@ test("each body-progress visualisation can be switched off on its own", async ({
   await expect(composition).toBeVisible();
   await expect(shape).toBeVisible();
   await expect(keyFigures).toBeVisible();
-  await openTable();
-  await expect(bodyFatRow).toBeVisible();
-  await expect(waistRow).toBeVisible();
+  await expect(bodyFat).toBeVisible();
+  await expect(waist).toBeVisible();
 });
 
 test("personal data can be exported as JSON and CSV", async ({ page }) => {

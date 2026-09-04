@@ -111,7 +111,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
       {/* Body progress leads the page: it answers "what shape am I in" before
           the day-to-day numbers below it. With both visualisations switched off
           the section is not rendered at all - its key figures, history and
-          table are those same measurements in another form - and the page is
+          charts are those same measurements in another form - and the page is
           weight and nutrition, which stand on their own. */}
       {anyPanel(body.panels) ? (
         <section aria-labelledby="body-section-heading" style={{ marginBottom: 20 }}>
