@@ -1310,55 +1310,6 @@ legend {
   background: var(--surface);
 }
 
-/* ---------------------------------------------------------------- Weight log */
-
-.weight-log {
-  margin-top: 16px;
-  border-top: 1px solid var(--line);
-}
-
-.weight-log-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 12px;
-  cursor: pointer;
-  list-style: none;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.weight-log-toggle::-webkit-details-marker {
-  display: none;
-}
-
-.weight-log-toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-
-.weight-log-chevron {
-  width: 9px;
-  height: 9px;
-  margin: 0 4px 4px 0;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(45deg);
-  transition: transform 160ms ease, margin 160ms ease;
-}
-
-.weight-log[open] .weight-log-chevron {
-  margin: 4px 4px 0 0;
-  transform: rotate(-135deg);
-}
-
-.weight-log-summary {
-  font-size: 13px;
-  margin: 12px 0;
-}
-
 .auth-shell {
   min-height: 100dvh;
   display: grid;
