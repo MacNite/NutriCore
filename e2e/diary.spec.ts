@@ -191,3 +191,31 @@ test("activity entries can be added, edited and deleted in the Today dialog", as
   await expect(diaryPanel.getByLabel(/^intensity$|^intensität$/i)).toHaveCount(0);
   await diaryPanel.getByRole("button", { name: /^cancel$|^abbrechen$/i }).click();
 });
+
+// The activity row is one of the day's rows now, so it has to behave like the
+// meal rows next to it: the plus goes straight to picking an activity, and the
+// collapsed row names what was logged instead of counting it.
+test("the activity row's plus opens the form directly and the row previews the activity names", async ({ page }) => {
+  await page.goto("/");
+  const activityRow = page.locator("button.row-main-button").filter({ hasText: /sport & activity|sport & aktivität/i });
+  await expect(activityRow).toContainText(/no activity|noch keine aktivität/i);
+
+  await page.getByRole("button", { name: /^add activity$|^aktivität hinzufügen$/i }).click();
+  const panel = page.getByRole("dialog", { name: /sport & activity|sport & aktivität/i });
+  // No detour over the dialog's own add button: the form is already there.
+  await expect(panel.getByLabel(/^activity$|^aktivität$/i)).toBeVisible();
+  await panel.getByLabel(/^activity$|^aktivität$/i).selectOption("swimming");
+  await panel.getByLabel(/duration|dauer/i).fill("30");
+  await panel.getByRole("button", { name: /^save$|^speichern$/i }).click();
+  await expect(panel.getByText(/swimming|schwimmen/i)).toBeVisible();
+  await panel.getByRole("button", { name: /^close$|^schließen$/i }).click();
+
+  await expect(activityRow).toContainText(/swimming|schwimmen/i);
+  await expect(activityRow).toContainText(/kcal/i);
+
+  // Reopening through the row itself shows the overview, not the form left
+  // behind by the plus.
+  await activityRow.click();
+  await expect(panel.getByLabel(/^activity$|^aktivität$/i)).toHaveCount(0);
+  await expect(panel.getByText(/estimated active calories|geschätzte aktive kalorien/i)).toBeVisible();
+});

@@ -79,6 +79,10 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
     tagDraft: placeholderT("tagDraft"),
   };
 
+  // The row previews the activities themselves, so a glance at the day says
+  // what was done and not merely how many entries there are.
+  const activityPreview = activities.entries.map((entry) => activityT(`names.${entry.activityKey}`));
+
   const consumed = day.totals.energyKcal ?? 0;
   const targetKcal = target?.kcal ?? null;
 
@@ -178,7 +182,27 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             })}
           </section>
 
-          <section className="card"><AppDialog id="activities" title={activityT("title")} closeLabel={common("close")} openEvent="open-activities" triggerClassName="summary-trigger" trigger={<><span><strong>{activityT("title")}</strong><small>{activities.entries.length ? `${activities.entries.length} · ${activities.totalActiveKcal == null ? "–" : `${formatKcal(activities.totalActiveKcal, locale)} ${common("kcal")}`}` : activityT("empty")}</small></span><span aria-hidden="true">›</span></>}><ActivityEditor date={selectedDate} entries={activities.entries} totalActiveKcal={activities.totalActiveKcal} locale={locale} /></AppDialog></section>
+          {/* Read as one of the day's rows, like the meals above it: the names of
+              what was logged rather than a count, the active calories on the
+              right, and a ＋ that skips straight to picking an activity. */}
+          <section className="card">
+            <div className="row clickable-row">
+              <AppDialog
+                id="activities"
+                title={activityT("title")}
+                closeLabel={common("close")}
+                openEvent="open-activities"
+                triggerClassName="row-main-button"
+                trigger={<><div className="row-body"><strong>{activityT("title")}</strong><span>{activityPreview.length === 0 ? activityT("empty") : activityPreview.slice(0, 3).join(" · ")}</span></div><span className="row-value">{activities.totalActiveKcal == null ? "–" : `${formatKcal(activities.totalActiveKcal, locale)} ${common("kcal")}`}</span></>}
+                secondaryTrigger={<span aria-hidden="true">＋</span>}
+                secondaryTriggerLabel={activityT("addLabel")}
+                secondaryAutoClickTarget=".activity-add-button"
+                secondaryAutoFocusTarget=".activity-form select"
+              >
+                <ActivityEditor date={selectedDate} entries={activities.entries} totalActiveKcal={activities.totalActiveKcal} locale={locale} />
+              </AppDialog>
+            </div>
+          </section>
 
           <section className="card" aria-labelledby="micronutrients-heading">
             <div className="card-head">

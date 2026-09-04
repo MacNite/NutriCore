@@ -1150,6 +1150,7 @@
     "empty": "No activity logged yet.",
     "noWeight": "Calorie estimate unavailable — add your body weight.",
     "addWeight": "Go to settings",
+    "addLabel": "Add activity",
     "editLabel": "Edit {name}",
     "deleteLabel": "Delete {name}",
     "names": {
