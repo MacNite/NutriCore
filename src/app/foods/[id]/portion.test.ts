@@ -67,7 +67,7 @@ describe("initialPortion", () => {
   });
 
   it("rounds a calculated serving weight for the initial input", () => {
-    expect(initialPortion(food({ servingSize: 64.292, servingUnit: "serving" }))).toEqual({ quantity: "64", unit: "serving" });
+    expect(initialPortion(food({ servingSize: 64.292, servingUnit: "serving" }))).toEqual({ quantity: "64", unit: "g" });
   });
 
   it("falls back to a unit the form actually offers", () => {
