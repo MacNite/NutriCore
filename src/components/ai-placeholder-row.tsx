@@ -52,10 +52,12 @@ export function aiPlaceholderLabels(t: (key: string) => string): AiPlaceholderLa
  *
  * A run that failed keeps the row rather than vanishing from the list, which is
  * what made a failed extraction look like work that was silently thrown away.
- * It says so, names the reason - "Ollama nicht erreichbar" is the common one -
- * and carries the two things that can be done about it: ↻ queues the same input
- * again, so recovering does not mean re-typing the submission or finding an
- * administrator, and × throws the run away for a submitter who is done with it.
+ * It says so, names the reason - "Ollama nicht erreichbar" is the common one,
+ * with the run's own error line on the tag's tooltip for the failures those few
+ * reasons cannot tell apart - and carries the two things that can be done about
+ * it: ↻ queues the same input again, so recovering does not mean re-typing the
+ * submission or finding an administrator, and × throws the run away for a
+ * submitter who is done with it.
  */
 export function AiPlaceholderRow({
   placeholder,
@@ -68,6 +70,13 @@ export function AiPlaceholderRow({
   returnTo: "/" | "/foods";
 }) {
   const failed = placeholder.status === "FAILED";
+  const reason = failed ? labels.reasons[placeholder.reason ?? "OTHER"] : null;
+  // What the tag says when it is pointed at: the reason, and behind the dash the
+  // run's own line where it has one, the way the import page reports the same
+  // failure. The tag is the only place for it - the row is one line high and the
+  // detail can be a sentence of model output - so it repeats the reason too,
+  // rather than being a dangling fragment for anyone reading it on its own.
+  const tagTitle = reason && placeholder.detail ? `${reason} — ${placeholder.detail}` : reason;
 
   return (
     <div className={`row clickable-row ai-placeholder${failed ? " ai-placeholder-failed" : ""}`}>
@@ -78,7 +87,15 @@ export function AiPlaceholderRow({
               doing. A failed run says why instead: "still working on it" would
               be untrue of a run that has already given up. */}
           {placeholder.source || !failed ? <span>{placeholder.source || labels.hint}</span> : null}
-          {failed ? <span className="ai-placeholder-reason">{labels.reasons[placeholder.reason ?? "OTHER"]}</span> : null}
+          {failed ? (
+            <span className="ai-placeholder-reason">
+              {reason}
+              {/* A tooltip is a mouse's affordance, and there is no keyboard or
+                  screen-reader equivalent of hovering; the same detail is read
+                  out here instead of being lost to anyone not using a pointer. */}
+              {placeholder.detail ? <span className="sr-only"> — {placeholder.detail}</span> : null}
+            </span>
+          ) : null}
           {placeholder.retryable === false ? <span>{labels.retryUnavailable}</span> : null}
         </div>
         <span className="ai-placeholder-tags">
@@ -87,7 +104,7 @@ export function AiPlaceholderRow({
         </span>
         {/* Text, not a spinner: the state has to survive a page that is only
             refreshed every few seconds, and be readable by a screen reader. */}
-        <span className={`ai-state${failed ? " ai-failed" : ""}`} aria-live="polite">
+        <span className={`ai-state${failed ? " ai-failed" : ""}`} aria-live="polite" title={tagTitle ?? undefined}>
           {failed ? labels.failed : placeholder.status === "RUNNING" ? labels.running : labels.queued}
         </span>
       </Link>

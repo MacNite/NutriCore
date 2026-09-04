@@ -194,7 +194,12 @@ test("a failed run stays in the recipe list, says why, and re-runs from there", 
   const row = page.locator(".ai-placeholder-failed").filter({ hasText: "Hüttenkäse-Pizza" });
   await expect(row).toBeVisible();
   await expect(row.getByText(/fehlgeschlagen|failed/i).first()).toBeVisible();
-  await expect(row.getByText(/Ollama/)).toBeVisible();
+  await expect(row.locator(".ai-placeholder-reason")).toContainText("Ollama");
+
+  // The reason is one of five readings, so it cannot say which failure this
+  // was; the run's own line is on the tag, where pointing at it finds it
+  // without opening the admin queue.
+  await expect(row.locator(".ai-state")).toHaveAttribute("title", /Ollama request failed/);
 
   // Both actions are icons; each carries its wording as its accessible name.
   await row.getByRole("button", { name: /erneut versuchen|re-run/i }).click();

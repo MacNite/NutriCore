@@ -1139,6 +1139,12 @@ legend {
   color: var(--danger);
 }
 
+/* The failure tag carries the run's own error line as its tooltip, so it points
+   at something the rest of the row does not say. */
+.ai-placeholder .ai-state[title] {
+  cursor: help;
+}
+
 /* Re-run and discard, as icons: wide enough to hit on a phone, and quiet
    enough not to compete with the row's own text. */
 .ai-placeholder-actions {
