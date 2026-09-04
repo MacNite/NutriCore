@@ -18,6 +18,7 @@ import {
   type BodyRegionKey,
   type BodyShapeStyle,
 } from "@/lib/body-visualization";
+import type { NutritionProgressPoint } from "@/lib/nutrition-progress";
 import { BodyFigurePicker } from "./body-figure-picker";
 import { BodyMeasurementChart } from "./body-measurement-chart";
 import { BodyMeasurementTable } from "./body-measurement-table";
@@ -43,6 +44,7 @@ export function BodyProgressSection({
   appearance,
   shapeStyle,
   panels,
+  nutritionPoints,
   checkin,
   locale,
 }: {
@@ -53,6 +55,8 @@ export function BodyProgressSection({
   shapeStyle: BodyShapeStyle;
   /** Which of the two visualisations this reader has switched on. */
   panels: BodyPanels;
+  /** Daily target attainment, charted on the same time axis as the measurements. */
+  nutritionPoints: NutritionProgressPoint[];
   /** The check-in dialog, rendered by the page so it sits in the card head. */
   checkin: React.ReactNode;
   locale: Locale;
@@ -128,13 +132,16 @@ export function BodyProgressSection({
         />
       ) : null}
 
-      {measurements.length > 1 && seriesMetrics.length > 0 ? (
+      {/* One chart for the whole page: what the body measures and what went
+          into it read against each other, or either one on its own. */}
+      {(measurements.length > 1 && seriesMetrics.length > 0) || nutritionPoints.length > 0 ? (
         <BodyMeasurementChart
           measurements={measurements}
           referenceIndex={referenceIndex}
           currentIndex={currentIndex}
           onCurrentIndex={selectCurrent}
-          metrics={seriesMetrics}
+          metrics={measurements.length > 1 ? seriesMetrics : []}
+          nutritionPoints={nutritionPoints}
           profile={profile}
           locale={locale}
         />

@@ -412,7 +412,7 @@ a:hover {
 .target-fields { margin: 20px 0; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .target-fields legend { padding: 0 6px; font-weight: 700; }
 .progress-tabs .btn { padding: 7px 13px; }
-.progress-tabs [aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-soft-text); }
+.progress-tabs [aria-selected="true"], .progress-tabs [aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-soft-text); }
 .progress-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
 .progress-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text-muted); cursor: pointer; font-size: 13px; }
 .progress-chip[aria-pressed="true"] { border-color: var(--line-strong); background: var(--surface-2); color: var(--text); }
@@ -1957,10 +1957,59 @@ legend {
   flex-wrap: wrap;
 }
 
-/* Disclosures that exist only below the breakpoint: the toggle is hidden above
-   it and the content always shows, so the desktop layout is unchanged. Same
-   chevron and rhythm as the weight log so the two read as one pattern. */
+/* Disclosures. By default they exist only below the breakpoint: the toggle is
+   hidden above it and the content always shows, so the desktop layout is
+   unchanged. Same chevron and rhythm as the weight log so the two read as one
+   pattern. The look lives here; only whether the toggle shows is a question of
+   width. */
 .body-fold-toggle {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.body-fold-chevron {
+  width: 9px;
+  height: 9px;
+  margin: 0 4px 4px 0;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 160ms ease, margin 160ms ease;
+}
+
+.body-fold-toggle[aria-expanded="true"] .body-fold-chevron {
+  margin: 4px 4px 0 0;
+  transform: rotate(-135deg);
+}
+
+/* A fold that stays folded at every width, for a block that is the detail
+   behind a card rather than the reason to open it. */
+.body-fold-always {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.body-fold-always .body-fold-toggle {
+  display: flex;
+}
+
+.body-fold-always .body-fold-content {
+  padding-top: 12px;
+}
+
+.body-fold-always .body-fold-content[data-open="false"] {
   display: none;
 }
 
@@ -2092,6 +2141,29 @@ legend {
 .body-metric-tabs .btn {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+/* A chip that would need a third scale stays in place and stops responding,
+   so the limit is visible where it applies rather than only once it is hit. */
+.body-metric-tabs .btn:disabled {
+  cursor: not-allowed;
+}
+
+/* Says the row is a multiple choice before anyone has to discover it. */
+.body-series-note {
+  margin: -6px 0 14px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+/* Which line is which, and which edge it is read against. */
+.body-series-legend {
+  list-style: none;
+  padding: 0;
+}
+
+.body-series-legend .muted {
+  font-size: 12px;
 }
 
 .body-legend {
@@ -2457,34 +2529,6 @@ legend {
 
   .body-fold-toggle {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-    padding: 12px 0 0;
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    font: inherit;
-    font-size: 13.5px;
-    font-weight: 600;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .body-fold-chevron {
-    width: 9px;
-    height: 9px;
-    margin: 0 4px 4px 0;
-    border-right: 2px solid currentColor;
-    border-bottom: 2px solid currentColor;
-    transform: rotate(45deg);
-    transition: transform 160ms ease, margin 160ms ease;
-  }
-
-  .body-fold-toggle[aria-expanded="true"] .body-fold-chevron {
-    margin: 4px 4px 0 0;
-    transform: rotate(-135deg);
   }
 
   .body-fold-content {

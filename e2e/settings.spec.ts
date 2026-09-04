@@ -64,14 +64,22 @@ test("each body-progress visualisation can be switched off on its own", async ({
   const nutrition = page.getByRole("heading", { name: /^ernährung$/i });
   // Body fat belongs to composition, the waist to shape: the detail table is
   // the readable proof of which switch each measurement answers to.
-  // The fold toggle is small-screen only; at this viewport the table is open.
   const bodyFatRow = page.getByRole("rowheader", { name: /^körperfett$/i });
   const waistRow = page.getByRole("rowheader", { name: /^taille$/i });
+  // The table is a disclosure at every width, collapsed on load, so its rows
+  // are only readable — and a hidden row only meaningful — once it is open.
+  const openTable = async () => {
+    const toggle = page.getByRole("button", { name: /alle messwerte/i });
+    await expect(toggle).toBeVisible();
+    if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  };
 
   await page.goto("/progress");
   await expect(composition).toBeVisible();
   await expect(shape).toBeVisible();
   await expect(keyFigures).toBeVisible();
+  await openTable();
   await expect(bodyFatRow).toBeVisible();
   await expect(waistRow).toBeVisible();
 
@@ -95,6 +103,7 @@ test("each body-progress visualisation can be switched off on its own", async ({
   await expect(composition).toBeVisible();
   await expect(shape).toBeHidden();
   await expect(keyFigures).toBeHidden();
+  await openTable();
   await expect(bodyFatRow).toBeVisible();
   await expect(waistRow).toBeHidden();
 
@@ -107,6 +116,7 @@ test("each body-progress visualisation can be switched off on its own", async ({
   await page.goto("/progress");
   await expect(shape).toBeVisible();
   await expect(keyFigures).toBeVisible();
+  await openTable();
   await expect(waistRow).toBeVisible();
   await expect(bodyFatRow).toBeHidden();
 
@@ -132,6 +142,7 @@ test("each body-progress visualisation can be switched off on its own", async ({
   await expect(composition).toBeVisible();
   await expect(shape).toBeVisible();
   await expect(keyFigures).toBeVisible();
+  await openTable();
   await expect(bodyFatRow).toBeVisible();
   await expect(waistRow).toBeVisible();
 });

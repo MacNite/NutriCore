@@ -4,7 +4,6 @@ import { getTranslations } from "next-intl/server";
 import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { WeightLog } from "@/components/weight-log";
-import { NutritionProgressChart } from "@/components/nutrition-progress-chart";
 import { prisma } from "@/lib/db";
 import { formatDateKey } from "@/server/diary";
 import type { EntrySnapshot } from "@/server/diary";
@@ -13,6 +12,7 @@ import { BodyCheckinForm } from "@/components/body-progress/body-checkin-form";
 import { BodyScanForm } from "@/components/body-progress/body-scan-form";
 import { BodyProgressEmpty } from "@/components/body-progress/body-progress-empty";
 import { BodyProgressSection } from "@/components/body-progress/body-progress-section";
+import { BodyMeasurementChart } from "@/components/body-progress/body-measurement-chart";
 import { loadBodyProgress } from "@/server/body";
 import { pendingScan } from "@/server/body-scan";
 import { anyPanel } from "@/lib/body-visualization";
@@ -83,6 +83,10 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
     return point ? [point] : [];
   });
 
+  /* The one chart on the page lives in the body section, which needs both a
+     visualisation switched on and something measured to hang it from. */
+  const chartInBodySection = anyPanel(body.panels) && body.measurements.length > 0;
+
   /* Both ways of recording a body sit together: a tape session and a scan
      produce the same measurements, and which one someone used is a detail of
      provenance rather than a different feature. */
@@ -126,18 +130,19 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
           <h2 id="body-section-heading" className="sr-only">
             {bodyT("title")}
           </h2>
-          {body.measurements.length === 0 ? (
-            <BodyProgressEmpty
+          {chartInBodySection ? (
+            <BodyProgressSection
+              measurements={body.measurements}
+              profile={body.profile}
               appearance={body.appearance}
               shapeStyle={body.shapeStyle}
               panels={body.panels}
+              nutritionPoints={nutritionPoints}
               locale={locale}
               checkin={checkinControls}
             />
           ) : (
-            <BodyProgressSection
-              measurements={body.measurements}
-              profile={body.profile}
+            <BodyProgressEmpty
               appearance={body.appearance}
               shapeStyle={body.shapeStyle}
               panels={body.panels}
@@ -159,11 +164,26 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
             )}
           </section>
 
-          <section className="card" aria-labelledby="nutrition-heading">
-            <h2 id="nutrition-heading">{t("nutrition.title")}</h2>
-            <p className="muted nutrition-subtitle">{t("nutrition.subtitle")}</p>
-            {nutritionPoints.length === 0 ? <p className="empty">{t("nutrition.empty")}</p> : <NutritionProgressChart points={nutritionPoints} locale={locale} />}
-          </section>
+          {/* Nutrition normally rides along in the body section's one chart.
+              Without a measurement to plot it against there is no such chart,
+              so it gets its own card rather than falling off the page. */}
+          {chartInBodySection ? null : nutritionPoints.length === 0 ? (
+            <section className="card" aria-labelledby="nutrition-heading">
+              <h2 id="nutrition-heading">{t("nutrition.title")}</h2>
+              <p className="muted nutrition-subtitle">{t("nutrition.subtitle")}</p>
+              <p className="empty">{t("nutrition.empty")}</p>
+            </section>
+          ) : (
+            <BodyMeasurementChart
+              measurements={[]}
+              referenceIndex={0}
+              currentIndex={0}
+              metrics={[]}
+              nutritionPoints={nutritionPoints}
+              profile={body.profile}
+              locale={locale}
+            />
+          )}
 
           <section className="card" aria-labelledby="activity-progress-heading">
             <h2 id="activity-progress-heading">{t("activity.title")}</h2>

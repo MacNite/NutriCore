@@ -345,16 +345,15 @@
       "calories": "Calories",
       "macros": "Macros",
       "micros": "Micros",
-      "chartType": "Chart view",
       "selectNutrients": "Displayed nutrients",
       "targetLine": "Daily target",
-      "summary": "Nutrition progress as a percentage of each daily target. The target zone is between 90 and 110 percent.",
       "todayReached": "Latest day: {reached} of {total} nutrient targets in range",
       "balancedHint": "90–110% is considered balanced here",
       "coverage": "{value}% data coverage",
       "interactionHint": "Touch or focus a data point to show consumption and target.",
       "empty": "Not enough nutrition data yet.",
-      "noMicroTargets": "No personal daily micronutrient targets are configured yet. Logged values are therefore not shown as misleading 0% values."
+      "noMicroTargets": "No personal daily micronutrient targets are configured yet. Logged values are therefore not shown as misleading 0% values.",
+      "pointLabel": "{date}, {nutrient} {percent}% of the daily target, {value} of {target} {unit}"
     },
     "activity": {
       "title": "Additional calories from sport & activity",
@@ -497,8 +496,8 @@
     },
     "series": {
       "title": "Measurements over time",
-      "subtitle": "The reference session is marked on the timeline. Selecting a point makes it the current measurement.",
-      "selectMetric": "Displayed measurement",
+      "subtitle": "Several measurements can be shown at once, nutrition included. The reference session is marked on the timeline, and selecting a point makes it the current measurement.",
+      "selectMetric": "Displayed measurements",
       "selectRange": "Time range",
       "range": {
         "m1": "1M",
@@ -507,13 +506,17 @@
         "y1": "1Y",
         "all": "ALL"
       },
-      "chartLabel": "{metric} over time, from {from} to {to}, between {min} and {max} {unit}.",
+      "chartLabel": "{metrics} over time, from {from} to {to}.",
       "referenceMarker": "Reference",
       "goalLine": "Target weight",
       "hint": "Touch or focus a point to show its value and its change from the reference.",
       "pointLabel": "{date}, {metric} {value} {unit}, {delta} {deltaUnit} from the reference",
       "fromReference": "{delta} {unit} from the reference",
-      "empty": "Not enough measurements in this range."
+      "empty": "Not enough data in this range.",
+      "multiHint": "Pick up to four at once. Each measurement gets its own scale: the first two are labelled left and right, the rest state their range in the legend.",
+      "axisLeft": "(left scale)",
+      "axisRight": "(right scale)",
+      "selectionLimit": "Four measurements at a time. Switch another one off first."
     },
     "table": {
       "title": "Measurement detail",
