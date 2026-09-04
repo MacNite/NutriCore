@@ -367,6 +367,23 @@
       "hint": "Touch or focus a point to show that day's value."
     }
   },
+  "share": {
+    "open": "Share {title}",
+    "title": "Share {title}",
+    "close": "Close sharing options",
+    "intro": "Share this graphic without the surrounding page or save it as a PNG image.",
+    "social": "Share on social media",
+    "community": "Share with NutriCore community",
+    "communitySoon": "NutriCore community sharing will be available later.",
+    "soon": "Soon",
+    "download": "Download graphic",
+    "preparing": "Preparing graphic…",
+    "downloaded": "Graphic downloaded.",
+    "shared": "Graphic shared.",
+    "unsupported": "Image sharing is not supported by this browser. You can download the graphic instead.",
+    "error": "The graphic could not be created. Please try again.",
+    "shareText": "My {title} from NutriCore"
+  },
   "bodyProgress": {
     "title": "Body progress",
     "intro": "How your composition and your measured circumferences changed against a reference session.",

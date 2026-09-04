@@ -24,6 +24,7 @@ import { BodyMeasurementChart } from "./body-measurement-chart";
 import { BodyMeasurementTable } from "./body-measurement-table";
 import { BodyMetricSummary } from "./body-metric-summary";
 import { BodyProgressCard } from "./body-progress-card";
+import { ShareablePanel } from "../shareable-panel";
 
 /**
  * Holds the two indices the whole section is derived from. Reference and
@@ -122,29 +123,33 @@ export function BodyProgressSection({
           each other or an estimate built from them, so they belong to the shape
           switch and go with it. */}
       {panels.shape ? (
-        <BodyMetricSummary
-          current={measurements[currentIndex]}
-          reference={measurements[hasReference ? referenceIndex : currentIndex]}
-          profile={profile}
-          referenceLabel={referenceLabel}
-          hasReference={hasReference}
-          locale={locale}
-        />
+        <ShareablePanel title={t("summary.microHead")} fileName="nutricore-key-figures">
+          <BodyMetricSummary
+            current={measurements[currentIndex]}
+            reference={measurements[hasReference ? referenceIndex : currentIndex]}
+            profile={profile}
+            referenceLabel={referenceLabel}
+            hasReference={hasReference}
+            locale={locale}
+          />
+        </ShareablePanel>
       ) : null}
 
       {/* One chart for the whole page: what the body measures and what went
           into it read against each other, or either one on its own. */}
       {(measurements.length > 1 && seriesMetrics.length > 0) || nutritionPoints.length > 0 ? (
-        <BodyMeasurementChart
-          measurements={measurements}
-          referenceIndex={referenceIndex}
-          currentIndex={currentIndex}
-          onCurrentIndex={selectCurrent}
-          metrics={measurements.length > 1 ? seriesMetrics : []}
-          nutritionPoints={nutritionPoints}
-          profile={profile}
-          locale={locale}
-        />
+        <ShareablePanel title={t("series.title")} fileName="nutricore-measurements-chart">
+          <BodyMeasurementChart
+            measurements={measurements}
+            referenceIndex={referenceIndex}
+            currentIndex={currentIndex}
+            onCurrentIndex={selectCurrent}
+            metrics={measurements.length > 1 ? seriesMetrics : []}
+            nutritionPoints={nutritionPoints}
+            profile={profile}
+            locale={locale}
+          />
+        </ShareablePanel>
       ) : null}
 
       <BodyMeasurementTable
