@@ -60,6 +60,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
       protein: target.proteinG ? Number(target.proteinG) : null,
       carbohydrate: target.carbohydrateG ? Number(target.carbohydrateG) : null,
       fat: target.fatG ? Number(target.fatG) : null,
+      ...((target.manualNutrients && typeof target.manualNutrients === "object" && !Array.isArray(target.manualNutrients)) ? target.manualNutrients as Record<string, number> : {}),
     },
   }));
   const nutritionPoints = [...diaryDays].reverse().flatMap((day) => {

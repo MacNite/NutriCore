@@ -18,6 +18,12 @@ export interface TargetView {
   carbohydrateG: number | null;
   fatG: number | null;
   overrideKcal: number | null;
+  manualNutrients: Record<string, number>;
+}
+
+function manualNutrients(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1])));
 }
 
 /**
@@ -32,8 +38,9 @@ export async function recalculateTarget(userId: string): Promise<TargetView> {
   });
 
   const overrideKcal = latest?.overrideKcal ? Number(latest.overrideKcal) : null;
+  const manual = manualNutrients(latest?.manualNutrients);
 
-  if (!profile) return { result: null, missing: ["profile"], proteinG: null, carbohydrateG: null, fatG: null, overrideKcal };
+  if (!profile) return { result: null, missing: ["profile"], proteinG: null, carbohydrateG: null, fatG: null, overrideKcal, manualNutrients: manual };
 
   const missing: string[] = [];
   if (!profile.birthDate) missing.push("birthDate");
@@ -43,7 +50,7 @@ export async function recalculateTarget(userId: string): Promise<TargetView> {
   if (!sex) missing.push("biologicalSex");
 
   if (missing.length > 0) {
-    return { result: null, missing, proteinG: null, carbohydrateG: null, fatG: null, overrideKcal };
+    return { result: null, missing, proteinG: null, carbohydrateG: null, fatG: null, overrideKcal, manualNutrients: manual };
   }
 
   const age = ageFromBirthDate(profile.birthDate!);
@@ -77,6 +84,7 @@ export async function recalculateTarget(userId: string): Promise<TargetView> {
       proteinG: macros?.proteinG ?? null,
       carbohydrateG: macros?.carbohydrateG ?? null,
       fatG: macros?.fatG ?? null,
+      manualNutrients: manual,
       eligible: result.eligible,
     },
   });
@@ -88,6 +96,7 @@ export async function recalculateTarget(userId: string): Promise<TargetView> {
     carbohydrateG: macros?.carbohydrateG ?? null,
     fatG: macros?.fatG ?? null,
     overrideKcal,
+    manualNutrients: manual,
   };
 }
 
@@ -109,6 +118,7 @@ export async function getCurrentTarget(userId: string) {
     proteinG: target.proteinG ? Number(target.proteinG) : null,
     carbohydrateG: target.carbohydrateG ? Number(target.carbohydrateG) : null,
     fatG: target.fatG ? Number(target.fatG) : null,
+    manualNutrients: manualNutrients(target.manualNutrients),
     eligible: target.eligible,
   };
 }

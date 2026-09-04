@@ -52,6 +52,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               isBreastfeeding: profile?.isBreastfeeding ?? false,
             }}
             overrideKcal={target?.overrideKcal ?? null}
+            manualNutrients={target?.manualNutrients ?? {}}
             bodyPanels={{
               composition: profile?.showBodyComposition ?? DEFAULT_PANELS.composition,
               shape: profile?.showBodyShape ?? DEFAULT_PANELS.shape,

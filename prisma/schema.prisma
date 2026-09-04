@@ -400,6 +400,8 @@ model NutritionTarget {
   proteinG           Decimal? @db.Decimal(8, 2)
   carbohydrateG      Decimal? @db.Decimal(8, 2)
   fatG               Decimal? @db.Decimal(8, 2)
+  /// User-entered macro and micronutrient goals, keyed by the nutrient catalogue key.
+  manualNutrients     Json?
   eligible           Boolean  @default(true)
   createdAt          DateTime @default(now())
 

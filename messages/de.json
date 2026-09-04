@@ -123,6 +123,8 @@
     "ineligible": "Für Personen unter 18 Jahren, in der Schwangerschaft oder Stillzeit berechnet NutriCore kein Ziel zur Gewichtsveränderung. Bitte verwende ein mit einer Fachperson abgestimmtes Ziel.",
     "needsProfile": "Ergänze Größe, Gewicht, Geburtsdatum und biologisches Geschlecht für eine Berechnung — oder trage ein Ziel manuell ein.",
     "macros": "Makro-Ziele",
+    "micros": "Mikro-Ziele",
+    "nutrientOverrideHint": "Leer gelassene Nährstoffe verwenden weiterhin das berechnete Ziel, sofern eines verfügbar ist.",
     "protein": "Protein",
     "carbohydrate": "Kohlenhydrate",
     "fat": "Fett"

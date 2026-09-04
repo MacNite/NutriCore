@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import { ProfileFields, type ProfileValues } from "@/components/profile-fields";
 import type { BodyPanels } from "@/lib/body-visualization";
+import { NUTRIENTS } from "@/lib/nutrients";
 import {
   deleteAccountAction,
   saveBodyPanelsAction,
@@ -42,11 +43,13 @@ export function SettingsForms({
   username,
   values,
   overrideKcal,
+  manualNutrients,
   bodyPanels,
 }: {
   username: string;
   values: ProfileValues;
   overrideKcal: number | null;
+  manualNutrients: Record<string, number>;
   bodyPanels: BodyPanels;
 }) {
   const t = useTranslations("settings");
@@ -74,8 +77,8 @@ export function SettingsForms({
         </form>
       </section>
 
-      <section className="card">
-        <h2>{targetT("override")}</h2>
+      <details className="card">
+        <summary><h2>{targetT("override")}</h2></summary>
         <form action={targetAction}>
           <Feedback state={targetState} savedLabel={t("saved")} />
           <div className="field">
@@ -96,11 +99,22 @@ export function SettingsForms({
               {targetT("overrideHint")}
             </span>
           </div>
+          {(["macro", "micro"] as const).map((group) => {
+            const nutrients = NUTRIENTS.filter((nutrient) => group === "macro" ? nutrient.category === "macro" : ["secondary", "mineral", "vitamin"].includes(nutrient.category));
+            return <fieldset key={group} className="target-fields">
+              <legend>{targetT(group === "macro" ? "macros" : "micros")}</legend>
+              <div className="form-grid">{nutrients.map((nutrient) => <div className="field" key={nutrient.key}>
+                <label htmlFor={`nutrient-${nutrient.key}`}>{values.language === "de" ? nutrient.nameDe : nutrient.nameEn} ({nutrient.unit})</label>
+                <input id={`nutrient-${nutrient.key}`} name={`nutrient-${nutrient.key}`} type="number" min="0.0001" max="1000000" step="any" defaultValue={manualNutrients[nutrient.key] ?? ""} />
+              </div>)}</div>
+            </fieldset>;
+          })}
+          <p className="hint">{targetT("nutrientOverrideHint")}</p>
           <button type="submit" className="btn btn-primary" disabled={targetPending}>
             {targetPending ? common("loading") : common("save")}
           </button>
         </form>
-      </section>
+      </details>
 
       {/* Language stays here; the AI consent switches moved to /admin. It is a
           display preference every account needs, not administration. */}
