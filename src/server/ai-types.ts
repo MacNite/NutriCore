@@ -397,14 +397,50 @@ export const AI_JOB_STATUSES = ["QUEUED", "RUNNING", "COMPLETED", "FAILED"] as c
 export type AiJobStatusName = (typeof AI_JOB_STATUSES)[number];
 
 /**
+ * The bands `AiJob.priority` is written in. Higher runs first; the gaps leave
+ * room for a band between two of these without renumbering the queue.
+ */
+export const JOB_PRIORITY = {
+  /** Recipe generation, which the queue always serves first. */
+  RECIPE_GENERATION: 20,
+  /** Everything else a user submitted and is waiting on. */
+  USER_FACING: 10,
+  /** Backfilling nobody asked for, which may wait for all of the above. */
+  BACKGROUND: 0,
+} as const;
+
+/**
+ * Whether a job is a recipe generation run - the ingestion whose intent is to
+ * produce a recipe, rather than to log a meal.
+ *
+ * The entity type alone cannot answer this: both ingestion paths write one
+ * `AI_INGESTION` job and are told apart only by the intent on their input.
+ * `RECIPE_IMPORT` is the name the same work carried before the two paths were
+ * unified, and is still recognised for jobs queued by that version.
+ */
+const isRecipeGeneration = (entityType: string, intent?: AiIngestionIntent | null) =>
+  entityType === "RECIPE_IMPORT" || (entityType === "AI_INGESTION" && intent === "RECIPE");
+
+/**
  * Higher runs first. Work a user is waiting for goes ahead of background
  * backfilling: a "Backfill missing nutrition" sweep can queue a whole batch, and
  * a strictly chronological queue put every quick meal behind all of it.
  *
- * The column defaults to the user-facing value, so a job type added later is
- * never accidentally starved - only background work opts down.
+ * Recipe generation goes ahead of even that. It is the longest run the worker
+ * has - a whole ingredient list, each component resolved against the food
+ * database and possibly the web - and it is the one a user sits in front of
+ * waiting for a page to fill in, so a queue that made it wait its turn behind
+ * several quick meals read as broken.
+ *
+ * `intent` is only meaningful for an ingestion job and is read off its
+ * `AiIngestionInput`; without it an ingestion is treated as the quick meal it
+ * defaults to. The column defaults to the user-facing value, so a job type added
+ * later is never accidentally starved - only background work opts down.
  */
-export const jobPriority = (entityType: string) => (entityType === "FOOD_ENRICHMENT" ? 0 : 10);
+export const jobPriority = (entityType: string, intent?: AiIngestionIntent | null) => {
+  if (entityType === "FOOD_ENRICHMENT") return JOB_PRIORITY.BACKGROUND;
+  return isRecipeGeneration(entityType, intent) ? JOB_PRIORITY.RECIPE_GENERATION : JOB_PRIORITY.USER_FACING;
+};
 
 /**
  * The state a job is put back into when someone asks for it to run again.

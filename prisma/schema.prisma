@@ -260,9 +260,11 @@ model AiJob {
   ingestionInputId String?
   status           AiJobStatus       @default(QUEUED)
   /**
-   * Higher runs first. A "Backfill missing nutrition" sweep can queue hundreds
-   * of jobs at once, and a strictly chronological queue put every quick meal
-   * behind all of them - hours of waiting for a request the user is watching.
+   * Higher runs first, in the bands `jobPriority` writes: 20 recipe generation,
+   * 10 everything else a user is waiting for, 0 background enrichment. A
+   * "Backfill missing nutrition" sweep can queue hundreds of jobs at once, and a
+   * strictly chronological queue put every quick meal behind all of them - hours
+   * of waiting for a request the user is watching.
    */
   priority         Int               @default(10)
   retryCount       Int               @default(0)
