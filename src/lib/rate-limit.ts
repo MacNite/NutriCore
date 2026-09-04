@@ -64,4 +64,8 @@ export const RATE_LIMITS = {
   /* A scan carries two images and queues CPU work, so it is limited more
      tightly than a search and more loosely than anything a person waits on. */
   bodyScan: scaled(12, 60 * 60 * 1000),
+  /* Publishing writes something every other member of the instance sees, so it
+     is the one recipe operation that is limited at all. Generous enough that
+     tidying up a batch of recipes never trips it. */
+  publish: scaled(30, 60 * 60 * 1000),
 };

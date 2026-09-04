@@ -36,7 +36,8 @@
     "grams": "g",
     "today": "Today",
     "retry": "Try again",
-    "of": "of"
+    "of": "of",
+    "more": "Show more"
   },
   "auth": {
     "signIn": "Sign in",
@@ -935,6 +936,42 @@
     },
     "saveDraft": "Save as draft",
     "saveDraftHint": "Stores the recipe as a draft. A draft can be edited further but can only be logged once it is confirmed."
+  },
+  "sharing": {
+    "title": "Shared recipes",
+    "feedHint": "Recipes members of this instance have published, newest first.",
+    "empty": "Nobody has shared a recipe yet.",
+    "byAuthor": "by {author}",
+    "shareHeading": "Share",
+    "publishHint": "Publishing puts a copy of this recipe where every member of this instance can read and save it. Your private recipe stays yours and is not changed.",
+    "republishHint": "Publishing again replaces what members currently read. Copies they have already saved are their own and stay as they are.",
+    "publishTitle": "Title",
+    "publishDescription": "Description",
+    "publishInstructions": "Instructions",
+    "publishTags": "Tags, separated by commas",
+    "publishNotice": "Published are the title, description, instructions, tags, ingredient names with their amounts, and the nutrition calculated from them. Your display name is shown as the author. Nothing else from your account is shared.",
+    "publish": "Publish",
+    "republish": "Publish again",
+    "publishedOn": "Published on {date}.",
+    "viewPublication": "View the shared recipe",
+    "withdraw": "Withdraw",
+    "withdrawHint": "Withdrawing takes this out of the list. Copies other members saved are their own recipes and are unaffected.",
+    "withdrawConfirm": "Withdraw this recipe from the shared list?",
+    "withdrawn": "Withdrawn",
+    "save": "Save to my recipes",
+    "saveAgain": "Save another copy",
+    "saveHint": "You get your own copy: your own recipe, your own foods, your own nutrition. Later changes by the author do not reach it.",
+    "alreadySavedHint": "You have already saved this recipe.",
+    "openSavedCopy": "Open your copy",
+    "authorTools": "Your publication",
+    "estimateNotice": "Community-contributed content, not medical advice. Nutrition values are estimates from the ingredients the author chose — check allergens and preparation yourself.",
+    "copyOf": "Saved from a recipe shared by {author}.",
+    "unsavedIngredients": "These ingredients could not be copied and are missing from this recipe: {names}",
+    "errors": {
+      "draft": "An AI draft cannot be shared. Confirm it first.",
+      "noIngredients": "This recipe has no ingredient that can be shared.",
+      "nothingToCopy": "None of this recipe's ingredients could be copied to your account."
+    }
   },
   "aiReview": {
     "title": "AI enrichment",

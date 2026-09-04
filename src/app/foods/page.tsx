@@ -42,6 +42,7 @@ export default async function FoodsPage({
   const placeholders = await recipePlaceholders(user.id);
   const inFlight = hasRunInFlight(placeholders);
   const recipesT = await getTranslations("recipes");
+  const sharingT = await getTranslations("sharing");
   const placeholderT = await getTranslations("aiPlaceholder");
   const common = await getTranslations("common");
   const placeholderLabels = aiPlaceholderLabels((key) => placeholderT(key as "name"));
@@ -73,7 +74,10 @@ export default async function FoodsPage({
             <h2 id="recipes-heading">{recipesT("title")}</h2>
             <p className="muted" style={{ margin: 0 }}>{recipesT("combinedHint")}</p>
           </div>
-          <Link className="btn btn-primary" href="/recipes/new">{recipesT("create")}</Link>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link className="btn" href="/recipes/shared">{sharingT("title")}</Link>
+            <Link className="btn btn-primary" href="/recipes/new">{recipesT("create")}</Link>
+          </div>
         </div>
         {placeholders.map((placeholder) => (
           <AiPlaceholderRow key={placeholder.id} placeholder={placeholder} labels={placeholderLabels} returnTo="/foods" />

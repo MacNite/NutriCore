@@ -36,7 +36,8 @@
     "grams": "g",
     "today": "Heute",
     "retry": "Erneut versuchen",
-    "of": "von"
+    "of": "von",
+    "more": "Mehr anzeigen"
   },
   "auth": {
     "signIn": "Anmelden",
@@ -935,6 +936,42 @@
     },
     "saveDraft": "Entwurf speichern",
     "saveDraftHint": "Speichert das Rezept als Entwurf. Ein Entwurf lässt sich weiter bearbeiten, aber erst nach dem Bestätigen eintragen."
+  },
+  "sharing": {
+    "title": "Geteilte Rezepte",
+    "feedHint": "Rezepte, die Mitglieder dieser Instanz veröffentlicht haben, neueste zuerst.",
+    "empty": "Bisher hat niemand ein Rezept geteilt.",
+    "byAuthor": "von {author}",
+    "shareHeading": "Teilen",
+    "publishHint": "Beim Veröffentlichen wird eine Kopie dieses Rezepts dort abgelegt, wo jedes Mitglied dieser Instanz sie lesen und speichern kann. Dein privates Rezept bleibt deins und wird nicht verändert.",
+    "republishHint": "Erneutes Veröffentlichen ersetzt, was Mitglieder derzeit lesen. Bereits gespeicherte Kopien gehören ihnen und bleiben unverändert.",
+    "publishTitle": "Titel",
+    "publishDescription": "Beschreibung",
+    "publishInstructions": "Zubereitung",
+    "publishTags": "Tags, durch Kommas getrennt",
+    "publishNotice": "Veröffentlicht werden Titel, Beschreibung, Zubereitung, Tags, die Zutatennamen mit ihren Mengen und die daraus berechneten Nährwerte. Dein Anzeigename steht als Autor darunter. Sonst wird nichts aus deinem Konto geteilt.",
+    "publish": "Veröffentlichen",
+    "republish": "Erneut veröffentlichen",
+    "publishedOn": "Veröffentlicht am {date}.",
+    "viewPublication": "Geteiltes Rezept ansehen",
+    "withdraw": "Zurückziehen",
+    "withdrawHint": "Zurückziehen nimmt das Rezept aus der Liste. Kopien, die andere Mitglieder gespeichert haben, sind deren eigene Rezepte und bleiben bestehen.",
+    "withdrawConfirm": "Dieses Rezept aus der geteilten Liste zurückziehen?",
+    "withdrawn": "Zurückgezogen",
+    "save": "In meine Rezepte übernehmen",
+    "saveAgain": "Weitere Kopie speichern",
+    "saveHint": "Du bekommst eine eigene Kopie: eigenes Rezept, eigene Lebensmittel, eigene Nährwerte. Spätere Änderungen des Autors erreichen sie nicht.",
+    "alreadySavedHint": "Du hast dieses Rezept bereits gespeichert.",
+    "openSavedCopy": "Eigene Kopie öffnen",
+    "authorTools": "Deine Veröffentlichung",
+    "estimateNotice": "Von Mitgliedern beigetragener Inhalt, keine medizinische Beratung. Die Nährwerte sind Schätzungen aus den vom Autor gewählten Zutaten – prüfe Allergene und Zubereitung selbst.",
+    "copyOf": "Übernommen aus einem Rezept, das {author} geteilt hat.",
+    "unsavedIngredients": "Diese Zutaten konnten nicht übernommen werden und fehlen in diesem Rezept: {names}",
+    "errors": {
+      "draft": "Ein KI-Entwurf kann nicht geteilt werden. Bestätige ihn zuerst.",
+      "noIngredients": "Dieses Rezept hat keine Zutat, die geteilt werden kann.",
+      "nothingToCopy": "Keine Zutat dieses Rezepts konnte in dein Konto übernommen werden."
+    }
   },
   "aiReview": {
     "title": "KI-Anreicherung",
