@@ -69,7 +69,7 @@ export function LogFoodForm({ food, meal, date, returnToMeal }: { food: FoodShap
           <select id="unit" name="unit" value={unit} onChange={(event) => setUnit(event.target.value)}>
             {units.map((option) => (
               <option key={option} value={option}>
-                {option}
+                {option === "serving" ? foodsT("servingLabel") : option}
               </option>
             ))}
           </select>

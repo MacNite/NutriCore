@@ -34,10 +34,17 @@ export function portionUnits(food: FoodShape): string[] {
 /** The quantity and unit the form starts with; the unit is always one it offers. */
 export function initialPortion(food: FoodShape): { quantity: string; unit: string } {
   const units = portionUnits(food);
-  const wanted = food.servingUnit ?? baseUnitOf(food);
+  const baseUnit = baseUnitOf(food);
+  // A recipe's `servingSize` is the calculated weight of one portion, not a
+  // count of portions. Start with that weight in grams instead of accidentally
+  // interpreting (for example) 64 g as 64 servings.
+  const wanted = food.servingUnit === "serving" ? baseUnit : (food.servingUnit ?? baseUnit);
   return {
-    quantity: String(food.servingSize ?? 100),
-    unit: units.includes(wanted) ? wanted : baseUnitOf(food),
+    // Imported and calculated serving weights can contain several decimal
+    // places. The initial input is a practical portion suggestion, so present
+    // it as a whole number while still allowing the person to edit it.
+    quantity: String(food.servingSize === null ? 100 : Math.round(food.servingSize)),
+    unit: units.includes(wanted) ? wanted : baseUnit,
   };
 }
 
