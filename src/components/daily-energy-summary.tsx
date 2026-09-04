@@ -33,9 +33,13 @@ export async function DailyEnergySummary({
         label={targetKcal ? `${common("of")} ${formatKcal(targetKcal, locale)} ${common("kcal")}` : common("kcal")}
       />
       <div>
-        <MacroBar label={targetT("protein")} value={totals.protein} target={target?.proteinG ?? null} locale={locale} />
-        <MacroBar label={targetT("carbohydrate")} value={totals.carbohydrate} target={target?.carbohydrateG ?? null} locale={locale} variant="carb" />
-        <MacroBar label={targetT("fat")} value={totals.fat} target={target?.fatG ?? null} locale={locale} variant="fat" />
+        {/* Missing source values contribute no known quantity to the running
+            macro count. `totals` contains every value that was available, so
+            showing zero here is preferable to erasing the rest of the day's
+            sum with a dash. Coverage remains tracked separately in the diary. */}
+        <MacroBar label={targetT("protein")} value={totals.protein ?? 0} target={target?.proteinG ?? null} locale={locale} />
+        <MacroBar label={targetT("carbohydrate")} value={totals.carbohydrate ?? 0} target={target?.carbohydrateG ?? null} locale={locale} variant="carb" />
+        <MacroBar label={targetT("fat")} value={totals.fat ?? 0} target={target?.fatG ?? null} locale={locale} variant="fat" />
         <p className="muted" style={{ margin: "12px 0 0", fontSize: 13.5 }}>
           {remaining === null ? <Link href="/settings">{t("noTarget")}</Link> : (
             <strong style={{ color: "var(--text)" }}>
