@@ -269,8 +269,8 @@ describe("metrics behind the panel switches", () => {
     expect(metrics).toContain("bodyFatPct");
   });
 
-  /* Weight has its own card on the same page, so it rides along with whatever
-     is left rather than owning a switch of its own. */
+  /* Weight rides along with whatever panel is left rather than owning a
+     switch of its own. */
   it("keeps weight for as long as either panel is on", () => {
     expect(panelMetrics({ composition: true, shape: false })).toContain("weightKg");
     expect(panelMetrics({ composition: false, shape: true })).toContain("weightKg");

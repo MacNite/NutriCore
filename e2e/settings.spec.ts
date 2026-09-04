@@ -60,7 +60,6 @@ test("each body-progress visualisation can be switched off on its own", async ({
   const bodyCard = page.locator("#body-hero-heading");
   const keyFigures = page.getByRole("heading", { name: /^kennzahlen$/i });
   const table = page.getByRole("heading", { name: /messwerte im detail/i });
-  const weight = page.getByRole("heading", { name: /^gewicht$/i });
   const nutrition = page.getByRole("heading", { name: /^ernährung$/i });
   // Body fat belongs to composition, the waist to shape: the detail table is
   // the readable proof of which switch each measurement answers to.
@@ -120,7 +119,7 @@ test("each body-progress visualisation can be switched off on its own", async ({
   await expect(waistRow).toBeVisible();
   await expect(bodyFatRow).toBeHidden();
 
-  // Both off: body progress goes entirely, weight and nutrition stay.
+  // Both off: body progress goes entirely, nutrition stays.
   await page.goto("/settings");
   await page.locator("#showBodyShape").uncheck();
   await save();
@@ -129,7 +128,6 @@ test("each body-progress visualisation can be switched off on its own", async ({
   await expect(bodyCard).toBeHidden();
   await expect(keyFigures).toBeHidden();
   await expect(table).toBeHidden();
-  await expect(weight).toBeVisible();
   await expect(nutrition).toBeVisible();
 
   // Nothing was deleted: switching them back on restores every panel and row.
