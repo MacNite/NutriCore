@@ -16,6 +16,19 @@ test("settings are available from the account button but absent from primary nav
   await expect(page.getByRole("heading", { name: /^settings$|^einstellungen$/i })).toBeVisible();
 });
 
+test("top-level pages use the same top bar as Today", async ({ page }) => {
+  for (const path of ["/", "/foods", "/progress", "/settings"]) {
+    await page.goto(path);
+    await expect(page.locator("header.topbar")).toBeVisible();
+    await expect(page.locator("header.topbar .brand")).toHaveAttribute("href", "/");
+    await expect(page.locator("header.topbar .back-button")).toHaveCount(0);
+  }
+
+  // Contextual pages continue to provide a way back.
+  await page.goto("/foods/new");
+  await expect(page.locator("header.topbar .back-button")).toBeVisible();
+});
+
 test("the interface can be switched between German and English", async ({ page }) => {
   await page.goto("/settings");
 
