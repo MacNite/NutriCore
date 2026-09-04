@@ -12,15 +12,28 @@ import { NUTRIENTS } from "@/lib/nutrients";
 
 const MIGRATIONS = join(process.cwd(), "prisma", "migrations");
 
+/**
+ * Every migration that carries catalogue rows, concatenated oldest first.
+ *
+ * The catalogue grows by shipping a further migration rather than by editing
+ * the first one - an applied migration must never change - so a nutrient may
+ * be defined by any of them and all of them have to be read together.
+ */
 function catalogueSql() {
-  const dir = readdirSync(MIGRATIONS).find((name) => name.endsWith("_nutrient_catalogue"));
-  expect(dir, "a nutrient catalogue migration must exist").toBeDefined();
-  return readFileSync(join(MIGRATIONS, dir!, "migration.sql"), "utf8");
+  const dirs = readdirSync(MIGRATIONS)
+    .filter((name) => name.includes("_nutrient_catalogue"))
+    .sort();
+  expect(dirs.length, "a nutrient catalogue migration must exist").toBeGreaterThan(0);
+  return dirs.map((dir) => readFileSync(join(MIGRATIONS, dir, "migration.sql"), "utf8")).join("\n");
 }
 
 /** Reads the `(id, key, nameDe, nameEn, unit, category, sortOrder)` tuples. */
 function parseRows(sql: string) {
-  const body = sql.slice(sql.indexOf("VALUES"), sql.indexOf("ON CONFLICT"));
+  const body = sql
+    .split("INSERT INTO")
+    .slice(1)
+    .map((statement) => statement.slice(statement.indexOf("VALUES"), statement.indexOf("ON CONFLICT")))
+    .join("\n");
   return [...body.matchAll(/\(\s*'([^']*)',\s*'([^']*)',\s*'((?:[^']|'')*)',\s*'((?:[^']|'')*)',\s*'([^']*)',\s*'([^']*)',\s*(\d+)\s*\)/g)].map(
     (m) => ({
       id: m[1],
@@ -56,7 +69,11 @@ describe("nutrient catalogue migration", () => {
   });
 
   it("is idempotent, so re-running a migration cannot fail", () => {
-    expect(catalogueSql()).toContain('ON CONFLICT ("key") DO UPDATE');
+    // Every catalogue statement, not merely one of them: a later extension
+    // that forgot the upsert would fail on a database that already has the row.
+    const statements = catalogueSql().split("INSERT INTO").slice(1);
+    expect(statements.length).toBeGreaterThan(0);
+    for (const statement of statements) expect(statement).toContain('ON CONFLICT ("key") DO UPDATE');
   });
 
   it("uses deterministic ids rather than a client-side default", () => {

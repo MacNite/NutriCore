@@ -16,7 +16,9 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "datasets:convert": "node --max-old-space-size=6144 scripts/convert-food-datasets.mjs",
+    "db:import:foods": "tsx scripts/import-food-datasets.ts"
   },
   "dependencies": {
     "@prisma/client": "6.15.0",

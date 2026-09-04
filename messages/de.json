@@ -249,7 +249,9 @@
       "USER": "Mein Essen",
       "RECIPE": "Rezept",
       "AI_RESEARCH": "KI-Schätzung",
-      "IMPORTED": "Importiert"
+      "IMPORTED": "Importiert",
+      "BLS": "BLS",
+      "FATSECRET": "FatSecret"
     },
     "sourceFull": {
       "OPEN_FOOD_FACTS": "Open Food Facts",
@@ -257,7 +259,9 @@
       "USER": "Von dir angelegt",
       "RECIPE": "Aus einem Rezept berechnet",
       "AI_RESEARCH": "KI-recherchierte Schätzung",
-      "IMPORTED": "Importiert"
+      "IMPORTED": "Importiert",
+      "BLS": "Bundeslebensmittelschlüssel 4.0",
+      "FATSECRET": "FatSecret"
     },
     "form": {
       "name": "Name",
@@ -743,19 +747,28 @@
       "disabled": "Deaktiviert",
       "unknown": "Unbekannt"
     },
-    "refresh": "Erneut prüfen"
+    "refresh": "Erneut prüfen",
+    "bls": "Bundeslebensmittelschlüssel 4.0",
+    "fatSecret": "FatSecret"
   },
   "dataSources": {
     "title": "Datenquellen",
     "subtitle": "Woher die Nährwertdaten von NutriCore stammen und zu welchen Bedingungen.",
     "offBody": "Primäre Quelle für verpackte Lebensmittel. Die Open-Food-Facts-Datenbank steht unter der Open Database License (ODbL); die einzelnen Inhalte unter der Database Contents License. Produktbilder haben eigene Lizenzbedingungen. Zwischengespeicherte Datensätze behalten Anbieter-ID und Abrufzeit, damit sie als OFF-Daten erkennbar bleiben.",
-    "usdaBody": "Optionale Quelle für generische Zutaten und Grundnahrungsmittel. Daten aus USDA FoodData Central sind in der Regel gemeinfrei (CC0) und werden hier dennoch attribuiert.",
+    "usdaBody": "Primäre Quelle für generische Lebensmittel bei englischer Spracheinstellung. Die Releases Foundation Foods und SR Legacy von USDA FoodData Central sind in NutriCore enthalten und werden lokal gespeichert. Mit einem eigenen API-Schlüssel können zusätzlich neuere sowie Survey- (FNDDS) und Branded-Daten online durchsucht werden. USDA-Daten sind in der Regel gemeinfrei (CC0) und werden hier dennoch attribuiert.",
     "ownBody": "Selbst angelegte Lebensmittel sind entsprechend markiert. KI-Vorschläge sind Schätzungen, werden aus aufgelösten Zutaten berechnet statt als Gesamtwerte erfunden und erst nach deiner Bestätigung gespeichert.",
     "shareAlike": "Die Weitergabe einer aus Open Food Facts abgeleiteten Datenbank kann Share-alike-Pflichten nach der ODbL auslösen. Diese Seite ist Betriebsdokumentation und keine Rechtsberatung.",
     "configured": "In dieser Installation konfiguriert",
     "notConfigured": "In dieser Installation nicht konfiguriert",
     "compendiumTitle": "2024 Adult Compendium of Physical Activities",
-    "compendiumBody": "Die MET-Werte der Aktivitätsbibliothek stammen aus dem 2024 Adult Compendium. Die Compendium-Codes werden für die Nachvollziehbarkeit gespeichert."
+    "compendiumBody": "Die MET-Werte der Aktivitätsbibliothek stammen aus dem 2024 Adult Compendium. Die Compendium-Codes werden für die Nachvollziehbarkeit gespeichert.",
+    "blsBody": "Primäre Quelle für generische Lebensmittel bei deutscher Spracheinstellung. Der Bundeslebensmittelschlüssel (BLS) 4.0 ist die nationale Nährstoffdatenbank Deutschlands und wird vom Max Rubner-Institut, Bundesforschungsinstitut für Ernährung und Lebensmittel, entwickelt und gepflegt. Version 4.0 wird kosten- und lizenzfrei bereitgestellt. Die Daten sind in NutriCore enthalten und werden lokal gespeichert: für eine BLS-Suche verlässt keine Anfrage den Server. Nährstoffe ohne Bestimmung bleiben leer und werden nie als 0 dargestellt; Spuren und Werte unterhalb der Bestimmungsgrenze sind als solche gekennzeichnet.",
+    "fatSecretBody": "Optionale externe Ergänzung, die erst nach den offenen Datenbanken abgefragt wird. Inhalte der FatSecret Platform API dürfen nicht dauerhaft gespeichert werden: NutriCore hält sie deshalb nur zwischengespeichert vor und entfernt sie danach wieder, anders als BLS-, USDA- und Open-Food-Facts-Daten.",
+    "orderTitle": "Reihenfolge der Quellen",
+    "orderBody": "Quellen werden nacheinander abgefragt, nicht gleichzeitig. Die Suche endet, sobald ein Treffer eindeutig passt und genügend Nährwerte enthält — deshalb löst eine Suche, die lokal beantwortet werden kann, überhaupt keine Netzabfrage aus. Welche Quelle zuerst gefragt wird, hängt von der Spracheinstellung ab.",
+    "orderDe": "Deutsch: eigene Lebensmittel → BLS → Open Food Facts → FatSecret → USDA",
+    "orderEn": "Englisch: eigene Lebensmittel → USDA → Open Food Facts → FatSecret",
+    "orderBarcode": "Barcode: eigene Lebensmittel → Open Food Facts → FatSecret. Generische Zutatendatenbanken wie BLS enthalten keine Barcodes und werden dafür nicht abgefragt."
   },
   "errors": {
     "title": "Etwas ist schiefgelaufen",
@@ -1159,6 +1172,23 @@
       "save": "Mail-Einstellungen speichern",
       "saved": "Mail-Einstellungen gespeichert.",
       "environment": "Die Umgebungskonfiguration ist aktiv und kann hier nicht geändert werden."
+    },
+    "foodDatasets": {
+      "title": "Lebensmitteldatenbanken",
+      "subtitle": "Mitgelieferte Referenzdatenbanken. Der Import ist wiederholbar: unveränderte Datensätze werden übersprungen.",
+      "dataset": "Datenbank",
+      "version": "Version",
+      "bundled": "Mitgeliefert",
+      "imported": "Importiert",
+      "state": "Status",
+      "upToDate": "Aktuell",
+      "outdated": "Import ausstehend",
+      "never": "Nie importiert",
+      "import": "Fehlende importieren",
+      "reimport": "Alle neu importieren",
+      "empty": "Keine mitgelieferten Datenbanken gefunden. Führe `npm run datasets:convert` aus.",
+      "result": "{imported} Lebensmittel geschrieben, {skipped} Datenbank(en) unverändert.",
+      "failed": "{failed} Datenbank(en) konnten nicht importiert werden. Details siehe Server-Log."
     }
   },
   "account": {

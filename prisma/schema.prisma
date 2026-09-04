@@ -17,9 +17,15 @@ enum BasisUnit {
   ML
 }
 
+/// Where a food's numbers came from. Each value is a distinct data source with
+/// its own trust, licensing and persistence rules - never a stand-in for
+/// another, so provenance survives in the UI and in an export.
 enum SourceType {
   OPEN_FOOD_FACTS
   USDA
+  /// Bundeslebensmittelschlüssel: bundled with the application, never fetched.
+  BLS
+  FATSECRET
   USER
   RECIPE
   AI_RESEARCH
@@ -606,11 +612,24 @@ model Food {
    * not be filled, on every click, for ever.
    */
   enrichedAt       DateTime?
+  /**
+   * When this row may no longer be kept, for a provider whose terms allow
+   * caching but not permanent storage (see `PersistencePolicy` in
+   * src/providers/food.ts). NULL means the food is permanent - which is the
+   * case for everything a user created, every recipe, and every bundled
+   * database such as BLS or USDA.
+   *
+   * A diary entry freezes its own nutrition and provenance and holds the food
+   * with `onDelete: SetNull`, so pruning an expired row cannot rewrite or
+   * break a logged meal.
+   */
+  cacheExpiresAt   DateTime?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
   owner             User?              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   aliases           FoodAlias[]
+  translations      FoodTranslation[]
   servings          FoodServing[]
   sources           FoodSource[]
   nutrients         FoodNutrient[]
@@ -623,6 +642,29 @@ model Food {
   @@index([barcode])
   @@index([normalizedName])
   @@index([ownerId])
+  @@index([sourceType])
+  @@index([cacheExpiresAt])
+}
+
+/// The same food's name in another language.
+///
+/// A bundled reference database supplies its own official translations - BLS
+/// 4.0 carries a German and an English name for all 7,140 foods - and a
+/// German-speaking user should read the German one while an English-speaking
+/// user reads the English one. `Food.name` stays the source's primary name;
+/// this table carries the rest, so adding a third language is a row and not a
+/// migration. A branded product is never translated: only sources that publish
+/// official names get entries here.
+model FoodTranslation {
+  foodId         String
+  locale         Locale
+  name           String
+  normalizedName String
+
+  food Food @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@id([foodId, locale])
+  @@index([normalizedName])
 }
 
 model FoodAlias {
@@ -676,6 +718,20 @@ model FoodNutrient {
   value       Decimal? @db.Decimal(18, 6)
   sourceValue Decimal? @db.Decimal(18, 6)
   sourceUnit  String?
+  /**
+   * Why a value is absent, or what kind of number it is, when the source says
+   * more than "unknown": TRACE, BELOW_LOD, BELOW_LOQ, LOGICAL_ZERO. BLS 4.0
+   * distinguishes all four, and flattening them into a null or - far worse -
+   * into a zero would misreport the food. A plain measured value has none.
+   */
+  qualifier   String?
+  /**
+   * How the source obtained the value, in the source's own vocabulary: BLS
+   * data-source categories such as `Analyse`, `Rezeptberechnung` or
+   * `Formelberechnung`, or a USDA derivation code. Kept per nutrient because
+   * that is the granularity BLS publishes it at.
+   */
+  origin      String?
 
   food     Food               @relation(fields: [foodId], references: [id], onDelete: Cascade)
   nutrient NutrientDefinition @relation(fields: [nutrientKey], references: [key], onDelete: Cascade)
@@ -824,6 +880,25 @@ model ExternalFoodCache {
   @@index([barcode])
   @@index([normalizedName])
   @@index([expiresAt])
+}
+
+/// What a bundled food database import last did, so re-running it is cheap.
+///
+/// The importer compares the artifact's checksum against the stored one and
+/// stops immediately when they match. That is what keeps `db:import:foods`
+/// safe to call from a deployment: an unchanged dataset costs one query
+/// instead of reconciling 15,000 foods, so ordinary startup stays fast.
+model DatasetImport {
+  /// `bls`, `usda-foundation`, `usda-sr-legacy`.
+  key         String   @id
+  version     String
+  checksum    String
+  recordCount Int      @default(0)
+  /// Counts of created/updated/skipped rows and any unmapped source fields.
+  stats       Json?
+  durationMs  Int?
+  importedAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model SearchQueryCache {

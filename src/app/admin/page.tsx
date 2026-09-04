@@ -7,7 +7,8 @@ import { AppShell } from "@/components/app-shell";
 import { CopyField } from "@/components/copy-field";
 import { formatDate } from "@/lib/format";
 import { runDiagnostics } from "@/server/diagnostics";
-import { batchInviteUsersAction, enqueueFoodEnrichmentAction, inviteUserAction, manageAiJobsAction, resendInvitationAction, saveMailSettingsAction, setUserActiveAction } from "@/server/admin-actions";
+import { datasetStatus } from "@/server/food-datasets/import";
+import { batchInviteUsersAction, enqueueFoodEnrichmentAction, importFoodDatasetsAction, inviteUserAction, manageAiJobsAction, resendInvitationAction, saveMailSettingsAction, setUserActiveAction } from "@/server/admin-actions";
 import { AI_JOB_OPERATIONS, AI_JOB_STATUSES, STUCK_RUNNING_MS, jobOutcome, type AcceptedOutcome, type AiJobStatusName } from "@/server/ai-types";
 import { AI_FAILURE_KINDS } from "@/server/ai-failures";
 import { AiJobsPanel, type JobLabels, type JobRow } from "./ai-jobs-panel";
@@ -43,6 +44,9 @@ export default async function AdminPage({
     mailSettings?: string;
     enrichmentQueued?: string;
     enrichmentRemaining?: string;
+    datasetsImported?: string;
+    datasetsSkipped?: string;
+    datasetsFailed?: string;
     jobs?: string;
     jobsPage?: string;
     jobsOp?: string;
@@ -57,7 +61,7 @@ export default async function AdminPage({
   const t = await getTranslations("admin");
   const tDiagnostics = await getTranslations("diagnostics");
   const locale = current.language;
-  const { token, mail, batchSent, batchFailed, mailSettings, enrichmentQueued, enrichmentRemaining, jobs: jobsFilterRaw, jobsPage: jobsPageRaw, jobsOp: jobsOpRaw, jobsCount } = await searchParams;
+  const { token, mail, batchSent, batchFailed, mailSettings, enrichmentQueued, enrichmentRemaining, datasetsImported, datasetsSkipped, datasetsFailed, jobs: jobsFilterRaw, jobsPage: jobsPageRaw, jobsOp: jobsOpRaw, jobsCount } = await searchParams;
   // Never feed an unvalidated query value into a translation key.
   const jobsOp = (AI_JOB_OPERATIONS as readonly string[]).includes(jobsOpRaw ?? "")
     ? jobsOpRaw
@@ -79,7 +83,7 @@ export default async function AdminPage({
   const jobsPageCount = Math.max(1, Math.ceil(jobsTotal / JOBS_PER_PAGE));
   const jobsPage = Math.min(Math.max(1, Math.trunc(Number(jobsPageRaw)) || 1), jobsPageCount);
 
-  const [users, jobs, invitations, diagnosticsChecks, ownProfile, mailConfiguration] = await Promise.all([
+  const [users, jobs, invitations, diagnosticsChecks, ownProfile, mailConfiguration, datasets] = await Promise.all([
     prisma.user.findMany({ include: { profile: true }, orderBy: { createdAt: "desc" } }),
     prisma.aiJob.findMany({
       where: jobsFilter ? { status: jobsFilter } : {},
@@ -102,6 +106,7 @@ export default async function AdminPage({
     // which is where they lived before they moved off the settings page.
     prisma.userProfile.findUnique({ where: { userId: current.id } }),
     getMailConfiguration(),
+    datasetStatus(),
   ]);
 
   // What the job was actually asked to do. It lives on a different record for
@@ -448,6 +453,75 @@ export default async function AdminPage({
           labels={jobLabels}
           action={manageAiJobsAction}
         />
+      </section>
+
+      {/* The bundled food databases. An administrator needs to see whether the
+          data is actually in the database - an enabled source with nothing
+          imported is the one deployment mistake this feature has - and to be
+          able to fix it without shell access. */}
+      <section className="card" style={{ marginTop: 20 }} id="food-datasets">
+        <div className="card-head">
+          <div>
+            <h2>{t("foodDatasets.title")}</h2>
+            <p className="muted">{t("foodDatasets.subtitle")}</p>
+          </div>
+        </div>
+
+        {datasetsImported !== undefined ? (
+          <p className="notice" role="status">
+            {t("foodDatasets.result", { imported: datasetsImported, skipped: datasetsSkipped ?? "0" })}
+            {datasetsFailed ? ` ${t("foodDatasets.failed", { failed: datasetsFailed })}` : ""}
+          </p>
+        ) : null}
+
+        {datasets.length === 0 ? (
+          <p className="muted" style={{ marginBottom: 0 }}>{t("foodDatasets.empty")}</p>
+        ) : (
+          <>
+            <div className="table-scroll">
+              <table className="table">
+                <caption className="sr-only">{t("foodDatasets.title")}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">{t("foodDatasets.dataset")}</th>
+                    <th scope="col">{t("foodDatasets.version")}</th>
+                    <th scope="col">{t("foodDatasets.bundled")}</th>
+                    <th scope="col">{t("foodDatasets.imported")}</th>
+                    <th scope="col">{t("foodDatasets.state")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {datasets.map((dataset) => (
+                    <tr key={dataset.key}>
+                      <th scope="row" style={{ fontWeight: 500 }}>{dataset.key}</th>
+                      <td className="muted">{dataset.version}</td>
+                      <td>{dataset.bundledRecords.toLocaleString(locale)}</td>
+                      <td>{dataset.importedRecords.toLocaleString(locale)}</td>
+                      <td>
+                        <span className="badge">
+                          {dataset.importedAt === null
+                            ? t("foodDatasets.never")
+                            : dataset.upToDate
+                              ? t("foodDatasets.upToDate")
+                              : t("foodDatasets.outdated")}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+              <form action={importFoodDatasetsAction}>
+                <button className="btn" type="submit">{t("foodDatasets.import")}</button>
+              </form>
+              <form action={importFoodDatasetsAction}>
+                <input type="hidden" name="force" value="1" />
+                <button className="btn btn-quiet" type="submit">{t("foodDatasets.reimport")}</button>
+              </form>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="card" style={{ marginTop: 20 }}>

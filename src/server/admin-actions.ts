@@ -13,6 +13,7 @@ import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { ENRICHMENT_BATCH_LIMIT, ENRICHMENT_RETRY_MS, missingNutritionKeys } from "./food-enrichment";
 import { AI_JOB_OPERATIONS, AI_JOB_REQUEUE_DATA, AI_JOB_SELECTION_OPERATIONS, jobPriority, STUCK_RUNNING_MS, type AiJobOperation } from "./ai-types";
 import { discardMealInputImages } from "./meal-image";
+import { DATASET_KEYS, importAllDatasets } from "./food-datasets/import";
 
 /**
  * The token still travels back so an administrator can copy it when mail is
@@ -282,6 +283,40 @@ export async function enqueueFoodEnrichmentAction() {
     }
   }
   redirect(`/admin?enrichmentQueued=${queued}&enrichmentRemaining=${remaining}#ai-jobs`);
+}
+
+/**
+ * Re-imports the bundled food databases (BLS 4.0, USDA FoodData Central).
+ *
+ * The same importer the CLI and a deployment run, so this is a convenience
+ * rather than a second code path: it exists because refreshing a dataset
+ * otherwise means shell access to the container. Idempotent by checksum, so a
+ * second click on an unchanged dataset costs one query - unless `force` is
+ * set, which is how a partially finished import is repaired.
+ */
+export async function importFoodDatasetsAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const requested = String(formData.get("dataset") ?? "").trim();
+  const force = String(formData.get("force") ?? "") === "1";
+  const keys = DATASET_KEYS.includes(requested) ? [requested] : undefined;
+
+  const { outcomes, failures } = await importAllDatasets({ force, keys });
+  const changed = outcomes.filter((outcome) => outcome.changed);
+  const imported = changed.reduce((total, outcome) => total + outcome.stats.created + outcome.stats.updated, 0);
+
+  logger.info("Bundled food datasets imported", {
+    by: admin.id,
+    datasets: changed.map((outcome) => outcome.key),
+    imported,
+    failures: failures.length,
+  });
+
+  const params = new URLSearchParams({
+    datasetsImported: String(imported),
+    datasetsSkipped: String(outcomes.length - changed.length),
+  });
+  if (failures.length > 0) params.set("datasetsFailed", String(failures.length));
+  redirect(`/admin?${params.toString()}#food-datasets`);
 }
 
 export async function changeRequiredPasswordAction(formData: FormData) {

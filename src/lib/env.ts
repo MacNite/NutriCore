@@ -17,8 +17,15 @@ const bool = (fallback: boolean) => z.string().optional().transform((value) => r
  *
  * Same reading as the schema, because both go through `readBool`.
  */
-export const flag = (name: "RESEARCH_ENABLED" | "AI_ENABLED" | "OPENFOODFACTS_ENABLED", fallback: boolean) =>
-  readBool(process.env[name], fallback);
+export type BooleanFlag =
+  | "RESEARCH_ENABLED"
+  | "AI_ENABLED"
+  | "OPENFOODFACTS_ENABLED"
+  | "BLS_ENABLED"
+  | "USDA_ENABLED"
+  | "FATSECRET_ENABLED";
+
+export const flag = (name: BooleanFlag, fallback: boolean) => readBool(process.env[name], fallback);
 
 /** Whether this deployment allows fetching pages from the open web at all. */
 export const researchEnabled = () => flag("RESEARCH_ENABLED", false);
@@ -32,8 +39,32 @@ const schema = z.object({
   OPENFOODFACTS_USER_AGENT: z.string().default("NutriCore/0.1 (self-hosted)"),
   OPENFOODFACTS_SEARCH_URL: z.string().default("https://search.openfoodfacts.org"),
   OPENFOODFACTS_SEARCH_BACKEND: z.enum(["search-a-licious", "legacy"]).default("search-a-licious"),
-  USDA_ENABLED: bool(false),
+  /**
+   * BLS 4.0 is bundled with the application and answers from PostgreSQL, so it
+   * is on unless a deployment turns it off. It needs no credentials and makes
+   * no network request.
+   */
+  BLS_ENABLED: bool(true),
+  /**
+   * USDA FoodData Central. Also bundled - the Foundation and SR Legacy
+   * downloads are imported locally - which is why this now defaults to on
+   * where it used to default to off. The *API* half additionally needs
+   * USDA_API_KEY and stays unavailable without one.
+   */
+  USDA_ENABLED: bool(true),
   USDA_API_KEY: z.string().optional(),
+  USDA_BASE_URL: z.string().default("https://api.nal.usda.gov/fdc/v1"),
+  /**
+   * FatSecret is an optional external fallback. Off by default and never
+   * required: an installation that configures nothing here behaves exactly as
+   * it did before the provider existed.
+   */
+  FATSECRET_ENABLED: bool(false),
+  FATSECRET_CLIENT_ID: z.string().optional(),
+  FATSECRET_CLIENT_SECRET: z.string().optional(),
+  /** Premier-plan localisation. Left empty on a basic plan. */
+  FATSECRET_REGION: z.string().optional(),
+  FATSECRET_LANGUAGE: z.string().optional(),
   AI_ENABLED: bool(true),
   AI_PROVIDER: z.string().default("ollama"),
   // Always present: resolved by `resolveAiBaseUrl`/`resolveAiModel` below.

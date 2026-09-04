@@ -1,0 +1,1682 @@
+[
+  {
+    "code": "C131000",
+    "nameDe": "Hafer ganzes Korn, roh",
+    "nameEn": "Oat whole grain, raw",
+    "note": null,
+    "values": {
+      "ENERCJ": [
+        1443,
+        "Formelberechnung"
+      ],
+      "ENERCC": [
+        343,
+        "Formelberechnung"
+      ],
+      "WATER": [
+        11.45,
+        "Literatur"
+      ],
+      "PROT625": [
+        11.375,
+        "Literatur"
+      ],
+      "FAT": [
+        7.09,
+        "Nährstoffdatenbank"
+      ],
+      "CHO": [
+        53.7,
+        "Formelberechnung"
+      ],
+      "FIBT": [
+        9.3,
+        "Analyse"
+      ],
+      "ALC": [
+        0,
+        "Logische Null"
+      ],
+      "OA": [
+        0,
+        "Formelberechnung"
+      ],
+      "ASH": [
+        2.23,
+        "Aggregation"
+      ],
+      "VITA": [
+        0,
+        "Formelberechnung"
+      ],
+      "VITAA": [
+        0,
+        "Formelberechnung"
+      ],
+      "RETOL": [
+        0,
+        "Logische Null"
+      ],
+      "CARTB": [
+        0,
+        "Übernommener Wert"
+      ],
+      "CAROTPAXB": [
+        "-",
+        "-"
+      ],
+      "VITD": [
+        0,
+        "Formelberechnung"
+      ],
+      "CHOCAL": [
+        0,
+        "Logische Null"
+      ],
+      "ERGCAL": [
+        0,
+        "Logische Null"
+      ],
+      "VITE": [
+        1.342,
+        "Literatur"
+      ],
+      "TOCPHA": [
+        1.342,
+        "Literatur"
+      ],
+      "TOCPHB": [
+        0.027,
+        "Literatur"
+      ],
+      "TOCPHG": [
+        "<LOQ",
+        "Literatur"
+      ],
+      "TOCPHD": [
+        0.015,
+        "Literatur"
+      ],
+      "TOCTRA": [
+        2.92,
+        "Literatur"
+      ],
+      "VITK": [
+        2.1,
+        "Formelberechnung"
+      ],
+      "VITK1": [
+        2.1,
+        "Übernommener Wert"
+      ],
+      "VITK2": [
+        0,
+        "Logische Null"
+      ],
+      "THIA": [
+        0.674,
+        "Nährstoffdatenbank"
+      ],
+      "RIBF": [
+        0.17,
+        "Nährstoffdatenbank"
+      ],
+      "NIAEQ": [
+        5.537,
+        "Formelberechnung"
+      ],
+      "NIA": [
+        2.37,
+        "Nährstoffdatenbank"
+      ],
+      "PANTAC": [
+        0.71,
+        "Nährstoffdatenbank"
+      ],
+      "VITB6": [
+        960,
+        "Nährstoffdatenbank"
+      ],
+      "BIOT": [
+        13,
+        "Nährstoffdatenbank"
+      ],
+      "FOL": [
+        33,
+        "Formelberechnung"
+      ],
+      "FOLFD": [
+        33,
+        "Nährstoffdatenbank"
+      ],
+      "FOLAC": [
+        0,
+        "Logische Null"
+      ],
+      "VITB12": [
+        0,
+        "Logische Null"
+      ],
+      "VITC": [
+        0,
+        "Übernommener Wert"
+      ],
+      "NACL": [
+        0.02,
+        "Formelberechnung"
+      ],
+      "NA": [
+        8,
+        "Nährstoffdatenbank"
+      ],
+      "CLD": [
+        119,
+        "Nährstoffdatenbank"
+      ],
+      "K": [
+        412,
+        "Literatur"
+      ],
+      "CA": [
+        56.2,
+        "Literatur"
+      ],
+      "MG": [
+        116,
+        "Literatur"
+      ],
+      "P": [
+        342,
+        "Nährstoffdatenbank"
+      ],
+      "S": [
+        "-",
+        "-"
+      ],
+      "FE": [
+        5.16,
+        "Literatur"
+      ],
+      "ZN": [
+        3.66,
+        "Literatur"
+      ],
+      "ID": [
+        8,
+        "Nährstoffdatenbank"
+      ],
+      "CU": [
+        484,
+        "Literatur"
+      ],
+      "MN": [
+        6160,
+        "Literatur"
+      ],
+      "FD": [
+        95,
+        "Nährstoffdatenbank"
+      ],
+      "CR": [
+        2.58,
+        "Literatur"
+      ],
+      "MO": [
+        70,
+        "Übernommener Wert"
+      ],
+      "ACEAC": [
+        0,
+        "Logische Null"
+      ],
+      "CITAC": [
+        0,
+        "Logische Null"
+      ],
+      "LACAC": [
+        0,
+        "Logische Null"
+      ],
+      "MALAC": [
+        0,
+        "Logische Null"
+      ],
+      "TARAC": [
+        0,
+        "Logische Null"
+      ],
+      "POLYL": [
+        0,
+        "Formelberechnung"
+      ],
+      "MANTL": [
+        0,
+        "Logische Null"
+      ],
+      "SORTL": [
+        0,
+        "Logische Null"
+      ],
+      "XYLTL": [
+        "-",
+        "-"
+      ],
+      "MNSAC": [
+        0,
+        "Formelberechnung"
+      ],
+      "GLUS": [
+        0,
+        "Übernommener Wert"
+      ],
+      "FRUS": [
+        0,
+        "Übernommener Wert"
+      ],
+      "GALS": [
+        "-",
+        "-"
+      ],
+      "DISAC": [
+        1.08,
+        "Formelberechnung"
+      ],
+      "SUCS": [
+        1.05,
+        "Nährstoffdatenbank"
+      ],
+      "MALS": [
+        0.03,
+        "Nährstoffdatenbank"
+      ],
+      "LACS": [
+        0,
+        "Logische Null"
+      ],
+      "SUGAR": [
+        1.08,
+        "Formelberechnung"
+      ],
+      "OLSAC": [
+        "-",
+        "-"
+      ],
+      "STARCH": [
+        52.6,
+        "Nährstoffdatenbank"
+      ],
+      "FIBLMW": [
+        "-",
+        "-"
+      ],
+      "FIBHMW": [
+        9.3,
+        "Analyse"
+      ],
+      "FIBINS": [
+        4.9,
+        "Analyse"
+      ],
+      "FIBSOL": [
+        4.4,
+        "Analyse"
+      ],
+      "FIBHMWS": [
+        "-",
+        "-"
+      ],
+      "FIBHMWI": [
+        "-",
+        "-"
+      ],
+      "FASAT": [
+        1.43,
+        "Formelberechnung"
+      ],
+      "F4:0": [
+        "-",
+        "-"
+      ],
+      "F6:0": [
+        "-",
+        "-"
+      ],
+      "F8:0": [
+        "-",
+        "-"
+      ],
+      "F10:0": [
+        "-",
+        "-"
+      ],
+      "F12:0": [
+        "-",
+        "-"
+      ],
+      "F14:0": [
+        0.04,
+        "Nährstoffdatenbank"
+      ],
+      "F15:0": [
+        "-",
+        "-"
+      ],
+      "F16:0": [
+        1.28,
+        "Nährstoffdatenbank"
+      ],
+      "F17:0": [
+        "-",
+        "-"
+      ],
+      "F18:0": [
+        0.11,
+        "Nährstoffdatenbank"
+      ],
+      "F20:0": [
+        "-",
+        "-"
+      ],
+      "F22:0": [
+        "-",
+        "-"
+      ],
+      "F24:0": [
+        "-",
+        "-"
+      ],
+      "FAMS": [
+        2.514,
+        "Formelberechnung"
+      ],
+      "F14:1CN5": [
+        "-",
+        "-"
+      ],
+      "F16:1CN7": [
+        0.054,
+        "Nährstoffdatenbank"
+      ],
+      "F18:1CN7": [
+        "-",
+        "-"
+      ],
+      "F18:1CN9": [
+        2.46,
+        "Nährstoffdatenbank"
+      ],
+      "F20:1CN9": [
+        "-",
+        "-"
+      ],
+      "F22:1CN9": [
+        "-",
+        "-"
+      ],
+      "FAPU": [
+        2.86,
+        "Formelberechnung"
+      ],
+      "FAPUN3": [
+        0.12,
+        "Formelberechnung"
+      ],
+      "F18:3CN3": [
+        0.12,
+        "Nährstoffdatenbank"
+      ],
+      "F18:4CN3": [
+        "-",
+        "-"
+      ],
+      "F20:5CN3": [
+        0,
+        "Logische Null"
+      ],
+      "F22:5CN3": [
+        "-",
+        "-"
+      ],
+      "F22:6CN3": [
+        0,
+        "Logische Null"
+      ],
+      "FAPUN6": [
+        2.74,
+        "Formelberechnung"
+      ],
+      "F18:2CN6": [
+        2.74,
+        "Nährstoffdatenbank"
+      ],
+      "F18:2C9T11": [
+        "-",
+        "-"
+      ],
+      "F18:3CN6": [
+        "-",
+        "-"
+      ],
+      "F20:2CN6": [
+        "-",
+        "-"
+      ],
+      "F20:3CN6": [
+        "-",
+        "-"
+      ],
+      "F20:4CN6": [
+        "-",
+        "-"
+      ],
+      "FAX": [
+        "-",
+        "-"
+      ],
+      "CHORL": [
+        0,
+        "Logische Null"
+      ],
+      "AAE9": [
+        4.11,
+        "Formelberechnung"
+      ],
+      "ALA": [
+        0.656,
+        "Nährstoffdatenbank"
+      ],
+      "ARG": [
+        0.772,
+        "Nährstoffdatenbank"
+      ],
+      "ASP": [
+        1.0075,
+        "Nährstoffdatenbank"
+      ],
+      "CYSTE": [
+        0.323,
+        "Nährstoffdatenbank"
+      ],
+      "GLU": [
+        2.5465,
+        "Nährstoffdatenbank"
+      ],
+      "GLY": [
+        0.7085,
+        "Nährstoffdatenbank"
+      ],
+      "HIS": [
+        0.225,
+        "Nährstoffdatenbank"
+      ],
+      "ILE": [
+        0.468,
+        "Nährstoffdatenbank"
+      ],
+      "LEU": [
+        0.8695,
+        "Nährstoffdatenbank"
+      ],
+      "LYS": [
+        0.495,
+        "Nährstoffdatenbank"
+      ],
+      "MET": [
+        0.1905,
+        "Nährstoffdatenbank"
+      ],
+      "PHE": [
+        0.605,
+        "Nährstoffdatenbank"
+      ],
+      "PRO": [
+        0.799,
+        "Nährstoffdatenbank"
+      ],
+      "SER": [
+        0.66,
+        "Nährstoffdatenbank"
+      ],
+      "THR": [
+        0.424,
+        "Nährstoffdatenbank"
+      ],
+      "TRP": [
+        0.19,
+        "Nährstoffdatenbank"
+      ],
+      "TYR": [
+        0.424,
+        "Nährstoffdatenbank"
+      ],
+      "VAL": [
+        0.6425,
+        "Nährstoffdatenbank"
+      ],
+      "NT": [
+        1.724,
+        "Aggregation"
+      ]
+    }
+  },
+  {
+    "code": "R111000",
+    "nameDe": "Speisesalz/Siedesalz/Tafelsalz",
+    "nameEn": "Common salt/table salt",
+    "note": null,
+    "values": {
+      "ENERCJ": [
+        0,
+        "Formelberechnung"
+      ],
+      "ENERCC": [
+        0,
+        "Formelberechnung"
+      ],
+      "WATER": [
+        0.1,
+        "Analyse"
+      ],
+      "PROT625": [
+        0,
+        "Logische Null"
+      ],
+      "FAT": [
+        0,
+        "Logische Null"
+      ],
+      "CHO": [
+        0,
+        "Formelberechnung"
+      ],
+      "FIBT": [
+        0,
+        "Logische Null"
+      ],
+      "ALC": [
+        0,
+        "Logische Null"
+      ],
+      "OA": [
+        0,
+        "Formelberechnung"
+      ],
+      "ASH": [
+        99.88,
+        "Analyse"
+      ],
+      "VITA": [
+        0,
+        "Formelberechnung"
+      ],
+      "VITAA": [
+        0,
+        "Formelberechnung"
+      ],
+      "RETOL": [
+        0,
+        "Logische Null"
+      ],
+      "CARTB": [
+        0,
+        "Logische Null"
+      ],
+      "CAROTPAXB": [
+        "TR",
+        "Spuren"
+      ],
+      "VITD": [
+        0,
+        "Formelberechnung"
+      ],
+      "CHOCAL": [
+        0,
+        "Logische Null"
+      ],
+      "ERGCAL": [
+        0,
+        "Logische Null"
+      ],
+      "VITE": [
+        0,
+        "Logische Null"
+      ],
+      "TOCPHA": [
+        0,
+        "Logische Null"
+      ],
+      "TOCPHB": [
+        0,
+        "Logische Null"
+      ],
+      "TOCPHG": [
+        0,
+        "Logische Null"
+      ],
+      "TOCPHD": [
+        0,
+        "Logische Null"
+      ],
+      "TOCTRA": [
+        0,
+        "Logische Null"
+      ],
+      "VITK": [
+        0,
+        "Formelberechnung"
+      ],
+      "VITK1": [
+        "-",
+        "-"
+      ],
+      "VITK2": [
+        0,
+        "Logische Null"
+      ],
+      "THIA": [
+        0,
+        "Logische Null"
+      ],
+      "RIBF": [
+        0,
+        "Logische Null"
+      ],
+      "NIAEQ": [
+        0,
+        "Formelberechnung"
+      ],
+      "NIA": [
+        0,
+        "Logische Null"
+      ],
+      "PANTAC": [
+        0,
+        "Logische Null"
+      ],
+      "VITB6": [
+        0,
+        "Logische Null"
+      ],
+      "BIOT": [
+        0,
+        "Logische Null"
+      ],
+      "FOL": [
+        0,
+        "Formelberechnung"
+      ],
+      "FOLFD": [
+        "TR",
+        "Spuren"
+      ],
+      "FOLAC": [
+        0,
+        "Logische Null"
+      ],
+      "VITB12": [
+        0,
+        "Logische Null"
+      ],
+      "VITC": [
+        0,
+        "Logische Null"
+      ],
+      "NACL": [
+        95.3625,
+        "Formelberechnung"
+      ],
+      "NA": [
+        38145,
+        "Analyse"
+      ],
+      "CLD": [
+        57885,
+        "Analyse"
+      ],
+      "K": [
+        140,
+        "Analyse"
+      ],
+      "CA": [
+        51.9,
+        "Analyse"
+      ],
+      "MG": [
+        4.825,
+        "Analyse"
+      ],
+      "P": [
+        6.695,
+        "Analyse"
+      ],
+      "S": [
+        "<LOQ",
+        "Analyse"
+      ],
+      "FE": [
+        "-",
+        "-"
+      ],
+      "ZN": [
+        0.086,
+        "Analyse"
+      ],
+      "ID": [
+        11,
+        "Literatur"
+      ],
+      "CU": [
+        20,
+        "Analyse"
+      ],
+      "MN": [
+        98,
+        "Analyse"
+      ],
+      "FD": [
+        "<LOQ",
+        "Literatur"
+      ],
+      "CR": [
+        5,
+        "Analyse"
+      ],
+      "MO": [
+        2.5,
+        "Analyse"
+      ],
+      "ACEAC": [
+        0,
+        "Logische Null"
+      ],
+      "CITAC": [
+        0,
+        "Logische Null"
+      ],
+      "LACAC": [
+        0,
+        "Logische Null"
+      ],
+      "MALAC": [
+        0,
+        "Logische Null"
+      ],
+      "TARAC": [
+        0,
+        "Logische Null"
+      ],
+      "POLYL": [
+        0,
+        "Formelberechnung"
+      ],
+      "MANTL": [
+        0,
+        "Logische Null"
+      ],
+      "SORTL": [
+        0,
+        "Logische Null"
+      ],
+      "XYLTL": [
+        0,
+        "Logische Null"
+      ],
+      "MNSAC": [
+        0,
+        "Formelberechnung"
+      ],
+      "GLUS": [
+        0,
+        "Logische Null"
+      ],
+      "FRUS": [
+        0,
+        "Logische Null"
+      ],
+      "GALS": [
+        0,
+        "Logische Null"
+      ],
+      "DISAC": [
+        0,
+        "Formelberechnung"
+      ],
+      "SUCS": [
+        0,
+        "Logische Null"
+      ],
+      "MALS": [
+        0,
+        "Logische Null"
+      ],
+      "LACS": [
+        0,
+        "Logische Null"
+      ],
+      "SUGAR": [
+        0,
+        "Formelberechnung"
+      ],
+      "OLSAC": [
+        "-",
+        "-"
+      ],
+      "STARCH": [
+        0,
+        "Logische Null"
+      ],
+      "FIBLMW": [
+        0,
+        "Musterberechnung"
+      ],
+      "FIBHMW": [
+        0,
+        "Musterberechnung"
+      ],
+      "FIBINS": [
+        0,
+        "Musterberechnung"
+      ],
+      "FIBSOL": [
+        0,
+        "Musterberechnung"
+      ],
+      "FIBHMWS": [
+        0,
+        "Musterberechnung"
+      ],
+      "FIBHMWI": [
+        0,
+        "Musterberechnung"
+      ],
+      "FASAT": [
+        0,
+        "Formelberechnung"
+      ],
+      "F4:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F6:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F8:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F10:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F12:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F14:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F15:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F16:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F17:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F18:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F20:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F22:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "F24:0": [
+        0,
+        "Musterberechnung"
+      ],
+      "FAMS": [
+        0,
+        "Formelberechnung"
+      ],
+      "F14:1CN5": [
+        0,
+        "Musterberechnung"
+      ],
+      "F16:1CN7": [
+        0,
+        "Musterberechnung"
+      ],
+      "F18:1CN7": [
+        0,
+        "Musterberechnung"
+      ],
+      "F18:1CN9": [
+        0,
+        "Musterberechnung"
+      ],
+      "F20:1CN9": [
+        0,
+        "Musterberechnung"
+      ],
+      "F22:1CN9": [
+        0,
+        "Musterberechnung"
+      ],
+      "FAPU": [
+        0,
+        "Formelberechnung"
+      ],
+      "FAPUN3": [
+        0,
+        "Formelberechnung"
+      ],
+      "F18:3CN3": [
+        0,
+        "Musterberechnung"
+      ],
+      "F18:4CN3": [
+        0,
+        "Musterberechnung"
+      ],
+      "F20:5CN3": [
+        0,
+        "Logische Null"
+      ],
+      "F22:5CN3": [
+        0,
+        "Musterberechnung"
+      ],
+      "F22:6CN3": [
+        0,
+        "Logische Null"
+      ],
+      "FAPUN6": [
+        0,
+        "Formelberechnung"
+      ],
+      "F18:2CN6": [
+        0,
+        "Musterberechnung"
+      ],
+      "F18:2C9T11": [
+        0,
+        "Musterberechnung"
+      ],
+      "F18:3CN6": [
+        0,
+        "Musterberechnung"
+      ],
+      "F20:2CN6": [
+        0,
+        "Musterberechnung"
+      ],
+      "F20:3CN6": [
+        0,
+        "Musterberechnung"
+      ],
+      "F20:4CN6": [
+        0,
+        "Musterberechnung"
+      ],
+      "FAX": [
+        0,
+        "Musterberechnung"
+      ],
+      "CHORL": [
+        0,
+        "Logische Null"
+      ],
+      "AAE9": [
+        0,
+        "Formelberechnung"
+      ],
+      "ALA": [
+        0,
+        "Musterberechnung"
+      ],
+      "ARG": [
+        0,
+        "Musterberechnung"
+      ],
+      "ASP": [
+        0,
+        "Musterberechnung"
+      ],
+      "CYSTE": [
+        0,
+        "Musterberechnung"
+      ],
+      "GLU": [
+        0,
+        "Musterberechnung"
+      ],
+      "GLY": [
+        0,
+        "Musterberechnung"
+      ],
+      "HIS": [
+        0,
+        "Musterberechnung"
+      ],
+      "ILE": [
+        0,
+        "Musterberechnung"
+      ],
+      "LEU": [
+        0,
+        "Musterberechnung"
+      ],
+      "LYS": [
+        0,
+        "Musterberechnung"
+      ],
+      "MET": [
+        0,
+        "Musterberechnung"
+      ],
+      "PHE": [
+        0,
+        "Musterberechnung"
+      ],
+      "PRO": [
+        0,
+        "Musterberechnung"
+      ],
+      "SER": [
+        0,
+        "Musterberechnung"
+      ],
+      "THR": [
+        0,
+        "Musterberechnung"
+      ],
+      "TRP": [
+        0,
+        "Musterberechnung"
+      ],
+      "TYR": [
+        0,
+        "Musterberechnung"
+      ],
+      "VAL": [
+        0,
+        "Musterberechnung"
+      ],
+      "NT": [
+        0,
+        "Logische Null"
+      ]
+    }
+  },
+  {
+    "code": "B121000",
+    "nameDe": "Roggenvollkornbrot",
+    "nameEn": "Wholemeal rye bread",
+    "note": null,
+    "values": {
+      "ENERCJ": [
+        812,
+        "Formelberechnung"
+      ],
+      "ENERCC": [
+        193,
+        "Formelberechnung"
+      ],
+      "WATER": [
+        46.4,
+        "Analyse"
+      ],
+      "PROT625": [
+        6.04,
+        "Analyse"
+      ],
+      "FAT": [
+        1.81,
+        "Analyse"
+      ],
+      "CHO": [
+        32.49,
+        "Formelberechnung"
+      ],
+      "FIBT": [
+        9.62,
+        "Analyse"
+      ],
+      "ALC": [
+        "<LOD",
+        "Analyse"
+      ],
+      "OA": [
+        0.972,
+        "Formelberechnung"
+      ],
+      "ASH": [
+        1.97,
+        "Analyse"
+      ],
+      "VITA": [
+        2.9,
+        "Formelberechnung"
+      ],
+      "VITAA": [
+        2.9,
+        "Formelberechnung"
+      ],
+      "RETOL": [
+        2.9,
+        "Analyse"
+      ],
+      "CARTB": [
+        "<LOD",
+        "Analyse"
+      ],
+      "CAROTPAXB": [
+        "-",
+        "-"
+      ],
+      "VITD": [
+        0,
+        "Formelberechnung"
+      ],
+      "CHOCAL": [
+        "<LOD",
+        "Analyse"
+      ],
+      "ERGCAL": [
+        "<LOD",
+        "Analyse"
+      ],
+      "VITE": [
+        0.635,
+        "Analyse"
+      ],
+      "TOCPHA": [
+        0.635,
+        "Analyse"
+      ],
+      "TOCPHB": [
+        0.155,
+        "Analyse"
+      ],
+      "TOCPHG": [
+        0.11,
+        "Analyse"
+      ],
+      "TOCPHD": [
+        "<LOQ",
+        "Analyse"
+      ],
+      "TOCTRA": [
+        "-",
+        "-"
+      ],
+      "VITK": [
+        4.159,
+        "Formelberechnung"
+      ],
+      "VITK1": [
+        4.115,
+        "Analyse"
+      ],
+      "VITK2": [
+        0.044,
+        "Analyse"
+      ],
+      "THIA": [
+        0.267,
+        "Analyse"
+      ],
+      "RIBF": [
+        0.082,
+        "Analyse"
+      ],
+      "NIAEQ": [
+        3.112,
+        "Formelberechnung"
+      ],
+      "NIA": [
+        2.175,
+        "Analyse"
+      ],
+      "PANTAC": [
+        0.34,
+        "Analyse"
+      ],
+      "VITB6": [
+        102,
+        "Analyse"
+      ],
+      "BIOT": [
+        7.41,
+        "Analyse"
+      ],
+      "FOL": [
+        16.7,
+        "Formelberechnung"
+      ],
+      "FOLFD": [
+        16.7,
+        "Analyse"
+      ],
+      "FOLAC": [
+        0,
+        "Logische Null"
+      ],
+      "VITB12": [
+        "<LOQ",
+        "Analyse"
+      ],
+      "VITC": [
+        "<LOD",
+        "Analyse"
+      ],
+      "NACL": [
+        1.1012,
+        "Formelberechnung"
+      ],
+      "NA": [
+        440.5,
+        "Analyse"
+      ],
+      "CLD": [
+        735,
+        "Analyse"
+      ],
+      "K": [
+        255.5,
+        "Analyse"
+      ],
+      "CA": [
+        25.5,
+        "Analyse"
+      ],
+      "MG": [
+        55.7,
+        "Analyse"
+      ],
+      "P": [
+        257.5,
+        "Analyse"
+      ],
+      "S": [
+        68,
+        "Analyse"
+      ],
+      "FE": [
+        1.61,
+        "Analyse"
+      ],
+      "ZN": [
+        1.35,
+        "Analyse"
+      ],
+      "ID": [
+        "-",
+        "-"
+      ],
+      "CU": [
+        175,
+        "Analyse"
+      ],
+      "MN": [
+        1505,
+        "Analyse"
+      ],
+      "FD": [
+        360,
+        "Analyse"
+      ],
+      "CR": [
+        2.8,
+        "Analyse"
+      ],
+      "MO": [
+        29.5,
+        "Analyse"
+      ],
+      "ACEAC": [
+        0.124,
+        "Analyse"
+      ],
+      "CITAC": [
+        0.012,
+        "Analyse"
+      ],
+      "LACAC": [
+        0.641,
+        "Analyse"
+      ],
+      "MALAC": [
+        0.017,
+        "Analyse"
+      ],
+      "TARAC": [
+        0.178,
+        "Analyse"
+      ],
+      "POLYL": [
+        0.007,
+        "Formelberechnung"
+      ],
+      "MANTL": [
+        "<LOD",
+        "Analyse"
+      ],
+      "SORTL": [
+        "<LOQ",
+        "Analyse"
+      ],
+      "XYLTL": [
+        "<LOD",
+        "Analyse"
+      ],
+      "MNSAC": [
+        2.47,
+        "Formelberechnung"
+      ],
+      "GLUS": [
+        1.1,
+        "Analyse"
+      ],
+      "FRUS": [
+        1.37,
+        "Analyse"
+      ],
+      "GALS": [
+        "<LOD",
+        "Analyse"
+      ],
+      "DISAC": [
+        2.11,
+        "Formelberechnung"
+      ],
+      "SUCS": [
+        0.34,
+        "Analyse"
+      ],
+      "MALS": [
+        1.77,
+        "Analyse"
+      ],
+      "LACS": [
+        "<LOD",
+        "Analyse"
+      ],
+      "SUGAR": [
+        4.58,
+        "Formelberechnung"
+      ],
+      "OLSAC": [
+        "-",
+        "-"
+      ],
+      "STARCH": [
+        27.9,
+        "Analyse"
+      ],
+      "FIBLMW": [
+        "-",
+        "-"
+      ],
+      "FIBHMW": [
+        9.62,
+        "Analyse"
+      ],
+      "FIBINS": [
+        7.58,
+        "Analyse"
+      ],
+      "FIBSOL": [
+        2.04,
+        "Analyse"
+      ],
+      "FIBHMWS": [
+        "-",
+        "-"
+      ],
+      "FIBHMWI": [
+        "-",
+        "-"
+      ],
+      "FASAT": [
+        0.187,
+        "Formelberechnung"
+      ],
+      "F4:0": [
+        0,
+        "Analyse"
+      ],
+      "F6:0": [
+        0,
+        "Analyse"
+      ],
+      "F8:0": [
+        0,
+        "Analyse"
+      ],
+      "F10:0": [
+        0,
+        "Analyse"
+      ],
+      "F12:0": [
+        0.0011,
+        "Analyse"
+      ],
+      "F14:0": [
+        0.00301,
+        "Analyse"
+      ],
+      "F15:0": [
+        "-",
+        "-"
+      ],
+      "F16:0": [
+        0.142,
+        "Analyse"
+      ],
+      "F17:0": [
+        0,
+        "Analyse"
+      ],
+      "F18:0": [
+        0.0233,
+        "Analyse"
+      ],
+      "F20:0": [
+        0.0144,
+        "Analyse"
+      ],
+      "F22:0": [
+        0.00283,
+        "Analyse"
+      ],
+      "F24:0": [
+        "-",
+        "-"
+      ],
+      "FAMS": [
+        0.552,
+        "Formelberechnung"
+      ],
+      "F14:1CN5": [
+        "-",
+        "-"
+      ],
+      "F16:1CN7": [
+        0.00404,
+        "Analyse"
+      ],
+      "F18:1CN7": [
+        "-",
+        "-"
+      ],
+      "F18:1CN9": [
+        0.538,
+        "Analyse"
+      ],
+      "F20:1CN9": [
+        "-",
+        "-"
+      ],
+      "F22:1CN9": [
+        0.00966,
+        "Analyse"
+      ],
+      "FAPU": [
+        0.564,
+        "Formelberechnung"
+      ],
+      "FAPUN3": [
+        0.112,
+        "Formelberechnung"
+      ],
+      "F18:3CN3": [
+        0.111,
+        "Analyse"
+      ],
+      "F18:4CN3": [
+        "-",
+        "-"
+      ],
+      "F20:5CN3": [
+        0,
+        "Analyse"
+      ],
+      "F22:5CN3": [
+        "-",
+        "-"
+      ],
+      "F22:6CN3": [
+        0.0012,
+        "Analyse"
+      ],
+      "FAPUN6": [
+        0.452,
+        "Formelberechnung"
+      ],
+      "F18:2CN6": [
+        0.452,
+        "Analyse"
+      ],
+      "F18:2C9T11": [
+        0,
+        "Analyse"
+      ],
+      "F18:3CN6": [
+        0,
+        "Analyse"
+      ],
+      "F20:2CN6": [
+        "-",
+        "-"
+      ],
+      "F20:3CN6": [
+        "-",
+        "-"
+      ],
+      "F20:4CN6": [
+        0,
+        "Analyse"
+      ],
+      "FAX": [
+        "-",
+        "-"
+      ],
+      "CHORL": [
+        "TR",
+        "Spuren"
+      ],
+      "AAE9": [
+        1.606,
+        "Formelberechnung"
+      ],
+      "ALA": [
+        0.25,
+        "Analyse"
+      ],
+      "ARG": [
+        0.26,
+        "Analyse"
+      ],
+      "ASP": [
+        0.35,
+        "Analyse"
+      ],
+      "CYSTE": [
+        0.12,
+        "Analyse"
+      ],
+      "GLU": [
+        1.39,
+        "Analyse"
+      ],
+      "GLY": [
+        0.25,
+        "Analyse"
+      ],
+      "HIS": [
+        0.12,
+        "Analyse"
+      ],
+      "ILE": [
+        0.18,
+        "Analyse"
+      ],
+      "LEU": [
+        0.32,
+        "Analyse"
+      ],
+      "LYS": [
+        0.17,
+        "Analyse"
+      ],
+      "MET": [
+        0.08,
+        "Analyse"
+      ],
+      "PHE": [
+        0.25,
+        "Analyse"
+      ],
+      "PRO": [
+        0.53,
+        "Analyse"
+      ],
+      "SER": [
+        0.23,
+        "Analyse"
+      ],
+      "THR": [
+        0.18,
+        "Analyse"
+      ],
+      "TRP": [
+        0.0562,
+        "Analyse"
+      ],
+      "TYR": [
+        0.11,
+        "Analyse"
+      ],
+      "VAL": [
+        0.25,
+        "Analyse"
+      ],
+      "NT": [
+        0.97,
+        "Analyse"
+      ]
+    }
+  }
+]

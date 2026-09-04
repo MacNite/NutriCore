@@ -33,6 +33,12 @@ COPY --from=build --chown=nutricore:nutricore /app/.next/standalone ./
 COPY --from=build --chown=nutricore:nutricore /app/.next/static ./.next/static
 COPY --from=build --chown=nutricore:nutricore /app/public ./public
 COPY --from=build --chown=nutricore:nutricore /app/prisma ./prisma
+# The converted food databases (BLS 4.0, USDA Foundation and SR Legacy): about
+# 5 MB of gzipped NDJSON that `npm run db:import:foods` reads. The 291 MB of
+# upstream downloads they were generated from are excluded by .dockerignore -
+# they are a build input for scripts/convert-food-datasets.mjs, not a runtime
+# dependency.
+COPY --from=build --chown=nutricore:nutricore /app/datasets/bundled ./datasets/bundled
 COPY --from=build --chown=nutricore:nutricore /app/src ./src
 COPY --from=build --chown=nutricore:nutricore /app/tsconfig.json ./tsconfig.json
 # Overlay the complete production dependency tree. Prisma's CLI loads

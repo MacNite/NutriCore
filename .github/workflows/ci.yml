@@ -76,6 +76,60 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  datasets:
+    # The bundled food databases, imported into a real PostgreSQL instance.
+    #
+    # A separate job on purpose. The assertions in tests/food-datasets.test.ts
+    # need the data to have been imported, and importing 15,296 foods into the
+    # `test` job's database would also put them in front of the end-to-end
+    # suite, which searches for foods it creates itself. Isolating it keeps
+    # both honest, and proves on every pull request that the committed
+    # artifacts still import - which is the one thing a unit test with a
+    # temporary fixture directory cannot show.
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: nutricore
+          POSTGRES_USER: nutricore
+          POSTGRES_PASSWORD: nutricore
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U nutricore"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      # The real thing: BLS 4.0 plus both USDA releases, from the committed
+      # artifacts, into a database that has only ever seen migrations.
+      - name: Import the bundled food databases
+        run: npm run db:import:foods
+
+      - name: Verify the imported data
+        run: npx vitest run tests/food-datasets.test.ts src/server/food-datasets
+
+      # Running it again must cost one query per dataset and change nothing,
+      # because a deployment may repeat it.
+      - name: Re-import, to prove it is idempotent
+        run: npm run db:import:foods
+
   docker:
     runs-on: ubuntu-latest
     steps:

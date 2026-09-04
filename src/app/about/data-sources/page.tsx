@@ -12,10 +12,19 @@ export default async function DataSourcesPage() {
   const foods = await getTranslations("foods");
   const config = env();
 
+  // Listed in the order a German search consults them, so the page reads as
+  // the tier model rather than as an alphabetical inventory. FatSecret appears
+  // only where it is actually configured: it is off in almost every
+  // installation, and a card explaining a source that will never answer is
+  // noise.
   const providers = [
+    { key: "USER", body: t("ownBody"), enabled: true, url: null },
+    { key: "BLS", body: t("blsBody"), enabled: config.BLS_ENABLED, url: "https://blsdb.de/" },
     { key: "OPEN_FOOD_FACTS", body: t("offBody"), enabled: config.OPENFOODFACTS_ENABLED, url: "https://world.openfoodfacts.org" },
     { key: "USDA", body: t("usdaBody"), enabled: config.USDA_ENABLED, url: "https://fdc.nal.usda.gov" },
-    { key: "USER", body: t("ownBody"), enabled: true, url: null },
+    ...(config.FATSECRET_ENABLED
+      ? ([{ key: "FATSECRET", body: t("fatSecretBody"), enabled: true, url: "https://platform.fatsecret.com" }] as const)
+      : []),
   ] as const;
 
   return (
@@ -58,6 +67,19 @@ export default async function DataSourcesPage() {
             <div className="card-head"><h2>{t("compendiumTitle")}</h2><span className="badge">{t("configured")}</span></div>
             <p style={{ marginTop: 0 }}>{t("compendiumBody")}</p>
             <p style={{ marginBottom: 0 }}><a href="https://pacompendium.com/" rel="noreferrer noopener external" target="_blank">https://pacompendium.com/</a></p>
+          </section>
+
+          {/* Which source is asked first, and why it depends on the language.
+              Users notice that a German search finds different things than an
+              English one; this is where that is explained. */}
+          <section className="card">
+            <div className="card-head"><h2>{t("orderTitle")}</h2></div>
+            <p style={{ marginTop: 0 }}>{t("orderBody")}</p>
+            <ul style={{ marginBottom: 0 }}>
+              <li>{t("orderDe")}</li>
+              <li>{t("orderEn")}</li>
+              <li>{t("orderBarcode")}</li>
+            </ul>
           </section>
 
           <section className="card">

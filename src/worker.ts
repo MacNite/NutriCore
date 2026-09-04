@@ -6,6 +6,8 @@ import { flag, researchEnabled, resolveAiBaseUrl, resolveAiModel } from "./lib/e
 import { ollamaMaxOutputTokens, ollamaTimeoutMs } from "./providers/ollama";
 import { cleanupExpiredMealImages } from "./server/meal-image";
 import { cleanupExpiredScanImages } from "./server/body-scan";
+import { pruneExpiredProviderFoods } from "./server/foods";
+import { importAllDatasets } from "./server/food-datasets/import";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -65,6 +67,57 @@ async function sweepExpiredImages() {
   }
 }
 
+/**
+ * Removes the foods a cache-limited provider supplied, once they have expired.
+ *
+ * This is what makes `CACHE_WITH_TTL` mean something: a provider whose terms
+ * allow a live cache but not a copy of its database - FatSecret - must not
+ * accumulate here. Swept on the slower cadence, because an expiry is measured
+ * in hours and a food still referenced by a diary entry is kept regardless.
+ */
+async function pruneExpiredFoods() {
+  try {
+    await pruneExpiredProviderFoods();
+  } catch (error) {
+    logger.warn("Could not prune expired provider foods", {
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+}
+
+/**
+ * Imports the bundled food databases, in the background, on worker startup.
+ *
+ * This is what makes a fresh installation arrive with BLS 4.0 and the USDA
+ * releases already searchable, rather than waiting for somebody to notice a
+ * button. It runs here rather than in the entrypoint or the web process for
+ * two reasons: the first import takes about a minute, which would push the web
+ * container past its healthcheck start period, and it is not awaited, so it
+ * cannot delay the queue either. Every later start compares one checksum and
+ * does nothing.
+ */
+function importBundledFoodDatasets() {
+  void importAllDatasets()
+    .then(({ outcomes, failures }) => {
+      const changed = outcomes.filter((outcome) => outcome.changed);
+      if (changed.length > 0) {
+        logger.info("Bundled food databases are up to date", {
+          imported: changed.map((outcome) => `${outcome.key}@${outcome.version}`),
+        });
+      }
+      for (const failure of failures) {
+        logger.error("Could not import a bundled food database", failure);
+      }
+    })
+    .catch((error) => {
+      // A missing or unreadable artifact must never stop the worker: food
+      // search still works, with whatever is already stored.
+      logger.error("Bundled food database import failed", {
+        reason: error instanceof Error ? error.message : "unknown",
+      });
+    });
+}
+
 let running = true;
 
 /**
@@ -107,6 +160,8 @@ async function main() {
   // where a second worker died while this one kept going.
   await reclaimStaleJobs();
   await sweepExpiredImages();
+  await pruneExpiredFoods();
+  importBundledFoodDatasets();
   let sinceReclaim = 0;
   let lastSweep = Date.now();
 
@@ -124,6 +179,7 @@ async function main() {
     if (++sinceReclaim * pollMs() >= RECLAIM_EVERY_MS) {
       sinceReclaim = 0;
       await reclaimStaleJobs();
+      await pruneExpiredFoods();
     }
     await delay(pollMs());
   }

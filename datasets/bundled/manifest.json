@@ -1,0 +1,70 @@
+{
+  "datasets": {
+    "bls": {
+      "version": "4.0 (2025)",
+      "artifact": "bls-4.0.ndjson.gz",
+      "components": "bls-4.0-components.json",
+      "records": 7140,
+      "componentCount": 138,
+      "artifactSha256": "5a864271f87212db242b6a261d3c2897a621402208461305c597255cbe7018b2",
+      "sources": [
+        {
+          "file": "BLS_4_0_Daten_2025_DE.xlsx",
+          "sha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+          "bytes": 14093078
+        },
+        {
+          "file": "BLS_4_0_Components_DE_EN.xlsx",
+          "sha256": "359aefcd2086f45e62ff3dbd0c8536306e594a5806ac325d8bf86f484561bdf4",
+          "bytes": 21741
+        }
+      ],
+      "generatedAt": "2026-09-04T12:18:22.621Z"
+    },
+    "usda-foundation": {
+      "version": "FoodData Central Foundation Foods, 2026-04-30",
+      "artifact": "usda-foundation.ndjson.gz",
+      "records": 363,
+      "skipped": 32,
+      "artifactSha256": "8547efb9ee209dc6be11bf17b4f1f78d8a26f10f68ed1dc22b386fb56787813d",
+      "sources": [
+        {
+          "file": "FoodData_Central_foundation_food_json_2026-04-30.json",
+          "sha256": "27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc",
+          "bytes": 6721650
+        }
+      ],
+      "generatedAt": "2026-09-04T12:18:22.823Z"
+    },
+    "usda-sr-legacy": {
+      "version": "FoodData Central SR Legacy, April 2018",
+      "artifact": "usda-sr-legacy.ndjson.gz",
+      "records": 7793,
+      "skipped": 0,
+      "artifactSha256": "f15c75b11891dd97859e03468e61c12f615aa29e2ac16b371a850e09a3ac9de9",
+      "sources": [
+        {
+          "file": "FoodData_Central_sr_legacy_food_json_2018-04_1_4.json",
+          "sha256": "9a49fbd82bef1daef82c38c5100318d9ce343a11583b95eb4bf11d5a9e42f1c5",
+          "bytes": 53908573
+        },
+        {
+          "file": "FoodData_Central_sr_legacy_food_json_2018-04_2_4.json",
+          "sha256": "baabce6b29883338dbdbd324ab3c7cd37fdfdbd6f257e8a60e06e73c623c5a7f",
+          "bytes": 67505929
+        },
+        {
+          "file": "FoodData_Central_sr_legacy_food_json_2018-04_3_4.json",
+          "sha256": "eb7c5a34eab1c2547f480260a91d3ddab08bee0187662be2a803091e2d8c55a4",
+          "bytes": 71981297
+        },
+        {
+          "file": "FoodData_Central_sr_legacy_food_json_2018-04_4_4.json",
+          "sha256": "3d319c2f47b7b6362acb4b7c618e48d322012ab0d59ef4a601fe7d83e48a619f",
+          "bytes": 17370821
+        }
+      ],
+      "generatedAt": "2026-09-04T12:18:30.296Z"
+    }
+  }
+}

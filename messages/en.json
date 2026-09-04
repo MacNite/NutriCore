@@ -249,7 +249,9 @@
       "USER": "My food",
       "RECIPE": "Recipe",
       "AI_RESEARCH": "AI estimate",
-      "IMPORTED": "Imported"
+      "IMPORTED": "Imported",
+      "BLS": "BLS",
+      "FATSECRET": "FatSecret"
     },
     "sourceFull": {
       "OPEN_FOOD_FACTS": "Open Food Facts",
@@ -257,7 +259,9 @@
       "USER": "Created by you",
       "RECIPE": "Calculated from a recipe",
       "AI_RESEARCH": "AI researched estimate",
-      "IMPORTED": "Imported"
+      "IMPORTED": "Imported",
+      "BLS": "German Federal Food Key (BLS 4.0)",
+      "FATSECRET": "FatSecret"
     },
     "form": {
       "name": "Name",
@@ -743,19 +747,28 @@
       "disabled": "Disabled",
       "unknown": "Unknown"
     },
-    "refresh": "Check again"
+    "refresh": "Check again",
+    "bls": "German Federal Food Key (BLS 4.0)",
+    "fatSecret": "FatSecret"
   },
   "dataSources": {
     "title": "Data sources",
     "subtitle": "Where NutriCore's nutrition data comes from, and under what terms.",
     "offBody": "Primary source for packaged foods. The Open Food Facts database is made available under the Open Database License (ODbL); individual contents are under the Database Contents License. Product images carry their own licence terms. Cached records keep their provider id and retrieval time so they stay identifiable as OFF-derived.",
-    "usdaBody": "Optional source for generic ingredients and staple foods. USDA FoodData Central data is generally in the public domain (CC0), and is attributed here regardless.",
+    "usdaBody": "Primary source for generic foods when the interface language is English. The Foundation Foods and SR Legacy releases of USDA FoodData Central ship with NutriCore and are stored locally. With your own API key, newer records plus the Survey (FNDDS) and Branded data types can also be searched online. USDA data is generally in the public domain (CC0) and is attributed here regardless.",
     "ownBody": "Foods you create are marked as your own. AI suggestions are estimates, are calculated from resolved ingredients rather than invented totals, and are only stored after you confirm them.",
     "shareAlike": "Redistributing a database derived from Open Food Facts may carry share-alike obligations under the ODbL. This page is operational documentation, not legal advice.",
     "configured": "Configured in this deployment",
     "notConfigured": "Not configured in this deployment",
     "compendiumTitle": "2024 Adult Compendium of Physical Activities",
-    "compendiumBody": "The activity library’s MET values come from the 2024 Adult Compendium. Compendium codes are retained for auditability."
+    "compendiumBody": "The activity library’s MET values come from the 2024 Adult Compendium. Compendium codes are retained for auditability.",
+    "blsBody": "Primary source for generic foods when the interface language is German. The Bundeslebensmittelschlüssel (BLS) 4.0 is Germany's national nutrient database, developed and maintained by the Max Rubner-Institut, the German Federal Research Institute of Nutrition and Food. Version 4.0 is provided free of charge and free of licence. The data ships with NutriCore and is stored locally: a BLS search sends no request off the server. Nutrients that were never determined stay empty and are never shown as 0; traces and values below the limit of quantification are marked as such.",
+    "fatSecretBody": "Optional external fallback, asked only after the open databases above. FatSecret Platform API content may not be stored permanently, so NutriCore keeps it cached and then removes it again, unlike BLS, USDA and Open Food Facts data.",
+    "orderTitle": "The order sources are asked in",
+    "orderBody": "Sources are consulted one after another, not all at once. The search stops as soon as a result matches exactly and carries enough nutrients — which is why a search that can be answered locally causes no network request at all. Which source is asked first depends on the interface language.",
+    "orderDe": "German: your own foods → BLS → Open Food Facts → FatSecret → USDA",
+    "orderEn": "English: your own foods → USDA → Open Food Facts → FatSecret",
+    "orderBarcode": "Barcode: your own foods → Open Food Facts → FatSecret. Generic ingredient databases such as BLS hold no barcodes and are not asked for one."
   },
   "errors": {
     "title": "Something went wrong",
@@ -1159,6 +1172,23 @@
       "save": "Save mail settings",
       "saved": "Mail settings saved.",
       "environment": "Environment configuration is active and cannot be changed here."
+    },
+    "foodDatasets": {
+      "title": "Food databases",
+      "subtitle": "The bundled reference databases. Importing is repeatable: an unchanged dataset is skipped.",
+      "dataset": "Database",
+      "version": "Version",
+      "bundled": "Bundled",
+      "imported": "Imported",
+      "state": "State",
+      "upToDate": "Up to date",
+      "outdated": "Import pending",
+      "never": "Never imported",
+      "import": "Import what is missing",
+      "reimport": "Re-import everything",
+      "empty": "No bundled databases found. Run `npm run datasets:convert`.",
+      "result": "{imported} foods written, {skipped} database(s) unchanged.",
+      "failed": "{failed} database(s) could not be imported. See the server log for details."
     }
   },
   "account": {

@@ -1,0 +1,1385 @@
+{
+  "version": "4.0 (2025)",
+  "components": [
+    {
+      "index": 1,
+      "code": "ENERCJ",
+      "nameDe": "Energie (Kilojoule)",
+      "nameEn": "Energy (kilojoule)",
+      "unit": "kJ",
+      "groupDe": "Energie",
+      "groupEn": "Energy",
+      "formula": "ENERCJ[kJ] = 17*PROT625[g] + 17*(CHO[g] - POLYL[g]) + 37*FAT[g] + 29*ALC[g] + 13*OA[g] + 10*POLYL[g] + 8*OLSAC[g] + 8*FIBT[g]"
+    },
+    {
+      "index": 2,
+      "code": "ENERCC",
+      "nameDe": "Energie (Kilokalorien)",
+      "nameEn": "Energy (kilocalorie)",
+      "unit": "kcal",
+      "groupDe": "Energie",
+      "groupEn": "Energy",
+      "formula": "ENERCC[kcal] = 4*PROT625[g] + 4*(CHO[g] - POLYL[g]) + 9*FAT[g] + 7*ALC[g] + 3*OA[g] + 2.4*POLYL[g] + 2*OLSAC[g] + 2*FIBT[g]"
+    },
+    {
+      "index": 3,
+      "code": "WATER",
+      "nameDe": "Wasser",
+      "nameEn": "Water",
+      "unit": "g",
+      "groupDe": "Makronährstoffe",
+      "groupEn": "Proximate composition",
+      "formula": null
+    },
+    {
+      "index": 4,
+      "code": "PROT625",
+      "nameDe": "Protein (Nx6,25)",
+      "nameEn": "Protein (Nx6.25)",
+      "unit": "g",
+      "groupDe": "Makronährstoffe",
+      "groupEn": "Proximate composition",
+      "formula": "PROT625[g]=NT[g]*6.25"
+    },
+    {
+      "index": 5,
+      "code": "FAT",
+      "nameDe": "Fett",
+      "nameEn": "Fat",
+      "unit": "g",
+      "groupDe": "Makronährstoffe",
+      "groupEn": "Proximate composition",
+      "formula": null
+    },
+    {
+      "index": 6,
+      "code": "CHO",
+      "nameDe": "Kohlenhydrate, verfügbar",
+      "nameEn": "Carbohydrate, available",
+      "unit": "g",
+      "groupDe": "Makronährstoffe; Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Proximate composition; Carbohydrates (without dietary fibre)",
+      "formula": "CHO[g] = SUGAR[g] + STARCH[g] + OLSAC[g] + POLYL[g]"
+    },
+    {
+      "index": 7,
+      "code": "FIBT",
+      "nameDe": "Ballaststoffe, gesamt",
+      "nameEn": "Fibre, dietary, total",
+      "unit": "g",
+      "groupDe": "Makronährstoffe; Ballaststoffe",
+      "groupEn": "Proximate composition; Dietary fibres",
+      "formula": "FIBT[g]=FIBHMW[g]+FIBLMW[g] OR\r\nFIBT[g]=FIBINS[g]+FIBSOL[g]+FIBLMW"
+    },
+    {
+      "index": 8,
+      "code": "ALC",
+      "nameDe": "Alkohol (Ethanol)",
+      "nameEn": "Alcohol (Ethanol)",
+      "unit": "g",
+      "groupDe": "Makronährstoffe",
+      "groupEn": "Proximate composition",
+      "formula": null
+    },
+    {
+      "index": 9,
+      "code": "OA",
+      "nameDe": "Organische Säuren, gesamt",
+      "nameEn": "Organic acids, total",
+      "unit": "g",
+      "groupDe": "Makronährstoffe; Organische Säuren",
+      "groupEn": "Proximate composition; Organic acids",
+      "formula": "OA[g]=MALAC[g]+ACEAC[g]+LACAC[g]+TARAC[g]+CITAC[g]"
+    },
+    {
+      "index": 10,
+      "code": "ASH",
+      "nameDe": "Rohasche",
+      "nameEn": "Ash",
+      "unit": "g",
+      "groupDe": "Makronährstoffe",
+      "groupEn": "Proximate composition",
+      "formula": null
+    },
+    {
+      "index": 11,
+      "code": "VITA",
+      "nameDe": "Vitamin A, Retinol-Äquivalent (RE)",
+      "nameEn": "Vitamin A, retinol equivalents (RE)",
+      "unit": "µg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": "VITA[µg]= RETOL[µg] + 1/6*CARTB[µg]+ 1/12*(CAROTPAXB[µg])"
+    },
+    {
+      "index": 12,
+      "code": "VITAA",
+      "nameDe": "Vitamin A, Retinol-Aktivitäts-Äquivalent (RAE)",
+      "nameEn": "Vitamin A, retinol activity equivalents (RAE)",
+      "unit": "µg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": "VITAA[µg]= RETOL[µg] + 1/12*CARTB[µg]+ 1/24*(CAROTPAXB[µg])"
+    },
+    {
+      "index": 13,
+      "code": "RETOL",
+      "nameDe": "Retinol",
+      "nameEn": "Retinol",
+      "unit": "µg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 14,
+      "code": "CARTB",
+      "nameDe": "Beta‑Carotin",
+      "nameEn": "Beta-carotene",
+      "unit": "µg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 15,
+      "code": "CAROTPAXB",
+      "nameDe": "Carotinoide, außer Beta-Carotin",
+      "nameEn": "Carotenoids, excluding beta-carotene",
+      "unit": "µg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 16,
+      "code": "VITD",
+      "nameDe": "Vitamin D",
+      "nameEn": "Vitamin D",
+      "unit": "µg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": "VITD[µg]=ERGCAL[µg]+CHOCAL[µg]"
+    },
+    {
+      "index": 17,
+      "code": "CHOCAL",
+      "nameDe": "Vitamin D3 (Cholecalciferol)",
+      "nameEn": "Vitamin D3 (cholecalciferol)",
+      "unit": "µg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 18,
+      "code": "ERGCAL",
+      "nameDe": "Vitamin D2 (Ergocalciferol)",
+      "nameEn": "Vitamin D2 (ergocalciferol)",
+      "unit": "µg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 19,
+      "code": "VITE",
+      "nameDe": "Vitamin E (Alpha-Tocopherol)",
+      "nameEn": "Vitamin E (alpha-tocopherol)",
+      "unit": "mg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": "VITE[mg] = TOCPHA[mg]"
+    },
+    {
+      "index": 20,
+      "code": "TOCPHA",
+      "nameDe": "Alpha‑Tocopherol",
+      "nameEn": "Alpha-tocopherol",
+      "unit": "mg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 21,
+      "code": "TOCPHB",
+      "nameDe": "Beta-Tocopherol",
+      "nameEn": "Beta-tocopherol",
+      "unit": "mg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 22,
+      "code": "TOCPHG",
+      "nameDe": "Gamma-Tocopherol",
+      "nameEn": "Gamma-tocopherol",
+      "unit": "mg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 23,
+      "code": "TOCPHD",
+      "nameDe": "Delta-Tocopherol",
+      "nameEn": "Delta-tocopherol",
+      "unit": "mg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 24,
+      "code": "TOCTRA",
+      "nameDe": "Alpha-Tocotrienol",
+      "nameEn": "Alpha-tocotrienol",
+      "unit": "mg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 25,
+      "code": "VITK",
+      "nameDe": "Vitamin K",
+      "nameEn": "Vitamin K",
+      "unit": "µg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": "VITK[µg] = VITK1[µg] + VITK2[µg]"
+    },
+    {
+      "index": 26,
+      "code": "VITK1",
+      "nameDe": "Vitamin K1 (Phyllochinon)",
+      "nameEn": "Vitamin K1 (phylloquinone)",
+      "unit": "µg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 27,
+      "code": "VITK2",
+      "nameDe": "Vitamin K2 (Menachinone)",
+      "nameEn": "Vitamin K2 (menaquinone)",
+      "unit": "µg",
+      "groupDe": "Fettlösliche Vitamine",
+      "groupEn": "Fat-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 28,
+      "code": "THIA",
+      "nameDe": "Vitamin B1 (Thiamin)",
+      "nameEn": "Vitamin B1 (thiamine)",
+      "unit": "mg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 29,
+      "code": "RIBF",
+      "nameDe": "Vitamin B2 (Riboflavin)",
+      "nameEn": "Vitamin B2 (riboflavin)",
+      "unit": "mg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 30,
+      "code": "NIAEQ",
+      "nameDe": "Niacin-Äquivalent",
+      "nameEn": "Niacin equivalents",
+      "unit": "mg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": "NIAEQ[mg]=NIA[mg]+TRP[g]*1000/60"
+    },
+    {
+      "index": 31,
+      "code": "NIA",
+      "nameDe": "Niacin",
+      "nameEn": "Niacin",
+      "unit": "mg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 32,
+      "code": "PANTAC",
+      "nameDe": "Pantothensäure",
+      "nameEn": "Pantothenic acid",
+      "unit": "mg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 33,
+      "code": "VITB6",
+      "nameDe": "Vitamin B6",
+      "nameEn": "Vitamin B6",
+      "unit": "µg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 34,
+      "code": "BIOT",
+      "nameDe": "Biotin",
+      "nameEn": "Biotin",
+      "unit": "µg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 35,
+      "code": "FOL",
+      "nameDe": "Folat-Äquivalent",
+      "nameEn": "Folate equivalent",
+      "unit": "µg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": "FOL[µg] = FOLFD[µg] + 1.7*FOLAC[µg]"
+    },
+    {
+      "index": 36,
+      "code": "FOLFD",
+      "nameDe": "Folat",
+      "nameEn": "Folate",
+      "unit": "µg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 37,
+      "code": "FOLAC",
+      "nameDe": "Folsäure, synthetisch",
+      "nameEn": "Folic acid, synthetic",
+      "unit": "µg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 38,
+      "code": "VITB12",
+      "nameDe": "Vitamin B12 (Cobalamine)",
+      "nameEn": "Vitamin B12 (cobalamin)",
+      "unit": "µg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 39,
+      "code": "VITC",
+      "nameDe": "Vitamin C",
+      "nameEn": "Vitamin C",
+      "unit": "mg",
+      "groupDe": "Wasserlösliche Vitamine",
+      "groupEn": "Water-soluble vitamins",
+      "formula": null
+    },
+    {
+      "index": 40,
+      "code": "NACL",
+      "nameDe": "Salz (Natriumchlorid)",
+      "nameEn": "Salt (sodium chloride)",
+      "unit": "g",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": "NACL[g] = NA[g]*2.5"
+    },
+    {
+      "index": 41,
+      "code": "NA",
+      "nameDe": "Natrium",
+      "nameEn": "Sodium",
+      "unit": "mg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 42,
+      "code": "CLD",
+      "nameDe": "Chlorid",
+      "nameEn": "Chloride",
+      "unit": "mg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 43,
+      "code": "K",
+      "nameDe": "Kalium",
+      "nameEn": "Potassium",
+      "unit": "mg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 44,
+      "code": "CA",
+      "nameDe": "Calcium",
+      "nameEn": "Calcium",
+      "unit": "mg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 45,
+      "code": "MG",
+      "nameDe": "Magnesium",
+      "nameEn": "Magnesium",
+      "unit": "mg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 46,
+      "code": "P",
+      "nameDe": "Phosphor",
+      "nameEn": "Phosphorus",
+      "unit": "mg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 47,
+      "code": "S",
+      "nameDe": "Schwefel",
+      "nameEn": "Sulphur",
+      "unit": "mg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 48,
+      "code": "FE",
+      "nameDe": "Eisen",
+      "nameEn": "Iron",
+      "unit": "mg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 49,
+      "code": "ZN",
+      "nameDe": "Zink",
+      "nameEn": "Zinc",
+      "unit": "mg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 50,
+      "code": "ID",
+      "nameDe": "Iodid",
+      "nameEn": "Iodide",
+      "unit": "µg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 51,
+      "code": "CU",
+      "nameDe": "Kupfer",
+      "nameEn": "Copper",
+      "unit": "µg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 52,
+      "code": "MN",
+      "nameDe": "Mangan",
+      "nameEn": "Manganese",
+      "unit": "µg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 53,
+      "code": "FD",
+      "nameDe": "Fluorid",
+      "nameEn": "Fluoride",
+      "unit": "µg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 54,
+      "code": "CR",
+      "nameDe": "Chrom",
+      "nameEn": "Chromium",
+      "unit": "µg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 55,
+      "code": "MO",
+      "nameDe": "Molybdän",
+      "nameEn": "Molybdenum",
+      "unit": "µg",
+      "groupDe": "Elemente",
+      "groupEn": "Elements",
+      "formula": null
+    },
+    {
+      "index": 56,
+      "code": "ACEAC",
+      "nameDe": "Essigsäure",
+      "nameEn": "Acetic acid",
+      "unit": "g",
+      "groupDe": "Organische Säuren",
+      "groupEn": "Organic acids",
+      "formula": null
+    },
+    {
+      "index": 57,
+      "code": "CITAC",
+      "nameDe": "Zitronensäure",
+      "nameEn": "Citric acid",
+      "unit": "g",
+      "groupDe": "Organische Säuren",
+      "groupEn": "Organic acids",
+      "formula": null
+    },
+    {
+      "index": 58,
+      "code": "LACAC",
+      "nameDe": "Milchsäure",
+      "nameEn": "Lactic acid",
+      "unit": "g",
+      "groupDe": "Organische Säuren",
+      "groupEn": "Organic acids",
+      "formula": null
+    },
+    {
+      "index": 59,
+      "code": "MALAC",
+      "nameDe": "Äpfelsäure",
+      "nameEn": "Malic acid",
+      "unit": "g",
+      "groupDe": "Organische Säuren",
+      "groupEn": "Organic acids",
+      "formula": null
+    },
+    {
+      "index": 60,
+      "code": "TARAC",
+      "nameDe": "Weinsäure",
+      "nameEn": "Tartaric acid",
+      "unit": "g",
+      "groupDe": "Organische Säuren",
+      "groupEn": "Organic acids",
+      "formula": null
+    },
+    {
+      "index": 61,
+      "code": "POLYL",
+      "nameDe": "Zuckeralkohole, gesamt",
+      "nameEn": "Polyols, total",
+      "unit": "g",
+      "groupDe": "Makronährstoffe; Zuckeralkohole",
+      "groupEn": "Proximate composition; Polyols",
+      "formula": "POLYL[g]=MANTL[g]+SORTL[g]+XYLTL[g]"
+    },
+    {
+      "index": 62,
+      "code": "MANTL",
+      "nameDe": "Mannit",
+      "nameEn": "Mannitol",
+      "unit": "g",
+      "groupDe": "Zuckeralkohole",
+      "groupEn": "Polyols",
+      "formula": null
+    },
+    {
+      "index": 63,
+      "code": "SORTL",
+      "nameDe": "Sorbit",
+      "nameEn": "Sorbitol",
+      "unit": "g",
+      "groupDe": "Zuckeralkohole",
+      "groupEn": "Polyols",
+      "formula": null
+    },
+    {
+      "index": 64,
+      "code": "XYLTL",
+      "nameDe": "Xylit",
+      "nameEn": "Xylitol",
+      "unit": "g",
+      "groupDe": "Zuckeralkohole",
+      "groupEn": "Polyols",
+      "formula": null
+    },
+    {
+      "index": 65,
+      "code": "MNSAC",
+      "nameDe": "Monosaccharide, gesamt",
+      "nameEn": "Monosaccharides, total",
+      "unit": "g",
+      "groupDe": "Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Carbohydrates (without dietary fibre)",
+      "formula": "MNSAC[g] = FRUS[g] + GALS[g] + GLUS[g]"
+    },
+    {
+      "index": 66,
+      "code": "GLUS",
+      "nameDe": "Glucose",
+      "nameEn": "Glucose",
+      "unit": "g",
+      "groupDe": "Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Carbohydrates (without dietary fibre)",
+      "formula": null
+    },
+    {
+      "index": 67,
+      "code": "FRUS",
+      "nameDe": "Fructose",
+      "nameEn": "Fructose",
+      "unit": "g",
+      "groupDe": "Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Carbohydrates (without dietary fibre)",
+      "formula": null
+    },
+    {
+      "index": 68,
+      "code": "GALS",
+      "nameDe": "Galactose",
+      "nameEn": "Galactose",
+      "unit": "g",
+      "groupDe": "Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Carbohydrates (without dietary fibre)",
+      "formula": null
+    },
+    {
+      "index": 69,
+      "code": "DISAC",
+      "nameDe": "Disaccharide, gesamt",
+      "nameEn": "Disaccharides, total",
+      "unit": "g",
+      "groupDe": "Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Carbohydrates (without dietary fibre)",
+      "formula": "DISAC[g] = LACS[g] + MALS[g] + SUCS[g]"
+    },
+    {
+      "index": 70,
+      "code": "SUCS",
+      "nameDe": "Saccharose",
+      "nameEn": "Sucrose",
+      "unit": "g",
+      "groupDe": "Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Carbohydrates (without dietary fibre)",
+      "formula": null
+    },
+    {
+      "index": 71,
+      "code": "MALS",
+      "nameDe": "Maltose",
+      "nameEn": "Maltose",
+      "unit": "g",
+      "groupDe": "Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Carbohydrates (without dietary fibre)",
+      "formula": null
+    },
+    {
+      "index": 72,
+      "code": "LACS",
+      "nameDe": "Lactose",
+      "nameEn": "Lactose",
+      "unit": "g",
+      "groupDe": "Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Carbohydrates (without dietary fibre)",
+      "formula": null
+    },
+    {
+      "index": 73,
+      "code": "SUGAR",
+      "nameDe": "Zucker (Mono- und Disaccharide), gesamt",
+      "nameEn": "Sugars (mono- and disaccharides), total",
+      "unit": "g",
+      "groupDe": "Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Carbohydrates (without dietary fibre)",
+      "formula": "SUGAR[g]=MNSAC[g]+DISAC[g]"
+    },
+    {
+      "index": 74,
+      "code": "OLSAC",
+      "nameDe": "Oligosaccharide, verfügbar",
+      "nameEn": "Oligosaccharides, available",
+      "unit": "g",
+      "groupDe": "Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Carbohydrates (without dietary fibre)",
+      "formula": null
+    },
+    {
+      "index": 75,
+      "code": "STARCH",
+      "nameDe": "Stärke (Stärke, Glykogen, Dextrine)",
+      "nameEn": "Starch (starch, glycogen, dextrins)",
+      "unit": "g",
+      "groupDe": "Kohlenhydrate (ohne Ballaststoffe)",
+      "groupEn": "Carbohydrates (without dietary fibre)",
+      "formula": null
+    },
+    {
+      "index": 76,
+      "code": "FIBLMW",
+      "nameDe": "Ballaststoffe, niedermolekular",
+      "nameEn": "Fibre, low molecular weight",
+      "unit": "g",
+      "groupDe": "Ballaststoffe",
+      "groupEn": "Dietary fibres",
+      "formula": null
+    },
+    {
+      "index": 77,
+      "code": "FIBHMW",
+      "nameDe": "Ballaststoffe, hochmolekular",
+      "nameEn": "Fibre, high molecular weight",
+      "unit": "g",
+      "groupDe": "Ballaststoffe",
+      "groupEn": "Dietary fibres",
+      "formula": "FIBHMW[g]=FIBHMWS[g]+FIBHMWI[g] OR\r\nFIBHMW[g]=FIBINS[g]+FIBSOL[g]"
+    },
+    {
+      "index": 78,
+      "code": "FIBINS",
+      "nameDe": "Ballaststoffe, wasserunlöslich",
+      "nameEn": "Fibre, water-insoluble",
+      "unit": "g",
+      "groupDe": "Ballaststoffe",
+      "groupEn": "Dietary fibres",
+      "formula": null
+    },
+    {
+      "index": 79,
+      "code": "FIBSOL",
+      "nameDe": "Ballaststoffe, wasserlöslich",
+      "nameEn": "Fibre, water-soluble",
+      "unit": "g",
+      "groupDe": "Ballaststoffe",
+      "groupEn": "Dietary fibres",
+      "formula": null
+    },
+    {
+      "index": 80,
+      "code": "FIBHMWS",
+      "nameDe": "Ballaststoffe, hochmolekular, wasserlöslich",
+      "nameEn": "Fibre, high molecular weight, water-soluble",
+      "unit": "g",
+      "groupDe": "Ballaststoffe",
+      "groupEn": "Dietary fibres",
+      "formula": null
+    },
+    {
+      "index": 81,
+      "code": "FIBHMWI",
+      "nameDe": "Ballaststoffe, hochmolekular, wasserunlöslich",
+      "nameEn": "Fibre, high molecular weight, water-insoluble",
+      "unit": "g",
+      "groupDe": "Ballaststoffe",
+      "groupEn": "Dietary fibres",
+      "formula": null
+    },
+    {
+      "index": 82,
+      "code": "FASAT",
+      "nameDe": "Fettsäuren, gesättigt, gesamt",
+      "nameEn": "Fatty acids, saturated, total",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": "FASAT[g]=F4:0[g]+F6:0[g]+F8:0[g]+F10:0[g]+F12:0[g]+F14:0[g]+F15:0[g]+F16:0[g]+F17:0[g]+F18:0[g]+F20:0[g]+F22:0[g]+F24:0[g]"
+    },
+    {
+      "index": 83,
+      "code": "F4:0",
+      "nameDe": "Fettsäure C4:0 (Buttersäure)",
+      "nameEn": "Fatty acid C4:0 (butyric acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 84,
+      "code": "F6:0",
+      "nameDe": "Fettsäure C6:0 (Capronsäure)",
+      "nameEn": "Fatty acid C6:0 (caproic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 85,
+      "code": "F8:0",
+      "nameDe": "Fettsäure C8:0 (Caprylsäure)",
+      "nameEn": "Fatty acid C8:0 (caprylic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 86,
+      "code": "F10:0",
+      "nameDe": "Fettsäure C10:0 (Caprinsäure)",
+      "nameEn": "Fatty acid C10:0 (capric acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 87,
+      "code": "F12:0",
+      "nameDe": "Fettsäure C12:0 (Laurinsäure)",
+      "nameEn": "Fatty acid C12:0 (lauric acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 88,
+      "code": "F14:0",
+      "nameDe": "Fettsäure C14:0 (Myristinsäure)",
+      "nameEn": "Fatty acid C14:0 (myristic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 89,
+      "code": "F15:0",
+      "nameDe": "Fettsäure C15:0 (Pentadecylsäure)",
+      "nameEn": "Fatty acid C15:0 (pentadecylic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 90,
+      "code": "F16:0",
+      "nameDe": "Fettsäure C16:0 (Palmitinsäure)",
+      "nameEn": "Fatty acid C16:0 (palmitic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 91,
+      "code": "F17:0",
+      "nameDe": "Fettsäure C17:0 (Margarinsäure)",
+      "nameEn": "Fatty acid C17:0 (margaric acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 92,
+      "code": "F18:0",
+      "nameDe": "Fettsäure C18:0 (Stearinsäure)",
+      "nameEn": "Fatty acid C18:0 (stearic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 93,
+      "code": "F20:0",
+      "nameDe": "Fettsäure C20:0 (Arachinsäure)",
+      "nameEn": "Fatty acid C20:0 (arachidic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 94,
+      "code": "F22:0",
+      "nameDe": "Fettsäure C22:0 (Behensäure)",
+      "nameEn": "Fatty acid C22:0 (behenic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 95,
+      "code": "F24:0",
+      "nameDe": "Fettsäure C24:0 (Lignocerinsäure)",
+      "nameEn": "Fatty acid C24:0 (lignoceric acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 96,
+      "code": "FAMS",
+      "nameDe": "Fettsäure, einfach ungesättigt, gesamt",
+      "nameEn": "Fatty acids, monounsaturated, total",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": "FAMS[g]=F14:1CN5[g]+F16:1CN7[g]+F18:1CN7[g]+F18:1CN9[g]+F20:1CN9[g]+F22:1CN9[g]"
+    },
+    {
+      "index": 97,
+      "code": "F14:1CN5",
+      "nameDe": "Fettsäure C14:1 n-5 cis (Myristoleinsäure)",
+      "nameEn": "Fatty acid C14:1 n-5 cis (myristoleic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 98,
+      "code": "F16:1CN7",
+      "nameDe": "Fettsäure C16:1 n-7 cis (Palmitoleinsäure)",
+      "nameEn": "Fatty acid C16:1 n-7 cis (palmitoleic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 99,
+      "code": "F18:1CN7",
+      "nameDe": "Fettsäure C18:1 n-7 cis (Vaccensäure)",
+      "nameEn": "Fatty acid C18:1 n-7 cis (vaccenic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 100,
+      "code": "F18:1CN9",
+      "nameDe": "Fettsäure C18:1 n-9 cis (Ölsäure)",
+      "nameEn": "Fatty acid C18:1 n-9 cis (oleic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 101,
+      "code": "F20:1CN9",
+      "nameDe": "Fettsäure C20:1 n-9 cis (Gondosäure)",
+      "nameEn": "Fatty acid C20:1 n-9 cis (gondoic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 102,
+      "code": "F22:1CN9",
+      "nameDe": "Fettsäure C22:1 n-9 cis (Erucasäure)",
+      "nameEn": "Fatty acid C22:1 n-9 cis (erucic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 103,
+      "code": "FAPU",
+      "nameDe": "Fettsäuren, mehrfach ungesättigt, gesamt",
+      "nameEn": "Fatty acids, polyunsaturated, total",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": "FAPU[g]=F18:2C9T11[g]+F18:2CN6[g]+F20:2CN6[g]+F18:3CN3[g]+F18:3CN6[g]+F20:3CN6[g]+F18:4CN3[g]+F20:4CN6[g]+F20:5CN3[g]+F22:5CN3[g]+F22:6CN3[g]"
+    },
+    {
+      "index": 104,
+      "code": "FAPUN3",
+      "nameDe": "Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt",
+      "nameEn": "Fatty acids, polyunsaturated, n-3 (omega-3), total",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": "FAPUN3[g]=F18:3CN3[g]+F18:4CN3[g]+F20:5CN3[g]+F22:5CN3[g]+F22:6CN3[g]"
+    },
+    {
+      "index": 105,
+      "code": "F18:3CN3",
+      "nameDe": "Fettsäure C18:3 n-3 all-cis (Alpha-Linolensäure)",
+      "nameEn": "Fatty acid C18:3 n-3 all-cis (alpha-linolenic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 106,
+      "code": "F18:4CN3",
+      "nameDe": "Fettsäure C18:4 n-3 all-cis (Stearidonsäure)",
+      "nameEn": "Fatty acid C18:4 n-3 all-cis (stearidonic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 107,
+      "code": "F20:5CN3",
+      "nameDe": "Fettsäure C20:5 n-3 all-cis (Eicosapentaensäure)",
+      "nameEn": "Fatty acid C20:5 n-3 all-cis (eicosapentanoic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 108,
+      "code": "F22:5CN3",
+      "nameDe": "Fettsäure C22:5 n-3 all-cis (Docosapentaensäure)",
+      "nameEn": "Fatty acid C22:5 n-3 all-cis (docosapentanoic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 109,
+      "code": "F22:6CN3",
+      "nameDe": "Fettsäure C22:6 n-3 all-cis (Docosahexaensäure)",
+      "nameEn": "Fatty acid C22:6 n-3 all-cis (docosahexanoic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 110,
+      "code": "FAPUN6",
+      "nameDe": "Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt",
+      "nameEn": "Fatty acids, polyunsaturated, n-6 (omega-6), total",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": "FAPUN6[g]=F18:2CN6[g]+F18:3CN6[g]+F20:2CN6[g]+F20:3CN6[g]+F20:4CN6[g]"
+    },
+    {
+      "index": 111,
+      "code": "F18:2CN6",
+      "nameDe": "Fettsäure C18:2 n-6 cis, cis (Linolsäure)",
+      "nameEn": "Fatty acid C18:2 n-6 cis,cis (linoleic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 112,
+      "code": "F18:2C9T11",
+      "nameDe": "Fettsäure C18:2 n-7 cis 9, trans 11 (konjugierte Linolsäure)",
+      "nameEn": "Fatty acid C18:2 conjugated, cis 9,trans 11 (conjugated linoleic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 113,
+      "code": "F18:3CN6",
+      "nameDe": "Fettsäure C18:3 n-6 all-cis (Gamma-Linolensäure)",
+      "nameEn": "Fatty acid C18:3 n-6 all-cis (gamma-linolenic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 114,
+      "code": "F20:2CN6",
+      "nameDe": "Fettsäure C20:2 n-6 all-cis (Eicosadiensäure)",
+      "nameEn": "Fatty acid C20:2 n-6 cis,cis (eicosadienoic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 115,
+      "code": "F20:3CN6",
+      "nameDe": "Fettsäure C20:3 n-6 all-cis (Dihomogamma-Linolensäure)",
+      "nameEn": "Fatty acid C20:3 n-6 all-cis (dihomo-gamma-linolenic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 116,
+      "code": "F20:4CN6",
+      "nameDe": "Fettsäure C20:4 n-6 all-cis (Arachidonsäure)",
+      "nameEn": "Fatty acid C20:4 n-6 all-cis (arachidonic acid)",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 117,
+      "code": "FAX",
+      "nameDe": "Fettsäuren, sonstige",
+      "nameEn": "Fatty acids, others",
+      "unit": "g",
+      "groupDe": "Fettsäuren",
+      "groupEn": "Fatty acids",
+      "formula": null
+    },
+    {
+      "index": 118,
+      "code": "CHORL",
+      "nameDe": "Cholesterin",
+      "nameEn": "Cholesterol",
+      "unit": "mg",
+      "groupDe": "Sonstige Nährstoffe",
+      "groupEn": "Other components",
+      "formula": null
+    },
+    {
+      "index": 119,
+      "code": "AAE9",
+      "nameDe": "Aminosäuren, unentbehrlich, gesamt",
+      "nameEn": "Amino acids, essential, total",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": "AAE9[g] = ILE[g] + LEU[g] + LYS[g] + MET[g] + PHE[g] + THR[g] + TRP[g] + VAL[g]+HIS[g]"
+    },
+    {
+      "index": 120,
+      "code": "ALA",
+      "nameDe": "Alanin",
+      "nameEn": "Alanine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 121,
+      "code": "ARG",
+      "nameDe": "Arginin",
+      "nameEn": "Arginine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 122,
+      "code": "ASP",
+      "nameDe": "Asparaginsäure, inklusive Asparagin",
+      "nameEn": "Aspartic acid, including asparagine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 123,
+      "code": "CYSTE",
+      "nameDe": "Cystein",
+      "nameEn": "Cysteine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 124,
+      "code": "GLU",
+      "nameDe": "Glutaminsäure, inklusive Glutamin",
+      "nameEn": "Glutamic acid, including glutamine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 125,
+      "code": "GLY",
+      "nameDe": "Glycin",
+      "nameEn": "Glycine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 126,
+      "code": "HIS",
+      "nameDe": "Histidin",
+      "nameEn": "Histidine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 127,
+      "code": "ILE",
+      "nameDe": "Isoleucin",
+      "nameEn": "Isoleucine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 128,
+      "code": "LEU",
+      "nameDe": "Leucin",
+      "nameEn": "Leucine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 129,
+      "code": "LYS",
+      "nameDe": "Lysin",
+      "nameEn": "Lysine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 130,
+      "code": "MET",
+      "nameDe": "Methionin",
+      "nameEn": "Methionine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 131,
+      "code": "PHE",
+      "nameDe": "Phenylalanin",
+      "nameEn": "Phenylalanine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 132,
+      "code": "PRO",
+      "nameDe": "Prolin",
+      "nameEn": "Proline",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 133,
+      "code": "SER",
+      "nameDe": "Serin",
+      "nameEn": "Serine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 134,
+      "code": "THR",
+      "nameDe": "Threonin",
+      "nameEn": "Threonine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 135,
+      "code": "TRP",
+      "nameDe": "Tryptophan",
+      "nameEn": "Tryptophan",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 136,
+      "code": "TYR",
+      "nameDe": "Tyrosin",
+      "nameEn": "Tyrosine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 137,
+      "code": "VAL",
+      "nameDe": "Valin",
+      "nameEn": "Valine",
+      "unit": "g",
+      "groupDe": "Aminosäuren",
+      "groupEn": "Amino acids",
+      "formula": null
+    },
+    {
+      "index": 138,
+      "code": "NT",
+      "nameDe": "Stickstoff, gesamt",
+      "nameEn": "Nitrogen, total",
+      "unit": "g",
+      "groupDe": "Sonstige Nährstoffe",
+      "groupEn": "Other components",
+      "formula": null
+    }
+  ]
+}
