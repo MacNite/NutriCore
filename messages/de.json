@@ -123,6 +123,8 @@
     "ineligible": "Für Personen unter 18 Jahren, in der Schwangerschaft oder Stillzeit berechnet NutriCore kein Ziel zur Gewichtsveränderung. Bitte verwende ein mit einer Fachperson abgestimmtes Ziel.",
     "needsProfile": "Ergänze Größe, Gewicht, Geburtsdatum und biologisches Geschlecht für eine Berechnung — oder trage ein Ziel manuell ein.",
     "macros": "Makro-Ziele",
+    "micros": "Mikro-Ziele",
+    "nutrientOverrideHint": "Leer gelassene Nährstoffe verwenden weiterhin das berechnete Ziel, sofern eines verfügbar ist.",
     "protein": "Protein",
     "carbohydrate": "Kohlenhydrate",
     "fat": "Fett"
@@ -352,6 +354,13 @@
       "empty": "Noch nicht genügend Ernährungsdaten vorhanden.",
       "noMicroTargets": "Für Mikronährstoffe sind noch keine persönlichen Tagesziele konfiguriert. Erfasste Werte werden deshalb nicht als irreführende 0 % dargestellt.",
       "pointLabel": "{date}, {nutrient} {percent} % des Tagesziels, {value} von {target} {unit}"
+    },
+    "activity": {
+      "title": "Zusätzliche Kalorien durch Sport & Aktivität",
+      "subtitle": "Täglich erfasste aktive Kalorien im Verlauf.",
+      "empty": "Noch keine aktiven Kalorien erfasst.",
+      "summary": "Aktive Kalorien von {from} bis {to}, maximal {max} kcal.",
+      "hint": "Punkt berühren oder fokussieren, um den Tageswert anzuzeigen."
     }
   },
   "bodyProgress": {
@@ -677,6 +686,10 @@
       "system": "System"
     },
     "language": "Sprache",
+    "personalize": "Personalisieren",
+    "personalizeHint": "Passe Sprache, Fortschrittsansicht und die Berücksichtigung deiner aktiven Kalorien an.",
+    "addActivityCalories": "Kalorien aus täglicher Aktivität und Sport zum täglichen Kalorienziel hinzufügen",
+    "addActivityCaloriesHint": "Erhöht dein Kalorienziel für jeden Tag um die tatsächlich erfassten aktiven Kalorien.",
     "privacy": "Privatsphäre und KI",
     "aiEnabled": "KI-Funktionen aktivieren",
     "aiEnabledHint": "Ist die Option aus, verlässt für KI-Zwecke keine Anfrage diesen Server.",

@@ -4,10 +4,10 @@ import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import { ProfileFields, type ProfileValues } from "@/components/profile-fields";
 import type { BodyPanels } from "@/lib/body-visualization";
+import { NUTRIENTS } from "@/lib/nutrients";
 import {
   deleteAccountAction,
-  saveBodyPanelsAction,
-  saveLanguageAction,
+  savePersonalizationAction,
   saveProfileAction,
   saveTargetOverrideAction,
   type FormState,
@@ -42,12 +42,16 @@ export function SettingsForms({
   username,
   values,
   overrideKcal,
+  manualNutrients,
   bodyPanels,
+  addActivityCalories,
 }: {
   username: string;
   values: ProfileValues;
   overrideKcal: number | null;
+  manualNutrients: Record<string, number>;
   bodyPanels: BodyPanels;
+  addActivityCalories: boolean;
 }) {
   const t = useTranslations("settings");
   const targetT = useTranslations("target");
@@ -56,10 +60,9 @@ export function SettingsForms({
   const common = useTranslations("common");
 
   const [profileState, profileAction, profilePending] = useActionState<FormState, FormData>(saveProfileAction, {});
-  const [languageState, languageAction, languagePending] = useActionState<FormState, FormData>(saveLanguageAction, {});
   const [targetState, targetAction, targetPending] = useActionState<FormState, FormData>(saveTargetOverrideAction, {});
   const [deleteState, deleteAction, deletePending] = useActionState<FormState, FormData>(deleteAccountAction, {});
-  const [panelState, panelAction, panelPending] = useActionState<FormState, FormData>(saveBodyPanelsAction, {});
+  const [personalizationState, personalizationAction, personalizationPending] = useActionState<FormState, FormData>(savePersonalizationAction, {});
 
   return (
     <>
@@ -67,15 +70,15 @@ export function SettingsForms({
         <h2>{t("profile")}</h2>
         <form action={profileAction}>
           <Feedback state={profileState} savedLabel={profileT("saved")} />
-          <ProfileFields values={values} />
+          <ProfileFields values={values} showLanguage={false} />
           <button type="submit" className="btn btn-primary" disabled={profilePending}>
             {profilePending ? common("loading") : common("save")}
           </button>
         </form>
       </section>
 
-      <section className="card">
-        <h2>{targetT("override")}</h2>
+      <details className="card">
+        <summary><h2>{targetT("override")}</h2></summary>
         <form action={targetAction}>
           <Feedback state={targetState} savedLabel={t("saved")} />
           <div className="field">
@@ -96,18 +99,34 @@ export function SettingsForms({
               {targetT("overrideHint")}
             </span>
           </div>
+          {(["macro", "micro"] as const).map((group) => {
+            const nutrients = NUTRIENTS.filter((nutrient) => group === "macro" ? nutrient.category === "macro" : ["secondary", "mineral", "vitamin"].includes(nutrient.category));
+            return <fieldset key={group} className="target-fields">
+              <legend>{targetT(group === "macro" ? "macros" : "micros")}</legend>
+              <div className="form-grid">{nutrients.map((nutrient) => <div className="field" key={nutrient.key}>
+                <label htmlFor={`nutrient-${nutrient.key}`}>{values.language === "de" ? nutrient.nameDe : nutrient.nameEn} ({nutrient.unit})</label>
+                <input id={`nutrient-${nutrient.key}`} name={`nutrient-${nutrient.key}`} type="number" min="0.0001" max="1000000" step="any" defaultValue={manualNutrients[nutrient.key] ?? ""} />
+              </div>)}</div>
+            </fieldset>;
+          })}
+          <p className="hint">{targetT("nutrientOverrideHint")}</p>
           <button type="submit" className="btn btn-primary" disabled={targetPending}>
             {targetPending ? common("loading") : common("save")}
           </button>
         </form>
-      </section>
+      </details>
 
-      {/* Language stays here; the AI consent switches moved to /admin. It is a
-          display preference every account needs, not administration. */}
+      {/* Which body-progress visualisations to draw, and with them the key
+          figures, history and table rows that are those same measurements in
+          another form. A switch here only hides: the measurements behind it
+          stay recorded and stay in the data export. */}
       <section className="card">
-        <h2>{t("language")}</h2>
-        <form action={languageAction}>
-          <Feedback state={languageState} savedLabel={t("saved")} />
+        <h2>{t("personalize")}</h2>
+        <p className="muted" style={{ marginTop: 0, fontSize: 13.5 }}>
+          {t("personalizeHint")}
+        </p>
+        <form action={personalizationAction}>
+          <Feedback state={personalizationState} savedLabel={t("saved")} />
 
           <div className="field">
             <label htmlFor="settings-language">{t("language")}</label>
@@ -116,24 +135,6 @@ export function SettingsForms({
               <option value="en">English</option>
             </select>
           </div>
-
-          <button type="submit" className="btn btn-primary" disabled={languagePending}>
-            {languagePending ? common("loading") : common("save")}
-          </button>
-        </form>
-      </section>
-
-      {/* Which body-progress visualisations to draw, and with them the key
-          figures, history and table rows that are those same measurements in
-          another form. A switch here only hides: the measurements behind it
-          stay recorded and stay in the data export. */}
-      <section className="card">
-        <h2>{bodyT("panels.title")}</h2>
-        <p className="muted" style={{ marginTop: 0, fontSize: 13.5 }}>
-          {bodyT("panels.hint")}
-        </p>
-        <form action={panelAction}>
-          <Feedback state={panelState} savedLabel={t("saved")} />
 
           <div className="checkbox">
             <input
@@ -167,8 +168,16 @@ export function SettingsForms({
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={panelPending}>
-            {panelPending ? common("loading") : common("save")}
+          <div className="checkbox">
+            <input id="addActivityCalories" name="addActivityCalories" type="checkbox" defaultChecked={addActivityCalories} aria-describedby="activity-calories-hint" />
+            <div>
+              <label htmlFor="addActivityCalories">{t("addActivityCalories")}</label>
+              <div className="hint" id="activity-calories-hint">{t("addActivityCaloriesHint")}</div>
+            </div>
+          </div>
+
+          <button type="submit" className="btn btn-primary" disabled={personalizationPending}>
+            {personalizationPending ? common("loading") : common("save")}
           </button>
         </form>
       </section>

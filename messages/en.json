@@ -123,6 +123,8 @@
     "ineligible": "For people under 18, during pregnancy or while breastfeeding NutriCore does not calculate a weight-change target. Please use a target agreed with a healthcare professional.",
     "needsProfile": "Add your height, weight, date of birth and biological sex to calculate a target — or enter one manually.",
     "macros": "Macro targets",
+    "micros": "Micro targets",
+    "nutrientOverrideHint": "Nutrients left empty continue to use the calculated target where one is available.",
     "protein": "Protein",
     "carbohydrate": "Carbohydrates",
     "fat": "Fat"
@@ -352,6 +354,13 @@
       "empty": "Not enough nutrition data yet.",
       "noMicroTargets": "No personal daily micronutrient targets are configured yet. Logged values are therefore not shown as misleading 0% values.",
       "pointLabel": "{date}, {nutrient} {percent}% of the daily target, {value} of {target} {unit}"
+    },
+    "activity": {
+      "title": "Additional calories from sport & activity",
+      "subtitle": "Recorded active calories by day over time.",
+      "empty": "No active calories recorded yet.",
+      "summary": "Active calories from {from} to {to}, up to {max} kcal.",
+      "hint": "Touch or focus a point to show that day's value."
     }
   },
   "bodyProgress": {
@@ -677,6 +686,10 @@
       "system": "System"
     },
     "language": "Language",
+    "personalize": "Personalize",
+    "personalizeHint": "Adjust your language, progress display, and how recorded active calories are counted.",
+    "addActivityCalories": "Add calories from daily activity and sport to the daily calorie target",
+    "addActivityCaloriesHint": "Raises each day's calorie target by the active calories actually recorded for that day.",
     "privacy": "Privacy and AI",
     "aiEnabled": "Enable AI features",
     "aiEnabledHint": "When off, no request ever leaves this server for AI purposes.",

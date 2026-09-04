@@ -9,6 +9,7 @@ import { requireUser } from "./session";
 import { recalculateTarget } from "./targets";
 import { LOCALES } from "@/i18n/locales";
 import { logger } from "@/lib/logger";
+import { NUTRIENTS } from "@/lib/nutrients";
 
 export interface FormState {
   ok?: boolean;
@@ -120,31 +121,43 @@ export async function saveTargetOverrideAction(_state: FormState, formData: Form
   const parsed = overrideSchema.safeParse(formData.get("overrideKcal") ?? "");
   if (!parsed.success) return { error: "validation" };
 
+  const nutrientEntries = NUTRIENTS.filter((nutrient) => nutrient.key !== "energyKcal" && nutrient.key !== "energyKj").map((nutrient) => {
+    const value = optionalNumber(0.0001, 1_000_000).safeParse(formData.get(`nutrient-${nutrient.key}`) ?? "");
+    return [nutrient.key, value] as const;
+  });
+  if (nutrientEntries.some(([, value]) => !value.success)) return { error: "validation" };
+  const manualNutrients = Object.fromEntries(nutrientEntries.flatMap(([key, value]) => value.success && value.data !== null ? [[key, value.data]] : []));
+
   const latest = await prisma.nutritionTarget.findFirst({ where: { userId: user.id }, orderBy: { validFrom: "desc" } });
-  if (latest) await prisma.nutritionTarget.update({ where: { id: latest.id }, data: { overrideKcal: parsed.data } });
-  else await prisma.nutritionTarget.create({ data: { userId: user.id, overrideKcal: parsed.data } });
+  if (latest) await prisma.nutritionTarget.update({ where: { id: latest.id }, data: { overrideKcal: parsed.data, manualNutrients } });
+  else await prisma.nutritionTarget.create({ data: { userId: user.id, overrideKcal: parsed.data, manualNutrients } });
 
   await recalculateTarget(user.id);
   revalidatePath("/");
   revalidatePath("/settings");
+  revalidatePath("/progress");
   return { ok: true };
 }
 
-/**
- * Language and the AI flags are saved separately because they no longer live on
- * the same page: an unchecked checkbox submits nothing, so one action reading
- * both would silently switch every AI flag off whenever the language form - the
- * only one a non-administrator sees - was submitted.
- */
-export async function saveLanguageAction(_state: FormState, formData: FormData): Promise<FormState> {
+/** Save every control in the single personalisation form atomically. */
+export async function savePersonalizationAction(_state: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   const parsed = z.enum(LOCALES).safeParse(formData.get("language"));
   if (!parsed.success) return { error: "validation" };
 
-  await prisma.userProfile.update({ where: { userId: user.id }, data: { language: parsed.data } });
+  await prisma.userProfile.update({
+    where: { userId: user.id },
+    data: {
+      language: parsed.data,
+      showBodyComposition: asBool(formData.get("showBodyComposition")),
+      showBodyShape: asBool(formData.get("showBodyShape")),
+      addActivityCalories: asBool(formData.get("addActivityCalories")),
+    },
+  });
 
   (await cookies()).set("NEXT_LOCALE", parsed.data, { path: "/", maxAge: 31_536_000, sameSite: "lax" });
   revalidatePath("/", "layout");
+  revalidatePath("/progress");
   return { ok: true };
 }
 

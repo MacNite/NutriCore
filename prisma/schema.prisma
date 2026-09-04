@@ -379,6 +379,8 @@ model UserProfile {
    */
   showBodyComposition Boolean         @default(true)
   showBodyShape       Boolean         @default(true)
+  /// Add exercise calories recorded for a date to that date's energy allowance.
+  addActivityCalories Boolean         @default(true)
   onboardedAt         DateTime?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
@@ -400,6 +402,8 @@ model NutritionTarget {
   proteinG           Decimal? @db.Decimal(8, 2)
   carbohydrateG      Decimal? @db.Decimal(8, 2)
   fatG               Decimal? @db.Decimal(8, 2)
+  /// User-entered macro and micronutrient goals, keyed by the nutrient catalogue key.
+  manualNutrients     Json?
   eligible           Boolean  @default(true)
   createdAt          DateTime @default(now())
 
