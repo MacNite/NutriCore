@@ -10,8 +10,9 @@ import { NUTRIENTS } from "./nutrients";
 import type { NutritionProgressPoint } from "./nutrition-progress";
 
 /**
- * What the one progress chart can draw: a body measurement over time and a
- * nutrient's daily target attainment, side by side on the same time axis.
+ * What the one progress chart can draw: a body measurement over time, a
+ * nutrient's daily target attainment and the calories sport and activity added
+ * to a day, side by side on the same time axis.
  *
  * Everything here is pure arithmetic over dates and numbers, so the component
  * stays a drawing and the rules about what may share a y-axis can be tested
@@ -23,7 +24,15 @@ export const NUTRITION_SERIES = ["calories", "macros", "micros"] as const;
 
 export type NutritionSeriesKey = (typeof NUTRITION_SERIES)[number];
 
-export type ProgressSeriesKey = BodySeriesMetricKey | NutritionSeriesKey;
+/**
+ * What sport and activity added to a day, in kilocalories. It is neither a body
+ * measurement nor a share of a target, so it is its own kind of chip.
+ */
+export const ACTIVITY_SERIES = "activity";
+
+export type ActivitySeriesKey = typeof ACTIVITY_SERIES;
+
+export type ProgressSeriesKey = BodySeriesMetricKey | NutritionSeriesKey | ActivitySeriesKey;
 
 export const MACRO_KEYS = ["protein", "carbohydrate", "fat"];
 
@@ -31,6 +40,8 @@ const MICRO_CATEGORIES = new Set(["secondary", "mineral", "vitamin"]);
 
 export const isNutritionSeries = (key: ProgressSeriesKey): key is NutritionSeriesKey =>
   (NUTRITION_SERIES as readonly string[]).includes(key);
+
+export const isActivitySeries = (key: ProgressSeriesKey): key is ActivitySeriesKey => key === ACTIVITY_SERIES;
 
 /**
  * Which scale a chip is drawn against. Each measurement gets its own: a weight
@@ -41,10 +52,12 @@ export const isNutritionSeries = (key: ProgressSeriesKey): key is NutritionSerie
  * percentage of its own goal, which is what makes them comparable, so they
  * share the one scale the 100 % line belongs to.
  */
-export type AxisKey = BodySeriesMetricKey | "target";
+export type AxisKey = BodySeriesMetricKey | "target" | "activeKcal";
 
 export function axisOf(key: ProgressSeriesKey): AxisKey {
-  return isNutritionSeries(key) ? "target" : key;
+  if (isNutritionSeries(key)) return "target";
+  if (isActivitySeries(key)) return "activeKcal";
+  return key;
 }
 
 /**
@@ -99,13 +112,15 @@ export interface SeriesPoint {
 }
 
 export interface SeriesSource {
-  /** Unique across the chart: a metric key or a nutrient key. */
+  /** Unique across the chart: a metric key, a nutrient key or the activity line. */
   id: string;
   /** The chip that put it on the chart. */
   chip: ProgressSeriesKey;
   axis: AxisKey;
   metric?: BodySeriesMetricKey;
   nutrient?: string;
+  /** The active calories line, which has neither a metric nor a nutrient behind it. */
+  activity?: true;
 }
 
 /**
@@ -121,6 +136,7 @@ export function expandSelection(
     if (chip === "calories") return [{ id: "energyKcal", chip, axis: "target" as const, nutrient: "energyKcal" }];
     if (chip === "macros") return macros.map((key) => ({ id: key, chip, axis: "target" as const, nutrient: key }));
     if (chip === "micros") return micros.map((key) => ({ id: key, chip, axis: "target" as const, nutrient: key }));
+    if (chip === ACTIVITY_SERIES) return [{ id: "activeKcal", chip, axis: "activeKcal" as const, activity: true as const }];
     return [{ id: chip, chip, axis: axisOf(chip), metric: chip }];
   });
 }
@@ -137,6 +153,16 @@ export function bodySeriesPoints(
         : metricValue(measurement, metric);
     return value == null ? [] : [{ date: measurement.date, value, index }];
   });
+}
+
+/** One day of recorded sport and activity, as the progress page aggregates it. */
+export interface ActivityDayPoint {
+  date: string;
+  activeKcal: number;
+}
+
+export function activitySeriesPoints(points: ActivityDayPoint[]): SeriesPoint[] {
+  return points.map((point) => ({ date: point.date, value: point.activeKcal, index: null }));
 }
 
 export function nutritionSeriesPoints(points: NutritionProgressPoint[], nutrient: string): SeriesPoint[] {
@@ -159,13 +185,20 @@ export interface Scale {
 
 /**
  * The scale for one axis. Target attainment is always read against 100 %, so it
- * starts at zero and keeps the target line inside the frame; a measurement is
- * read against itself, so it gets a padded window around what was measured.
+ * starts at zero and keeps the target line inside the frame; active calories are
+ * read against nothing at all, so they start there too; a measurement is read
+ * against itself, so it gets a padded window around what was measured.
  */
 export function axisScale(axis: AxisKey, values: number[], digits: number, goal: number | null = null): Scale | null {
   if (values.length === 0) return null;
   if (axis === "target") {
     return { min: 0, max: Math.max(125, Math.ceil((Math.max(...values, 100) + 10) / 25) * 25) };
+  }
+  /* Active calories are a count of what was burnt on a day, so the honest floor
+     is zero: a padded window around the measured values would make a quiet week
+     look like a hard one. */
+  if (axis === "activeKcal") {
+    return { min: 0, max: Math.max(Math.ceil((Math.max(...values) * 1.1) / 50) * 50, 50) };
   }
   const low = Math.min(...values, ...(goal == null ? [] : [goal]));
   const high = Math.max(...values, ...(goal == null ? [] : [goal]));

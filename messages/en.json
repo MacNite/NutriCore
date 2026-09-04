@@ -362,9 +362,11 @@
     "activity": {
       "title": "Additional calories from sport & activity",
       "subtitle": "Recorded active calories by day over time.",
-      "empty": "No active calories recorded yet.",
-      "summary": "Active calories from {from} to {to}, up to {max} kcal.",
-      "hint": "Touch or focus a point to show that day's value."
+      "label": "Active calories",
+      "unit": "kcal",
+      "hint": "Touch or focus a point to show that day's value.",
+      "average": "avg {value} kcal over the shown range",
+      "pointLabel": "{date}, active calories {value} kcal"
     }
   },
   "share": {
@@ -517,7 +519,7 @@
     },
     "series": {
       "title": "Measurements over time",
-      "subtitle": "Several measurements can be shown at once, nutrition included. The reference session is marked on the timeline, and selecting a point makes it the current measurement.",
+      "subtitle": "Several measurements can be shown at once, nutrition and the active calories from sport & activity included. The reference session is marked on the timeline, and selecting a point makes it the current measurement.",
       "selectMetric": "Displayed measurements",
       "selectRange": "Time range",
       "range": {

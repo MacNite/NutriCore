@@ -362,9 +362,11 @@
     "activity": {
       "title": "Zusätzliche Kalorien durch Sport & Aktivität",
       "subtitle": "Täglich erfasste aktive Kalorien im Verlauf.",
-      "empty": "Noch keine aktiven Kalorien erfasst.",
-      "summary": "Aktive Kalorien von {from} bis {to}, maximal {max} kcal.",
-      "hint": "Punkt berühren oder fokussieren, um den Tageswert anzuzeigen."
+      "label": "Aktive Kalorien",
+      "unit": "kcal",
+      "hint": "Punkt berühren oder fokussieren, um den Tageswert anzuzeigen.",
+      "average": "Ø {value} kcal im gezeigten Zeitraum",
+      "pointLabel": "{date}, aktive Kalorien {value} kcal"
     }
   },
   "share": {
@@ -517,7 +519,7 @@
     },
     "series": {
       "title": "Messwerte im Verlauf",
-      "subtitle": "Mehrere Messwerte lassen sich zugleich anzeigen, auch Kalorien, Makros und Mikros. Die Referenzmessung ist auf der Zeitachse markiert, ein ausgewählter Punkt wird zur aktuellen Messung.",
+      "subtitle": "Mehrere Messwerte lassen sich zugleich anzeigen, auch Kalorien, Makros, Mikros und die aktiven Kalorien aus Sport & Aktivität. Die Referenzmessung ist auf der Zeitachse markiert, ein ausgewählter Punkt wird zur aktuellen Messung.",
       "selectMetric": "Angezeigte Messwerte",
       "selectRange": "Zeitraum",
       "range": {
