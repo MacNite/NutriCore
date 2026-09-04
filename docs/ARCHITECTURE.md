@@ -134,11 +134,16 @@ A failed run keeps its stand-in for a week rather than disappearing. When Ollama
 unreachable every job in flight burns its retries against a connection that is not
 there and ends `FAILED`, and a stand-in that vanished made that look like work
 silently thrown away: no entry, no error, nothing to retry. The row now reads
-"failed", names the cause in the terms a submitter can act on, and carries a re-run
-button that queues the same input again with a fresh retry budget
-(`ai-placeholder-actions.ts`, scoped to the caller's own failed jobs). A submission
+"failed", names the cause in the terms a submitter can act on, and carries the two
+things that can be done about it (`ai-placeholder-actions.ts`, both scoped to the
+caller's own failed jobs): ↻ queues the same input again with a fresh retry budget,
+and × deletes the run together with the `AiIngestionInput` behind it, so the text,
+URL or photo that was submitted is not orphaned in the database behind a row nothing
+shows any more. A draft recipe an earlier run produced survives that delete - the
+relation is `SetNull` - and only loses its pointer back to the import. A submission
 whose only input was a photo cannot be re-run - the photo is deleted the moment its
-job fails - and says so instead of offering a button that would fail again.
+job fails - and says so instead of offering a button that would fail again; it can
+still be discarded.
 
 Research is a persisted state machine. Every path to `ACCEPTED` runs through
 `AWAITING_CONFIRMATION`, so nothing is stored without the user confirming it. A

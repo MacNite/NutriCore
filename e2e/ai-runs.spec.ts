@@ -196,6 +196,7 @@ test("a failed run stays in the recipe list, says why, and re-runs from there", 
   await expect(row.getByText(/fehlgeschlagen|failed/i).first()).toBeVisible();
   await expect(row.getByText(/Ollama/)).toBeVisible();
 
+  // Both actions are icons; each carries its wording as its accessible name.
   await row.getByRole("button", { name: /erneut versuchen|re-run/i }).click();
 
   // Back on the queue with a fresh budget, and the row says so instead of
@@ -204,4 +205,39 @@ test("a failed run stays in the recipe list, says why, and re-runs from there", 
     .poll(async () => (await prisma.aiJob.findUniqueOrThrow({ where: { id: job.id }, select: { status: true, retryCount: true } })))
     .toEqual({ status: "QUEUED", retryCount: 0 });
   await expect(page.getByText(/In der Warteschlange|Queued/i)).toBeVisible();
+});
+
+test("a failed run can be thrown away from its row, and takes its input with it", async ({ page }) => {
+  // Keeping a failure visible only helps if the submitter can also be done with
+  // it: without the X the row could only be waited out for a week.
+  const user = await registerAndOnboard(page);
+  await completeOnboarding(page);
+  const account = await accountOf(user.username);
+
+  const record = await prisma.aiIngestionInput.create({
+    data: { userId: account.id, intent: "RECIPE", text: "Linsensuppe", servings: 2 },
+  });
+  const job = await prisma.aiJob.create({
+    data: {
+      userId: account.id,
+      entityType: "AI_INGESTION",
+      entityId: record.id,
+      ingestionInputId: record.id,
+      status: "FAILED",
+      failedAt: new Date(),
+      retryCount: 2,
+      failureKind: "MODEL_UNREACHABLE",
+      errorMessage: "Ollama request failed",
+    },
+  });
+
+  await page.goto("/foods");
+  const row = page.locator(".ai-placeholder-failed").filter({ hasText: "Linsensuppe" });
+  await row.getByRole("button", { name: /verwerfen|discard/i }).click();
+
+  await expect(page.locator(".ai-placeholder-failed")).toHaveCount(0);
+  // The submitted text goes with the run rather than being orphaned behind a
+  // row nothing shows any more.
+  await expect.poll(async () => prisma.aiJob.count({ where: { id: job.id } })).toBe(0);
+  await expect.poll(async () => prisma.aiIngestionInput.count({ where: { id: record.id } })).toBe(0);
 });

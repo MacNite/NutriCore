@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { retryAiRunAction } from "@/server/ai-placeholder-actions";
+import { discardAiRunAction, retryAiRunAction } from "@/server/ai-placeholder-actions";
 import { AI_PLACEHOLDER_REASONS, type AiPlaceholder, type AiPlaceholderReason } from "@/server/ai-placeholders";
 
 export interface AiPlaceholderLabels {
@@ -16,8 +16,10 @@ export interface AiPlaceholderLabels {
   failed: string;
   /** Why it failed, in the few readings a submitter can act on. */
   reasons: Record<AiPlaceholderReason, string>;
+  /** The two actions on a failed row, named for the icons that carry them. */
   retry: string;
-  /** Shown instead of the button when the input the run needs is gone. */
+  discard: string;
+  /** Shown instead of the re-run when the input that run needs is gone. */
   retryUnavailable: string;
 }
 
@@ -34,6 +36,7 @@ export function aiPlaceholderLabels(t: (key: string) => string): AiPlaceholderLa
     failed: t("failed"),
     reasons: Object.fromEntries(AI_PLACEHOLDER_REASONS.map((reason) => [reason, t(`reasons.${reason}`)])) as Record<AiPlaceholderReason, string>,
     retry: t("retry"),
+    discard: t("discard"),
     retryUnavailable: t("retryUnavailable"),
   };
 }
@@ -50,8 +53,9 @@ export function aiPlaceholderLabels(t: (key: string) => string): AiPlaceholderLa
  * A run that failed keeps the row rather than vanishing from the list, which is
  * what made a failed extraction look like work that was silently thrown away.
  * It says so, names the reason - "Ollama nicht erreichbar" is the common one -
- * and carries the button that queues the same input again, so recovering does
- * not mean re-typing the submission or finding an administrator.
+ * and carries the two things that can be done about it: ↻ queues the same input
+ * again, so recovering does not mean re-typing the submission or finding an
+ * administrator, and × throws the run away for a submitter who is done with it.
  */
 export function AiPlaceholderRow({
   placeholder,
@@ -60,7 +64,7 @@ export function AiPlaceholderRow({
 }: {
   placeholder: AiPlaceholder;
   labels: AiPlaceholderLabels;
-  /** Where the re-run button comes back to: the list this row is rendered in. */
+  /** Where the row's own buttons come back to: the list it is rendered in. */
   returnTo: "/" | "/foods";
 }) {
   const failed = placeholder.status === "FAILED";
@@ -87,17 +91,36 @@ export function AiPlaceholderRow({
           {failed ? labels.failed : placeholder.status === "RUNNING" ? labels.running : labels.queued}
         </span>
       </Link>
-      {/* Outside the link, or it would be a button nested in an anchor: the row
-          still leads to the review, and the re-run is its own submission next to
-          it. A run whose only input was a photo has nothing left to run on -
-          the photo is deleted when the job fails - and says so in the row
-          instead of offering a button that could only fail again. */}
-      {failed && placeholder.retryable !== false ? (
-        <form action={retryAiRunAction} className="ai-placeholder-retry">
-          <input type="hidden" name="jobId" value={placeholder.id} />
-          <input type="hidden" name="returnTo" value={returnTo} />
-          <button className="btn" type="submit">{labels.retry}</button>
-        </form>
+      {/* Outside the link, or these would be buttons nested in an anchor: the
+          row still leads to the review, and each action is its own submission
+          beside it. Icons rather than words, as the diary's own rows do it, so
+          two actions fit on a phone next to the text they act on; each carries
+          the wording as its accessible name and its tooltip, and the line under
+          the list names them too, since an icon alone is a guess.
+
+          A run whose only input was a photo has nothing left to run on - the
+          photo is deleted when the job fails - so it is offered no re-run that
+          could only fail again. Discarding it stays possible: a row that cannot
+          be retried is exactly the one worth being able to clear away. */}
+      {failed ? (
+        <div className="row-actions ai-placeholder-actions">
+          {placeholder.retryable === false ? null : (
+            <form action={retryAiRunAction}>
+              <input type="hidden" name="jobId" value={placeholder.id} />
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <button className="btn btn-quiet" type="submit" aria-label={labels.retry} title={labels.retry}>
+                <span aria-hidden="true">↻</span>
+              </button>
+            </form>
+          )}
+          <form action={discardAiRunAction}>
+            <input type="hidden" name="jobId" value={placeholder.id} />
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <button className="btn btn-quiet ai-discard" type="submit" aria-label={labels.discard} title={labels.discard}>
+              <span aria-hidden="true">×</span>
+            </button>
+          </form>
+        </div>
       ) : null}
     </div>
   );

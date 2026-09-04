@@ -1056,20 +1056,31 @@ legend {
   color: var(--danger);
 }
 
-.ai-placeholder-retry {
-  display: flex;
-  align-items: center;
+/* Re-run and discard, as icons: wide enough to hit on a phone, and quiet
+   enough not to compete with the row's own text. */
+.ai-placeholder-actions {
   flex-shrink: 0;
+  align-items: center;
 }
 
-.ai-placeholder-retry .btn {
-  padding: 6px 11px;
-  font-size: 13px;
+.ai-placeholder-actions .btn {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 19px;
+  line-height: 1;
 }
 
-/* On a phone the row has no width to spare for a button beside the text: the
-   tags, the state and the re-run drop onto their own line rather than squeezing
-   the submitted input down to one letter per line. */
+/* Throwing the run away is the destructive one of the two, so its hover says
+   so. Never the colour alone: the button's name and tooltip say "discard". */
+.ai-placeholder-actions .ai-discard:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* On a phone the row has no width to spare for buttons beside the text: the
+   tags, the state and the two actions drop onto their own line rather than
+   squeezing the submitted input down to one letter per line. */
 @media (max-width: 700px) {
   .ai-placeholder-failed {
     flex-wrap: wrap;
@@ -1084,7 +1095,7 @@ legend {
     flex-basis: 100%;
   }
 
-  .ai-placeholder-retry {
+  .ai-placeholder-actions {
     margin-left: auto;
   }
 }

@@ -966,8 +966,9 @@
     "failedName": "AI draft failed",
     "failed": "Failed",
     "retry": "Re-run",
+    "discard": "Discard",
     "retryUnavailable": "The photo was deleted when the run failed – please submit it again.",
-    "failedHint": "The run failed and saved nothing. Its input stays here: “Re-run” puts it back on the queue.",
+    "failedHint": "The run failed and saved nothing. Its input stays here: ↻ puts it back on the queue, ✕ throws it away.",
     "reasons": {
       "MODEL_UNREACHABLE": "NutriCore could not reach Ollama.",
       "MODEL_TIMEOUT": "Ollama did not answer in time.",
