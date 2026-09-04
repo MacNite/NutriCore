@@ -1,6 +1,7 @@
 import { Prisma, type BasisUnit, type Food, type SourceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizeName, type PortionContext } from "@/lib/units";
+import { effectiveDensity } from "@/lib/density";
 import { hasUsableEnergy } from "@/lib/nutrients";
 import { SOURCE_TRUST, completeness, rankFood, textSimilarity } from "@/lib/ranking";
 import { OpenFoodFactsProvider } from "@/providers/open-food-facts";
@@ -27,15 +28,23 @@ const failedSearches = new Map<string, { until: number; error: ProviderUnavailab
  * The measuring rules for one stored food, as `resolvePortion` and
  * `allowedUnits` need them. Kept in one place because the recipe save, the AI
  * import and the recipe form all have to agree on which units a food accepts.
+ *
+ * A food sold by volume that stores no density gets an assumed one, because
+ * Open Food Facts publishes none and a recipe ingredient has to end up with a
+ * weight: without it every drink, oil and broth was unusable in a recipe, which
+ * failed the whole AI import rather than the one ingredient. The assumption is
+ * made only for a volume basis - a solid's density is not near water's and is
+ * never guessed - and is flagged so callers can mark the weights it produced.
  */
 export function foodPortionContext(food: {
+  name: string;
   basisUnit: BasisUnit;
   densityGPerMl: Prisma.Decimal | null;
   servings: { label: string; unit: string; amount: Prisma.Decimal; gramEquivalent: Prisma.Decimal | null; mlEquivalent: Prisma.Decimal | null }[];
 }): PortionContext {
   return {
     basisUnit: food.basisUnit,
-    densityGPerMl: toNumber(food.densityGPerMl),
+    ...effectiveDensity({ name: food.name, basisUnit: food.basisUnit, densityGPerMl: toNumber(food.densityGPerMl) }),
     servings: food.servings.map((serving) => ({
       label: serving.label,
       unit: serving.unit,
@@ -414,6 +423,9 @@ export async function upsertProviderFood(product: NormalizedFood, locale: Locale
     basisUnit: product.basisUnit,
     servingSize: product.servingAmount ?? null,
     servingUnit: product.servingUnit ?? null,
+    // Omitted rather than nulled when the source states none, so a refresh that
+    // drops the paired serving cannot take a density away that was read before.
+    ...(product.densityGPerMl ? { densityGPerMl: product.densityGPerMl } : {}),
     dataConfidence: product.provenance.confidence ?? null,
     isEstimated: product.provenance.estimated,
   };

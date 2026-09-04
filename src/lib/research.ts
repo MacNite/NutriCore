@@ -138,7 +138,14 @@ export const mayTransition = (from: ResearchStatus, to: string) =>
 
 export interface ConfidenceSignals {
   sourceCount: number;
-  sourcesAgree: boolean;
+  /**
+   * Whether the sources say the same thing - or `null` when nothing compared
+   * them. A run that never looked has not established agreement, and it has not
+   * established conflict either: both the bonus and the penalty are withheld.
+   * This was hard-coded to `true`, which paid every multi-source run a bonus for
+   * an agreement no code had checked.
+   */
+  sourcesAgree: boolean | null;
   /** Fraction of ingredients resolved against a trusted database food. */
   matchedIngredientRatio: number;
   allQuantitiesPresent: boolean;
@@ -170,8 +177,8 @@ export function scoreConfidence(signals: ConfidenceSignals): ConfidenceResult {
   if (signals.sourceCount >= 2) add("multipleSources", 0.15);
   else if (signals.sourceCount === 0) add("noSource", -0.15);
 
-  if (signals.sourceCount >= 2 && signals.sourcesAgree) add("sourcesAgree", 0.1);
-  if (signals.sourceCount >= 2 && !signals.sourcesAgree) add("sourcesConflict", -0.15);
+  if (signals.sourceCount >= 2 && signals.sourcesAgree === true) add("sourcesAgree", 0.1);
+  if (signals.sourceCount >= 2 && signals.sourcesAgree === false) add("sourcesConflict", -0.15);
 
   add("ingredientsMatched", signals.matchedIngredientRatio * 0.3);
 

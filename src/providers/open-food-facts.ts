@@ -1,5 +1,5 @@
 import { ProviderUnavailableError, isBarcode, type FoodProvider, type NormalizedFood } from "./food";
-import { normalizeName, parseServingSize } from "@/lib/units";
+import { normalizeName, parseServingDensity, parseServingSize } from "@/lib/units";
 import { kjToKcal } from "@/lib/nutrition";
 import { logger } from "@/lib/logger";
 import { RateGate, delay, jitter } from "@/lib/rate-gate";
@@ -348,6 +348,9 @@ export class OpenFoodFactsProvider implements FoodProvider {
       servingAmount: serving?.amount,
       servingUnit: serving?.unit,
       servingLabel: servingSize,
+      // A serving written as both a volume and a weight - "250 ml (258 g)" - is
+      // the only density OFF ever states, and it beats any later estimate.
+      densityGPerMl: parseServingDensity(servingSize) ?? undefined,
       nutrients,
       partial: options.partial,
       provenance: {

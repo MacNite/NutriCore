@@ -40,7 +40,30 @@ const foodInclude = {
   sources: { select: { provider: true, metadata: true, retrievedAt: true } },
 } as const;
 
-async function resolveIngredients(userId: string, ingredients: RecipeInput["ingredients"], tx: Prisma.TransactionClient = prisma) {
+/** An ingredient a draft had to leave out, named so the reader can be told. */
+export interface SkippedIngredient {
+  foodId: string;
+  name: string;
+  amount: number;
+  unit: string;
+  reason: Extract<ReturnType<typeof resolveIngredientWeight>, { ok: false }>["reason"];
+}
+
+/**
+ * `skipUnresolvable` decides what an unmeasurable ingredient costs.
+ *
+ * A person editing a recipe is looking at the form and must be told which line
+ * is wrong, so the save throws. An AI draft has nobody to tell yet: failing it
+ * throws away a recipe that was mostly extracted correctly because one
+ * ingredient could not be weighed, which is the worse of the two outcomes by a
+ * long way. There the ingredient is dropped and reported instead.
+ */
+async function resolveIngredients(
+  userId: string,
+  ingredients: RecipeInput["ingredients"],
+  tx: Prisma.TransactionClient = prisma,
+  options: { skipUnresolvable?: boolean } = {},
+) {
   const foods = await tx.food.findMany({
     where: { id: { in: ingredients.map((item) => item.foodId) }, ...visibleFoodWhere(userId) },
     include: foodInclude,
@@ -48,19 +71,28 @@ async function resolveIngredients(userId: string, ingredients: RecipeInput["ingr
   const byId = new Map(foods.map((food) => [food.id, food]));
   if (byId.size !== new Set(ingredients.map((item) => item.foodId)).size) throw new NotFoundError("food");
 
-  return ingredients.map((item, position) => {
+  const resolved = [];
+  const skipped: SkippedIngredient[] = [];
+  for (const item of ingredients) {
     const food = byId.get(item.foodId)!;
     const portion = resolveIngredientWeight(item.amount, item.unit, foodPortionContext(food));
-    if (!portion.ok) throw new PortionError(portion.reason);
+    if (!portion.ok) {
+      if (!options.skipUnresolvable) throw new PortionError(portion.reason);
+      skipped.push({ foodId: item.foodId, name: food.name, amount: item.amount, unit: item.unit, reason: portion.reason });
+      continue;
+    }
     const weightG = portion.weightG;
 
     const nutrients: Nutrients = Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, null]));
     for (const nutrient of food.nutrients) nutrients[nutrient.nutrientKey] = nutrient.value === null ? null : Number(nutrient.value);
-    return { item, food, portion, weightG, position, nutrients };
-  });
+    // Positions are handed out after the skips, so a draft's ingredients stay
+    // contiguous and the review screen's order matches the recipe's.
+    resolved.push({ item, food, portion, weightG, position: resolved.length, nutrients });
+  }
+  return { resolved, skipped };
 }
 
-function calculate(resolved: Awaited<ReturnType<typeof resolveIngredients>>, servings: number, yieldWeightG?: number | null) {
+function calculate(resolved: Awaited<ReturnType<typeof resolveIngredients>>["resolved"], servings: number, yieldWeightG?: number | null) {
   return recipeNutrition(resolved.map(({ food, portion, weightG, nutrients }) => ({
     nutrients,
     basisAmount: Number(food.basisAmount),
@@ -97,7 +129,11 @@ export async function saveRecipe(userId: string, input: RecipeInput, recipeId?: 
       const owned = await tx.recipe.findFirst({ where: { id: recipeId, ownerId: userId }, select: { id: true } });
       if (!owned) throw new NotFoundError("recipe");
     }
-    const resolved = await resolveIngredients(userId, input.ingredients, tx);
+    const { resolved, skipped } = await resolveIngredients(userId, input.ingredients, tx, { skipUnresolvable: status === "DRAFT" });
+    // A draft may lose ingredients, but a recipe with none of them left is not a
+    // partial extraction - it is a failed one, and saying so beats storing an
+    // empty recipe the reader has to work out for themselves.
+    if (!resolved.length) throw new PortionError(skipped[0]?.reason ?? "invalid-amount");
     const nutrition = calculate(resolved, input.servings, input.yieldWeightG);
     const data = {
       name: input.name, description: input.description || null, servings: input.servings,
@@ -125,7 +161,7 @@ export async function saveRecipe(userId: string, input: RecipeInput, recipeId?: 
     } else {
       food = await syncRecipeFood(tx, userId, recipe.id, input, nutrition);
     }
-    return { recipe, food, nutrition };
+    return { recipe, food, nutrition, skipped };
   });
 }
 

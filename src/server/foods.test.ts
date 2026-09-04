@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 
 const { prismaMock, searchQueryCache } = vi.hoisted(() => {
   const searchQueryCache = {
@@ -34,7 +35,7 @@ vi.mock("@/lib/db", () => ({
 
 import { OpenFoodFactsProvider } from "@/providers/open-food-facts";
 import { ProviderUnavailableError } from "@/providers/food";
-import { fetchRemote, hasIdentityMatch, hasStrongLocalMatch, searchFoods, upsertProviderFood } from "./foods";
+import { fetchRemote, foodPortionContext, hasIdentityMatch, hasStrongLocalMatch, searchFoods, upsertProviderFood } from "./foods";
 
 const cachedProduct = {
   externalId: "4000000000001", barcode: "4000000000001", name: "Müller Milchreis Original", brand: "Müller",
@@ -335,5 +336,24 @@ describe("local network decision", () => {
   it("keeps a strong previously consumed partial match local", () => {
     expect(hasStrongLocalMatch([{ ...match, previouslyUsed: true }])).toBe(true);
     expect(hasStrongLocalMatch([{ ...match, textMatch: 0.2, previouslyUsed: true }])).toBe(false);
+  });
+});
+
+describe("the measuring rules of one food", () => {
+  const stock = { name: "Gemüsebrühe", basisUnit: "ML" as const, densityGPerMl: null, servings: [] };
+
+  it("assumes a density for a food sold by volume that stores none", () => {
+    // Open Food Facts publishes no density, so without this every drink, oil
+    // and broth it supplies was unusable as a recipe ingredient.
+    expect(foodPortionContext(stock)).toMatchObject({ densityGPerMl: 1, densityEstimated: true });
+    expect(foodPortionContext({ ...stock, name: "Rapsöl" })).toMatchObject({ densityGPerMl: 0.92, densityEstimated: true });
+  });
+
+  it("never assumes one for a solid, whose density is not near water's", () => {
+    expect(foodPortionContext({ ...stock, name: "Mehl", basisUnit: "G" })).toMatchObject({ densityGPerMl: null, densityEstimated: false });
+  });
+
+  it("leaves a stated density alone", () => {
+    expect(foodPortionContext({ ...stock, densityGPerMl: new Prisma.Decimal(1.2) })).toMatchObject({ densityGPerMl: 1.2, densityEstimated: false });
   });
 });

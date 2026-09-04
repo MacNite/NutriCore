@@ -106,6 +106,11 @@ export function NewRecipeWorkspace({
           <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("estimatedWeights", { names: draft.estimatedWeights.join(", ") })}</div>
         ) : null}
 
+        {/* In the recipe, but only because a density was assumed for the food. */}
+        {draft?.assumedDensity?.length ? (
+          <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("assumedDensity", { names: draft.assumedDensity.join(", ") })}</div>
+        ) : null}
+
         {draft?.unparsedIngredients?.length ? (
           <div className="notice notice-warn" style={{ marginTop: 14 }}>{t("unparsed", { names: draft.unparsedIngredients.join(", ") })}</div>
         ) : null}

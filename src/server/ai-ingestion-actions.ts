@@ -45,6 +45,14 @@ export interface RecipeImportDraft {
    * because a weight nobody wrote down is the first thing worth checking.
    */
   estimatedWeights?: string[];
+  /**
+   * Ingredients weighed through a density this app assumed for the food rather
+   * than one the food states - every Open Food Facts liquid, which publishes
+   * none. They are in the recipe, because dropping them lost most liquids from
+   * most recipes; they are listed because the weight rests on an assumption
+   * about the food, and a reader who knows the product can correct it.
+   */
+  assumedDensity?: string[];
   /** Structured source lines that had no explicit deterministic quantity. */
   unparsedIngredients?: string[];
   /**

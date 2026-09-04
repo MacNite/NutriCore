@@ -6,6 +6,7 @@ import { saveRecipeAction } from "@/server/recipe-actions";
 import type { FormState } from "@/server/profile-actions";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { allowedUnits } from "@/lib/units";
+import { effectiveDensity } from "@/lib/density";
 
 interface Ingredient { foodId: string; name: string; amount: number; unit: string; units?: string[] }
 interface SearchResult { id: string; name: string; brand: string | null; basisUnit: "G" | "ML"; densityGPerMl: number | null; servings: { label: string; amount: number; unit: string; gramEquivalent: number | null; mlEquivalent: number | null }[] }
@@ -51,7 +52,9 @@ export function RecipeForm({ recipe, createMode = false }: { recipe?: { id: stri
         </div>
       </div>
       {results.map((food) => {
-        const units = allowedUnits({ basisUnit: food.basisUnit, densityGPerMl: food.densityGPerMl, servings: food.servings });
+        // Through the same rule the save applies, so the dropdown cannot refuse
+        // a food the AI import would convert - or offer one it would reject.
+        const units = allowedUnits({ basisUnit: food.basisUnit, ...effectiveDensity(food), servings: food.servings });
         return <div className="row" key={food.id}><div className="row-body"><strong>{food.name}</strong><span>{food.brand}</span></div>
           {/* A recipe ingredient has to end up with a weight, and a food sold by
               volume with no stored density has none. Saying so here beats adding

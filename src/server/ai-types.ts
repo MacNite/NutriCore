@@ -209,7 +209,30 @@ export function recipeIngredientAmount(
   if (amount && unit && resolveIngredientWeight(amount, unit, context).ok) return { amount, unit, estimated: false };
 
   const weight = componentWeight(component, foodId);
-  return weight === null ? null : { amount: weight.grams, unit: "g", estimated: weight.source === "MODEL" };
+  if (weight === null) return null;
+  // The fallback has to be measurable too. Returning grams unchecked is how an
+  // ingredient the import had already accepted reached `saveRecipe` and failed
+  // the entire job with "Cannot resolve portion: density-required": a food sold
+  // by volume with no density cannot be weighed in grams either, so the answer
+  // was never a weight at all. Reporting it as unconvertible costs one
+  // ingredient; returning it cost the whole recipe.
+  if (!resolveIngredientWeight(weight.grams, "g", context).ok) return null;
+  return { amount: weight.grams, unit: "g", estimated: weight.source === "MODEL" };
+}
+
+/**
+ * True when this quantity can only be weighed because the food's density was
+ * assumed rather than stated.
+ *
+ * Asked by resolving it again with the density taken away: if that fails, the
+ * assumption is carrying the conversion. The weight is usable either way - the
+ * draft review just has to say which numbers rest on it, because an assumed
+ * density is this app's guess about the food, not anything its source said.
+ */
+export function weighedByAssumedDensity(amount: number, unit: string, context: PortionContext): boolean {
+  if (!context.densityEstimated) return false;
+  if (!resolveIngredientWeight(amount, unit, context).ok) return false;
+  return !resolveIngredientWeight(amount, unit, { ...context, densityGPerMl: null }).ok;
 }
 
 /** What approving a component actually does. */
