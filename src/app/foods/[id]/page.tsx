@@ -7,7 +7,9 @@ import { aiEnrichmentMetadata } from "@/server/food-enrichment";
 import { getVisibleFood } from "@/server/foods";
 import { formatDateKey } from "@/server/diary";
 import { LogFoodForm } from "./log-food-form";
-import { NutrientTable } from "@/components/nutrient-table";
+import { PortionProvider } from "./portion-context";
+import { PortionNutrients } from "./portion-nutrients";
+import { initialPortion, type FoodShape } from "./portion";
 import { prisma } from "@/lib/db";
 
 export default async function FoodDetailPage({
@@ -33,6 +35,15 @@ export default async function FoodDetailPage({
   const source = sources.find((item) => item.provider !== "AI_ENRICHMENT");
   const definitions = await prisma.nutrientDefinition.findMany({ select: { key: true, nameDe: true, nameEn: true } });
   const names = new Map(definitions.map((item) => [item.key, user.language === "de" ? item.nameDe : item.nameEn]));
+  const shape: FoodShape = {
+    id: food.id,
+    basisUnit: food.basisUnit,
+    servingSize: food.servingSize,
+    servingUnit: food.servingUnit,
+    densityGPerMl: food.densityGPerMl,
+    servings: food.servings,
+  };
+  const portion = initialPortion(shape);
   const enrichment = aiEnrichmentMetadata(sources).map((item) => ({ ...item, nutrientNames: item.nutrientKeys.map((key) => names.get(key) ?? key) }));
 
   return (
@@ -49,34 +60,25 @@ export default async function FoodDetailPage({
       </div>
 
       <div className="grid-main">
-        <div className="stack">
-          <section className="card">
-            <h2>{t("servingLabel")}</h2>
-            <LogFoodForm
-              food={{
-                id: food.id,
-                basisUnit: food.basisUnit,
-                servingSize: food.servingSize,
-                servingUnit: food.servingUnit,
-                densityGPerMl: food.densityGPerMl,
-                servings: food.servings,
-              }}
-              meal={query.meal ?? "SNACKS"}
-              date={query.date && /^\d{4}-\d{2}-\d{2}$/.test(query.date) ? query.date : today}
-              returnToMeal={(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"] as string[]).includes(query.editMeal ?? "") ? query.editMeal : undefined}
-            />
-          </section>
+        <PortionProvider initialQuantity={portion.quantity} initialUnit={portion.unit}>
+          <div className="stack">
+            <section className="card">
+              <h2>{t("servingLabel")}</h2>
+              <LogFoodForm
+                food={shape}
+                meal={query.meal ?? "SNACKS"}
+                date={query.date && /^\d{4}-\d{2}-\d{2}$/.test(query.date) ? query.date : today}
+                returnToMeal={(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"] as string[]).includes(query.editMeal ?? "") ? query.editMeal : undefined}
+              />
+            </section>
 
-          <section className="card">
-            <h2>{t("form.nutrients")}</h2>
-            <NutrientTable
-              nutrients={food.nutrients}
-              basisAmount={food.basisAmount}
-              basisUnit={food.basisUnit}
-              locale={user.language}
-            />
-          </section>
-        </div>
+            <section className="card">
+              <h2>{t("form.nutrients")}</h2>
+              {/* Second column: the same nutrients scaled to the portion in the form above. */}
+              <PortionNutrients food={shape} nutrients={food.nutrients} basisAmount={food.basisAmount} locale={user.language} />
+            </section>
+          </div>
+        </PortionProvider>
 
         <aside>
           <section className="card">

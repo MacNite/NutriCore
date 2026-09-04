@@ -4,33 +4,21 @@ import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import { addEntryAction } from "@/server/diary-actions";
 import type { FormState } from "@/server/profile-actions";
+import { portionUnits, type FoodShape } from "./portion";
+import { usePortion } from "./portion-context";
 
 const MEALS = ["BREAKFAST", "LUNCH", "DINNER", "SNACKS"] as const;
-
-interface FoodShape {
-  id: string;
-  basisUnit: string;
-  servingSize: number | null;
-  servingUnit: string | null;
-  densityGPerMl: number | null;
-  servings: { label: string; gramEquivalent: number | null; mlEquivalent: number | null }[];
-}
 
 export function LogFoodForm({ food, meal, date, returnToMeal }: { food: FoodShape; meal: string; date: string; returnToMeal?: string }) {
   const t = useTranslations("diary");
   const foodsT = useTranslations("foods");
   const errors = useTranslations("errors");
   const [state, action, pending] = useActionState<FormState, FormData>(addEntryAction, {});
+  // Shared with the nutrient table, which previews the values for this portion.
+  const { quantity, unit, setQuantity, setUnit } = usePortion();
 
-  const baseUnit = food.basisUnit === "ML" ? "ml" : "g";
   // Only units that can actually be resolved are offered.
-  const units = [
-    baseUnit,
-    ...(food.basisUnit === "ML" ? ["l"] : ["kg"]),
-    ...(food.densityGPerMl ? (food.basisUnit === "ML" ? ["g"] : ["ml"]) : []),
-    ...(food.servingSize && food.servingUnit ? [food.servingUnit] : []),
-    ...food.servings.map((s) => s.label),
-  ].filter((unit, index, all) => all.indexOf(unit) === index);
+  const units = portionUnits(food);
 
   return (
     <form action={action}>
@@ -69,7 +57,8 @@ export function LogFoodForm({ food, meal, date, returnToMeal }: { food: FoodShap
             type="number"
             min="0.1"
             step="0.1"
-            defaultValue={food.servingSize ?? 100}
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
             required
             autoFocus
           />
@@ -77,10 +66,10 @@ export function LogFoodForm({ food, meal, date, returnToMeal }: { food: FoodShap
 
         <div className="field">
           <label htmlFor="unit">{t("unit")}</label>
-          <select id="unit" name="unit" defaultValue={food.servingUnit ?? baseUnit}>
-            {units.map((unit) => (
-              <option key={unit} value={unit}>
-                {unit}
+          <select id="unit" name="unit" value={unit} onChange={(event) => setUnit(event.target.value)}>
+            {units.map((option) => (
+              <option key={option} value={option}>
+                {option}
               </option>
             ))}
           </select>
