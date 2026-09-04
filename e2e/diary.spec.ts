@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { completeOnboarding, mealRowTrigger, registerAndOnboard } from "./helpers";
+import { completeOnboarding, mealRowTrigger, openQuickActions, registerAndOnboard } from "./helpers";
 
-test("the dashboard quick-meal button opens the diary AI form", async ({ page }) => {
-  await page.getByRole("button", { name: /quick meal|schnelle mahlzeit/i }).click();
+test("the dashboard quick-action menu opens the diary AI form", async ({ page }) => {
+  const menu = await openQuickActions(page);
+  await menu.getByRole("button", { name: /describe a meal|mahlzeit beschreiben/i }).click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
@@ -15,7 +16,8 @@ test("the dashboard quick-meal button opens the diary AI form", async ({ page })
 // The browser submits the untouched file input as a zero-byte part, which the
 // server action must read as "no image" rather than as an empty upload.
 test("a quick meal with only a URL is queued instead of failing on the untouched image input", async ({ page }) => {
-  await page.getByRole("button", { name: /quick meal|schnelle mahlzeit/i }).click();
+  const menu = await openQuickActions(page);
+  await menu.getByRole("button", { name: /describe a meal|mahlzeit beschreiben/i }).click();
 
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel(/recipe url|rezept-url/i).fill("https://example.com/rezept");
@@ -23,6 +25,23 @@ test("a quick meal with only a URL is queued instead of failing on the untouched
 
   await page.waitForURL(/\/ai-review\/[^/]+\?queued=1$/);
   await expect(page.getByText(/is empty|ist leer/i)).toHaveCount(0);
+});
+
+// The menu replaced a labelled floating button that never lined up with the
+// headings beside it, and it is now the only way to reach three of these four.
+test("the quick-action menu reaches the recipe, activity and measurement forms", async ({ page }) => {
+  const menu = await openQuickActions(page);
+  await menu.getByRole("button", { name: /add sport|sport \/ aktivität/i }).click();
+  await expect(page.getByRole("dialog", { name: /sport|aktivität/i })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await (await openQuickActions(page)).getByRole("link", { name: /body measurement|körpermessung/i }).click();
+  await page.waitForURL(/\/progress\?checkin=1$/);
+  await expect(page.getByRole("dialog", { name: /body check-in|körpermessung eintragen/i })).toBeVisible();
+
+  await page.goto("/");
+  await (await openQuickActions(page)).getByRole("link", { name: /create recipe|rezept erstellen/i }).click();
+  await page.waitForURL(/\/recipes\/new$/);
 });
 
 test("meal rows open the correct editor without leaving Today", async ({ page }) => {
