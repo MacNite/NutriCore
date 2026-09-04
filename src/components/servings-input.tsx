@@ -21,6 +21,8 @@ export function ServingsInput({
   name,
   label,
   hint,
+  hintPlacement = "below",
+  hintLabel,
   defaultValue = 1,
   min = 0.01,
   max = 10_000,
@@ -31,6 +33,15 @@ export function ServingsInput({
   name: string;
   label: string;
   hint: string;
+  /**
+   * Where the explanation goes. "below" keeps it under the field; "tooltip"
+   * folds it into a marker beside the label, for panels where the sentence
+   * costs more room than it earns. Either way the input points at it with
+   * `aria-describedby`, so the text is read out the same.
+   */
+  hintPlacement?: "below" | "tooltip";
+  /** Accessible name of the tooltip marker; required by `hintPlacement="tooltip"`. */
+  hintLabel?: string;
   defaultValue?: number;
   min?: number;
   max?: number;
@@ -58,7 +69,21 @@ export function ServingsInput({
 
   return (
     <div className="field servings-field">
-      <label htmlFor={id}>{label}</label>
+      <span className="servings-label">
+        <label htmlFor={id}>{label}</label>
+        {hintPlacement === "tooltip" ? (
+          /* The bubble is only faded out, never `display: none`, so the text
+             stays in the accessibility tree for `aria-describedby`. The marker
+             is focusable so a tap or the keyboard reaches it too - hover alone
+             does not exist on a phone. */
+          <span className="field-tip">
+            <button type="button" className="field-tip-mark" aria-label={hintLabel ?? hint} aria-describedby={hintId}>
+              <span aria-hidden="true">i</span>
+            </button>
+            <span className="field-tip-bubble" role="tooltip" id={hintId}>{hint}</span>
+          </span>
+        ) : null}
+      </span>
       <div className="servings-control">
         <button type="button" className="btn servings-step" onClick={() => step(-1)} aria-label={decrementLabel}>
           <span aria-hidden="true">−</span>
@@ -81,7 +106,7 @@ export function ServingsInput({
           <span aria-hidden="true">+</span>
         </button>
       </div>
-      <span className="hint" id={hintId}>{hint}</span>
+      {hintPlacement === "below" ? <span className="hint" id={hintId}>{hint}</span> : null}
     </div>
   );
 }

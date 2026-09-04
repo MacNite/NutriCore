@@ -564,6 +564,84 @@ textarea::placeholder {
   margin: 0;
 }
 
+.servings-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.servings-label label {
+  margin: 0;
+}
+
+/* An explanation that only shows when it is asked for. The bubble is faded
+   rather than removed, so `aria-describedby` still finds its text; the marker
+   is a button so a tap or the keyboard opens it, since a phone has no hover. */
+.field-tip {
+  display: inline-flex;
+}
+
+/* The bubble hangs off the whole row, not off the marker: anchored to a marker
+   sitting halfway across a narrow screen it would run off the right edge. */
+.servings-field {
+  position: relative;
+}
+
+.field-tip-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  padding: 0;
+  background: none;
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: help;
+}
+
+/* A finger is wider than the marker; the hit area is grown without growing
+   the mark itself. */
+.field-tip-mark::after {
+  content: "";
+  position: absolute;
+  inset: -11px;
+}
+
+.field-tip-bubble {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: min(360px, 100%);
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-muted);
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.field-tip:hover .field-tip-bubble,
+.field-tip-mark:focus + .field-tip-bubble {
+  opacity: 1;
+}
+
 .servings-control {
   display: flex;
   align-items: center;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { CompletionRedirect } from "@/components/completion-redirect";
+import { ServingsInput } from "@/components/servings-input";
 import { queueRecipeImportAction, type RecipeImportDraft, type RecipeImportError } from "@/server/ai-ingestion-actions";
 import { RecipeForm } from "../recipe-form";
 
@@ -54,8 +55,20 @@ export function NewRecipeWorkspace({
         <form action={queueRecipeImportAction}>
           <div className="field"><label htmlFor="recipe-import-text">{t("text")}</label><textarea id="recipe-import-text" name="text" maxLength={5000} placeholder={t("textPlaceholder")} /></div>
           <div className="field"><label htmlFor="recipe-import-url">{t("url")}</label><input id="recipe-import-url" name="sourceUrl" type="url" placeholder="https://…" /></div>
-          <div className="field"><label htmlFor="recipe-import-servings">{t("servings")}</label><input id="recipe-import-servings" name="servings" type="number" min="0.01" max="10000" step="0.01" defaultValue="1" required aria-describedby="recipe-import-servings-hint" /><span className="hint" id="recipe-import-servings-hint">{t("servingsHint")}</span></div>
           <div className="field"><label htmlFor="recipe-import-image">{t("image")}</label><input id="recipe-import-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" /><span className="hint">{t("imageHint", { maxMb: imageMaxMb })}</span></div>
+          {/* Last, and with its explanation folded into the marker beside the
+              label: it is the one field that is usually left at 1, so it should
+              not push the three inputs that carry the recipe down the panel. */}
+          <ServingsInput
+            id="recipe-import-servings"
+            name="servings"
+            label={t("servings")}
+            hint={t("servingsHint")}
+            hintPlacement="tooltip"
+            hintLabel={t("servingsHintLabel")}
+            decrementLabel={t("servingsDown")}
+            incrementLabel={t("servingsUp")}
+          />
           {error ? <div className="notice notice-error" role="alert">{t(`errors.${error}`)}</div> : null}
           <button className="btn btn-primary" disabled={pending}>{t("submit")}</button>
         </form>
