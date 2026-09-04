@@ -9,6 +9,8 @@ backups
 playwright-report
 test-results
 e2e
+# The marketing site is published to GitHub Pages, never served by the app.
+website
 *.md
 # The upstream food-database downloads (291 MB) are a build input for
 # scripts/convert-food-datasets.mjs, never something the runtime reads. Only

@@ -18,7 +18,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "datasets:convert": "node --max-old-space-size=6144 scripts/convert-food-datasets.mjs",
-    "db:import:foods": "tsx scripts/import-food-datasets.ts"
+    "db:import:foods": "tsx scripts/import-food-datasets.ts",
+    "website": "node website/build.mjs --check"
   },
   "dependencies": {
     "@prisma/client": "6.15.0",
