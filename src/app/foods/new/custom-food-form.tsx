@@ -36,7 +36,7 @@ export function CustomFoodForm({
           <span className="notice-icon" aria-hidden="true">
             !
           </span>
-          <span>{errors("validation")}</span>
+          <span>{state.error === "energyRequired" ? errors("energyRequired") : errors("validation")}</span>
         </div>
       ) : null}
 
@@ -122,7 +122,22 @@ export function CustomFoodForm({
                   <label htmlFor={`n_${nutrient.key}`}>
                     {nutrients(nutrient.key as "protein")} ({nutrient.unit})
                   </label>
-                  <input id={`n_${nutrient.key}`} name={`n_${nutrient.key}`} type="number" min="0" step="0.01" />
+                  {/* Energy is the one value that cannot be left unknown: a food
+                      without it is hidden from search, so it has to be given here. */}
+                  <input
+                    id={`n_${nutrient.key}`}
+                    name={`n_${nutrient.key}`}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required={nutrient.key === "energyKcal"}
+                    aria-describedby={nutrient.key === "energyKcal" ? "energy-hint" : undefined}
+                  />
+                  {nutrient.key === "energyKcal" ? (
+                    <span className="hint" id="energy-hint">
+                      {t("energyRequiredHint")}
+                    </span>
+                  ) : null}
                 </div>
               ))}
             </div>

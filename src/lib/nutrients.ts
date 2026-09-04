@@ -57,3 +57,21 @@ export const PRIMARY_KEYS = ["energyKcal", "protein", "carbohydrate", "fat"] as 
 export const EDITABLE_KEYS = NUTRIENTS.filter((n) => n.key !== "energyKj").map((n) => n.key);
 
 export const nutrientUnit = (key: string) => NUTRIENT_BY_KEY.get(key)?.unit ?? "";
+
+/**
+ * Whether a food states an energy value the calorie maths can actually use.
+ *
+ * Open Food Facts carries plenty of products with no energy at all - the value
+ * was never entered, or it was lost on the way here - and such a food is worse
+ * than useless in a diary: it looks like a normal entry, contributes nothing,
+ * and quietly makes the whole meal read low. Those are filtered out of search.
+ *
+ * A stated zero is *not* the same thing and stays: mineral water really has no
+ * calories, and hiding it would be its own bug. Only an absent value counts as
+ * missing. kJ is accepted because kcal is derivable from it.
+ */
+export function hasUsableEnergy(nutrients: Record<string, number | null | undefined> | null | undefined) {
+  if (!nutrients) return false;
+  const stated = (value: number | null | undefined) => typeof value === "number" && Number.isFinite(value) && value >= 0;
+  return stated(nutrients.energyKcal) || stated(nutrients.energyKj);
+}

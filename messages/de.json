@@ -264,6 +264,7 @@
       "densityHint": "Wird benötigt, um zwischen Millilitern und Gramm umzurechnen.",
       "nutrients": "Nährwerte",
       "nutrientHint": "Felder leer lassen, wenn der Wert unbekannt ist. Leer bedeutet nicht null.",
+      "energyRequiredHint": "Pflichtfeld - ein Lebensmittel ohne kcal wird in der Suche ausgeblendet.",
       "created": "Lebensmittel angelegt.",
       "sourceUrl": "Quelle / Link (optional)"
     },
@@ -745,6 +746,7 @@
     "unauthorized": "Bitte melde dich an, um fortzufahren.",
     "forbidden": "Du hast keinen Zugriff auf diesen Datensatz.",
     "validation": "Bitte prüfe deine Eingabe.",
+    "energyRequired": "Ein Lebensmittel braucht einen Energiewert in kcal, sonst kann es nicht erfasst werden.",
     "rateLimited": "Zu viele Anfragen. Bitte einen Moment warten.",
     "providerDown": "Ein externer Dienst ist nicht verfügbar. Deine Daten sind davon nicht betroffen.",
     "portion": {

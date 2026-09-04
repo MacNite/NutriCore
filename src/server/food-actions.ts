@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "./session";
 import { normalizeName } from "@/lib/units";
-import { EDITABLE_KEYS } from "@/lib/nutrients";
+import { EDITABLE_KEYS, hasUsableEnergy } from "@/lib/nutrients";
 import type { FormState } from "./profile-actions";
 import { validateReferenceUrl } from "./research";
 
@@ -58,6 +58,13 @@ export async function createFoodAction(_state: FormState, formData: FormData): P
     const value = Number(raw.replace(",", "."));
     return Number.isFinite(value) && value >= 0 ? [{ nutrientKey: key, value }] : [];
   });
+
+  // Search hides foods that state no energy, because such a row silently makes
+  // a meal read low. A custom food without a kcal figure would therefore be
+  // saved and then be unfindable, so it is refused here instead.
+  if (!hasUsableEnergy(Object.fromEntries(nutrients.map((n) => [n.nutrientKey, n.value])))) {
+    return { error: "energyRequired" };
+  }
 
   const data = parsed.data;
   const food = await prisma.food.create({
