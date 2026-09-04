@@ -66,6 +66,10 @@ describe("initialPortion", () => {
     expect(initialPortion(food({ servingSize: 30, servingUnit: "g" }))).toEqual({ quantity: "30", unit: "g" });
   });
 
+  it("rounds a calculated serving weight for the initial input", () => {
+    expect(initialPortion(food({ servingSize: 64.292, servingUnit: "serving" }))).toEqual({ quantity: "64", unit: "serving" });
+  });
+
   it("falls back to a unit the form actually offers", () => {
     // A serving unit with no serving size never reaches the dropdown, so the
     // preview would otherwise scale a portion the form cannot show.

@@ -36,7 +36,10 @@ export function initialPortion(food: FoodShape): { quantity: string; unit: strin
   const units = portionUnits(food);
   const wanted = food.servingUnit ?? baseUnitOf(food);
   return {
-    quantity: String(food.servingSize ?? 100),
+    // Imported and calculated serving weights can contain several decimal
+    // places. The initial input is a practical portion suggestion, so present
+    // it as a whole number while still allowing the person to edit it.
+    quantity: String(food.servingSize === null ? 100 : Math.round(food.servingSize)),
     unit: units.includes(wanted) ? wanted : baseUnitOf(food),
   };
 }
