@@ -264,6 +264,7 @@
       "densityHint": "Required to convert between millilitres and grams.",
       "nutrients": "Nutrition values",
       "nutrientHint": "Leave a field empty when the value is unknown. Empty is not zero.",
+      "energyRequiredHint": "Required - a food without kcal is hidden from search.",
       "created": "Food created.",
       "sourceUrl": "Source / link (optional)"
     },
@@ -745,6 +746,7 @@
     "unauthorized": "Please sign in to continue.",
     "forbidden": "You do not have access to this record.",
     "validation": "Please check your input.",
+    "energyRequired": "A food needs an energy value in kcal, otherwise it cannot be logged.",
     "rateLimited": "Too many requests. Please wait a moment.",
     "providerDown": "An external service is unavailable. Your data is unaffected.",
     "portion": {

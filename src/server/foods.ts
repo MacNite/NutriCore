@@ -1,6 +1,7 @@
 import { Prisma, type BasisUnit, type Food, type SourceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizeName, type PortionContext } from "@/lib/units";
+import { hasUsableEnergy } from "@/lib/nutrients";
 import { SOURCE_TRUST, completeness, rankFood, textSimilarity } from "@/lib/ranking";
 import { OpenFoodFactsProvider } from "@/providers/open-food-facts";
 import {
@@ -188,8 +189,15 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
   const favoriteIds = new Set(favorites.map((f) => f.foodId));
   const usageById = new Map(usage.map((u) => [u.foodId, u]));
 
+  // A food that states no energy is dropped before it is ever scored, so it can
+  // neither be shown nor count as the strong local match that would stop the
+  // remote lookup from finding a complete version of the same product.
+  const usableFoods = localFoods.filter((food) =>
+    hasUsableEnergy(Object.fromEntries(food.nutrients.map((n) => [n.nutrientKey, toNumber(n.value)]))),
+  );
+
   const localMatches: LocalMatch[] = [];
-  const scored = localFoods.map((food) => {
+  const scored = usableFoods.map((food) => {
     const stats = usageById.get(food.id);
     const nutrients = Object.fromEntries(food.nutrients.map((n) => [n.nutrientKey, toNumber(n.value)]));
     const haystack = [food.name, food.brand].filter(Boolean).join(" ");
@@ -242,6 +250,7 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
     try {
       const remote = await fetchRemote(query, barcode, locale);
       for (const food of remote) {
+        if (!hasUsableEnergy(food.nutrients)) continue;
         if (scored.some((r) => r.barcode && r.barcode === food.barcode)) continue;
         scored.push(food);
       }

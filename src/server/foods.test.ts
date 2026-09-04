@@ -119,6 +119,89 @@ describe("food search visibility", () => {
   });
 });
 
+describe("foods without a calorie value", () => {
+  const withNutrients = (nutrients: { nutrientKey: string; value: number }[], overrides: Record<string, unknown> = {}) => ({
+    ...foodRow, ...overrides, nutrients,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.favorite.findMany.mockResolvedValue([]);
+    prismaMock.foodUsageStats.findMany.mockResolvedValue([]);
+    prismaMock.food.findMany.mockResolvedValue([]);
+  });
+
+  it("never offers a stored food whose energy is missing", async () => {
+    prismaMock.food.findMany.mockResolvedValue([
+      withNutrients([{ nutrientKey: "protein", value: 3 }], { id: "no-energy", name: "Milchreis ohne Werte" }),
+      withNutrients([{ nutrientKey: "energyKcal", value: 120 }], { id: "with-energy" }),
+    ]);
+
+    const outcome = await searchFoods({ userId: "owner-1", query: "Milchreis", locale: "de" });
+
+    expect(outcome.results.map((result) => result.id)).toEqual(["with-energy"]);
+  });
+
+  it("keeps a food that really contains no calories", async () => {
+    // A stated zero is data, not a hole: mineral water belongs in the list.
+    prismaMock.food.findMany.mockResolvedValue([
+      withNutrients([{ nutrientKey: "energyKcal", value: 0 }], { id: "water", name: "Mineralwasser" }),
+    ]);
+
+    const outcome = await searchFoods({ userId: "owner-1", query: "Wasser", locale: "de" });
+
+    expect(outcome.results.map((result) => result.id)).toEqual(["water"]);
+  });
+
+  it("keeps a food that states only kilojoules, since kcal follows from them", async () => {
+    prismaMock.food.findMany.mockResolvedValue([
+      withNutrients([{ nutrientKey: "energyKj", value: 502 }], { id: "kj-only" }),
+    ]);
+
+    const outcome = await searchFoods({ userId: "owner-1", query: "Milchreis", locale: "de" });
+
+    expect(outcome.results.map((result) => result.id)).toEqual(["kj-only"]);
+  });
+
+  it("lets the provider answer a query an energy-less local row would otherwise have satisfied", async () => {
+    // The hidden row is an exact name match. If it still counted as a strong
+    // local match, the complete product at the provider would never be fetched.
+    prismaMock.food.findMany.mockResolvedValue([
+      withNutrients([], { id: "no-energy", name: "Müller Milchreis Original" }),
+    ]);
+    const search = vi.spyOn(OpenFoodFactsProvider.prototype, "search").mockResolvedValue([]);
+    searchQueryCache.findUnique.mockResolvedValue(null);
+
+    const outcome = await searchFoods({
+      userId: "owner-1", query: "Müller Milchreis Original", locale: "de", includeRemote: true,
+    });
+
+    expect(search).toHaveBeenCalled();
+    expect(outcome.results).toEqual([]);
+    expect(outcome.suggestResearch).toBe(true);
+  });
+
+  it("drops a provider result that arrived without an energy value", async () => {
+    searchQueryCache.findUnique.mockResolvedValue(null);
+    searchQueryCache.upsert.mockResolvedValue({});
+    prismaMock.food.findUnique.mockResolvedValue(null);
+    prismaMock.food.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockResolvedValue([]);
+    const stored = { ...foodRow, id: "remote-1", nutrients: [{ nutrientKey: "protein", value: 3 }] };
+    prismaMock.food.create.mockResolvedValue(stored);
+    prismaMock.food.findUniqueOrThrow.mockResolvedValue(stored);
+    vi.spyOn(OpenFoodFactsProvider.prototype, "search").mockResolvedValue([{
+      externalId: "4000000000002", name: "Müller Milchreis Original",
+      basisAmount: 100, basisUnit: "G", nutrients: { energyKcal: null, protein: 3 },
+      provenance: { provider: "OPEN_FOOD_FACTS", retrievedAt: new Date(), estimated: false },
+    }] as never);
+
+    const outcome = await searchFoods({ userId: "owner-1", query: "Milchreis", locale: "de", includeRemote: true });
+
+    expect(outcome.results).toEqual([]);
+  });
+});
+
 describe("remote food search cache", () => {
   beforeEach(() => {
     vi.clearAllMocks();

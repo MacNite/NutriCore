@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { hasAnyNutrient } from "@/lib/research";
 import { normalizeName } from "@/lib/units";
+import { hasUsableEnergy } from "@/lib/nutrients";
 import type { Locale } from "@/i18n/locales";
 import { OllamaProvider } from "@/providers/ollama";
 import { SearxngClient } from "@/providers/searxng";
@@ -279,9 +279,10 @@ export async function resolveComponent(
       includeRemote: true,
       limit: MAX_CANDIDATES * 3,
     });
-    // A food with no nutrition at all cannot be logged, however well it matches.
+    // A food that states no energy cannot be logged, however well it matches:
+    // it would sit in the meal contributing nothing and read as a real entry.
     for (const food of outcome.results) {
-      if (!hasAnyNutrient(food.nutrients)) continue;
+      if (!hasUsableEnergy(food.nutrients)) continue;
       candidates.push(toCandidate(food, component));
       if (candidates.length >= MAX_CANDIDATES) break;
     }
@@ -331,7 +332,9 @@ async function resolveFromWeb(component: ProposedComponent, context: ResolverCon
     });
     return null;
   }
-  if (!extracted || !hasAnyNutrient(extracted.per100g)) return null;
+  // Values without an energy figure cannot carry a diary entry, so a page that
+  // yielded only, say, a protein number is treated as no result at all.
+  if (!extracted || !hasUsableEnergy(extracted.per100g)) return null;
 
   const created = await prisma.food.create({
     data: {
