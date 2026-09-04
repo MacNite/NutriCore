@@ -15,8 +15,10 @@ export interface WeightRow {
 const VISIBLE_ROWS = 7;
 
 /**
- * Chart summary and the raw entries, folded away so the card stays about the
- * chart. Longer logs scroll inside the panel instead of stretching the page.
+ * A one-line summary and the raw entries, folded away so the card opens at a
+ * glance. The line over time is the measurement series above; this is the log
+ * behind it, including the notes. Longer logs scroll inside the panel instead
+ * of stretching the page.
  */
 export async function WeightLog({ rows, locale }: { rows: WeightRow[]; locale: Locale }) {
   const t = await getTranslations("progress");

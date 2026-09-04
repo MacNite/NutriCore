@@ -60,6 +60,8 @@ export interface BodyProfile {
   /** RFM uses a sex-specific constant; without it no estimate is shown. */
   sex: "male" | "female" | null;
   ageYears: number | null;
+  /** Drawn as a goal line wherever weight itself is charted. */
+  targetWeightKg: number | null;
 }
 
 export type BodyMetricKey =

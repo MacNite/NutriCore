@@ -156,7 +156,7 @@ describe("derived ratios", () => {
 });
 
 describe("relative fat mass", () => {
-  const adult: BodyProfile = { heightCm: 182, sex: "male", ageYears: 34 };
+  const adult: BodyProfile = { heightCm: 182, sex: "male", ageYears: 34, targetWeightKg: null };
 
   it("applies the sex-specific constant", () => {
     expect(relativeFatMass(adult, 84.2)).toBeCloseTo(64 - 20 * (182 / 84.2), 6);
