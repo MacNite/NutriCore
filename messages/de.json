@@ -367,6 +367,23 @@
       "hint": "Punkt berühren oder fokussieren, um den Tageswert anzuzeigen."
     }
   },
+  "share": {
+    "open": "{title} teilen",
+    "title": "{title} teilen",
+    "close": "Teilen-Optionen schließen",
+    "intro": "Teile diese Grafik ohne die umgebende Seite oder speichere sie als PNG-Bild.",
+    "social": "In sozialen Medien teilen",
+    "community": "Mit der NutriCore-Community teilen",
+    "communitySoon": "Das Teilen mit der NutriCore-Community wird später verfügbar.",
+    "soon": "Bald",
+    "download": "Grafik herunterladen",
+    "preparing": "Grafik wird erstellt…",
+    "downloaded": "Grafik wurde heruntergeladen.",
+    "shared": "Grafik wurde geteilt.",
+    "unsupported": "Dieser Browser unterstützt das Teilen von Bildern nicht. Du kannst die Grafik stattdessen herunterladen.",
+    "error": "Die Grafik konnte nicht erstellt werden. Bitte versuche es erneut.",
+    "shareText": "Mein Bereich „{title}“ aus NutriCore"
+  },
   "bodyProgress": {
     "title": "Körperfortschritt",
     "intro": "Wie sich deine Körperzusammensetzung und deine gemessenen Umfänge gegenüber einer Referenzmessung verändert haben.",

@@ -1842,6 +1842,19 @@ legend {
   flex-wrap: wrap;
 }
 
+.shareable-panel { position: relative; min-width: 0; }
+.share-control { position: absolute; z-index: 3; top: 14px; right: 14px; }
+.share-trigger { color: var(--accent); background: color-mix(in srgb, var(--surface) 88%, transparent); }
+.shareable-panel > .card > h2:first-child,
+.shareable-panel > .card > .card-head { padding-right: 42px; }
+.body-hero-panel.shareable-panel { padding-top: 4px; }
+.body-hero-panel.shareable-panel .share-control { top: 0; right: 0; }
+.share-intro { margin-top: 0; }
+.share-options { display: grid; gap: 10px; }
+.share-options .btn { justify-content: center; width: 100%; }
+.share-options .badge { margin-left: 6px; }
+.share-status { margin: 14px 0 0; color: var(--muted); font-size: 14px; }
+
 /* Recording a measurement and starting a scan are two separate decisions, so
    the buttons are not allowed to touch. */
 .body-checkin-actions {

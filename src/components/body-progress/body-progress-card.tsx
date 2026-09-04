@@ -9,6 +9,7 @@ import { BodyCompositionDiamond } from "./body-composition-diamond";
 import { BodyMeasureFigure } from "./body-measure-figure";
 import { BodyReferenceBar } from "./body-reference-bar";
 import { BodyShapeProgress, useBodyShapeSummary } from "./body-shape-progress";
+import { ShareablePanel } from "../shareable-panel";
 
 /**
  * The hero: composition on the left, shape on the right, both read against the
@@ -80,7 +81,7 @@ export function BodyProgressCard({
 
       <div className={shown === 1 ? "body-hero body-hero-single" : "body-hero"}>
         {panels.composition ? (
-          <div className="body-hero-panel">
+          <ShareablePanel className="body-hero-panel" title={t("composition.title")} fileName="nutricore-body-composition">
             <BodyCompositionDiamond
               current={current}
               reference={reference}
@@ -88,11 +89,11 @@ export function BodyProgressCard({
               hasReference={hasReference}
               locale={locale}
             />
-          </div>
+          </ShareablePanel>
         ) : null}
 
         {panels.shape ? (
-          <div className="body-hero-panel">
+          <ShareablePanel className="body-hero-panel" title={t("shape.title")} fileName="nutricore-body-shape">
             <p className="body-micro-head">{t("shape.microHead")}</p>
             {/* The figure is decorative once this sentence exists; the sentence is
                 the guaranteed equivalent for anyone not reading the drawing. */}
@@ -129,7 +130,7 @@ export function BodyProgressCard({
               active={activeRegion}
               onActive={onActiveRegion}
             />
-          </div>
+          </ShareablePanel>
         ) : null}
       </div>
     </section>
