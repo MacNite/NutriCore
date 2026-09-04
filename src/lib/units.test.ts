@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowedUnits, canonicalUnit, normalizeName, parseServingSize, resolveIngredientWeight, resolvePortion, servingLabelFor } from "./units";
+import { allowedUnits, canonicalUnit, normalizeName, parseServingDensity, parseServingSize, resolveIngredientWeight, resolvePortion, servingLabelFor } from "./units";
 
 const gramFood = { basisUnit: "G" as const };
 const mlFood = { basisUnit: "ML" as const };
@@ -145,5 +145,26 @@ describe("a counted portion, in either language", () => {
   it("still refuses a portion the food does not define", () => {
     expect(resolveIngredientWeight(2, "Scheibe", egg).ok).toBe(false);
     expect(servingLabelFor("Scheibe", egg)).toBeNull();
+  });
+});
+
+describe("the density a serving size states outright", () => {
+  it("reads a serving written as both a volume and a weight", () => {
+    // The only density Open Food Facts ever publishes, and worth more than any
+    // estimate because the product measured it.
+    expect(parseServingDensity("250 ml (258 g)")).toBeCloseTo(1.032);
+    expect(parseServingDensity("1 Glas (200ml / 206g)")).toBeCloseTo(1.03);
+  });
+
+  it("ignores a serving that states only one of the two", () => {
+    expect(parseServingDensity("30 g")).toBeNull();
+    expect(parseServingDensity("250 ml")).toBeNull();
+    expect(parseServingDensity(null)).toBeNull();
+  });
+
+  it("refuses a pair that cannot be one food's density", () => {
+    // A bottle size printed beside a portion is two unrelated numbers, not a
+    // measurement: storing their ratio would invent a density no food has.
+    expect(parseServingDensity("500 ml (30 g portion)")).toBeNull();
   });
 });

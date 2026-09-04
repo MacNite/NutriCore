@@ -13,7 +13,7 @@ import { foodPortionContext } from "./foods";
 import { saveRecipe } from "./recipes";
 import { proseField, repairMealParse } from "./ai-repair";
 import { resolveComponent, type ResolverContext } from "./component-resolver";
-import { recipeIngredientAmount, type ProposedComponent } from "./ai-types";
+import { recipeIngredientAmount, weighedByAssumedDensity, type ProposedComponent } from "./ai-types";
 import type { RecipeImportDraft } from "./ai-ingestion-actions";
 
 export const recipeExtractionSchema = z.object({
@@ -121,7 +121,7 @@ export async function runRecipeImport(inputId: string, deps: { ai?: OllamaProvid
   const context: ResolverContext = { userId: record.userId, locale, webSourcesAllowed: researchEnabled() && Boolean(owner?.profile?.researchEnabled), allowModelEstimates: false, deps };
   const ingredients: RecipeImportDraft["ingredients"] = [];
   const components: ProposedComponent[] = [];
-  const unmatched: string[] = [], unconverted: string[] = [], estimatedWeights: string[] = [];
+  const unmatched: string[] = [], unconverted: string[] = [], estimatedWeights: string[] = [], assumedDensity: string[] = [];
   for (const component of parsed.components) {
     const resolved = await resolveComponent(component, context);
     const proposed: ProposedComponent = { ...component, canonicalFoodId: resolved.selectedFoodId, candidates: resolved.candidates, grams: resolved.grams, gramsSource: resolved.gramsSource };
@@ -139,6 +139,10 @@ export async function runRecipeImport(inputId: string, deps: { ai?: OllamaProvid
     // stated fact, so the review has to point at it rather than present it as
     // the source's own number.
     if (measured.estimated) estimatedWeights.push(`${sourceMeasure(component)} ≈ ${Math.round(measured.amount)} g`);
+    // Reported separately from the line above: that one is a weight the model
+    // read off a household measure, this one is a weight the food's own units
+    // gave once this app assumed what a millilitre of it weighs.
+    if (weighedByAssumedDensity(measured.amount, measured.unit, portion)) assumedDensity.push(sourceMeasure(component));
     ingredients.push({ foodId, name: food.name, amount: measured.amount, unit: measured.unit, units: allowedUnits(portion), sourceLine: component.name, candidates: resolved.candidates, resolution: measured.estimated ? "ai-assisted" : "deterministic" });
   }
   const servings = Number(record.servings);
@@ -147,14 +151,32 @@ export async function runRecipeImport(inputId: string, deps: { ai?: OllamaProvid
   if (existing?.status !== "ACTIVE") {
     const saved = await saveRecipe(record.userId, { name: parsed.name, description, servings, instructions, tags: [], ingredients: ingredients.map(({ foodId, amount, unit }) => ({ foodId, amount, unit })) }, existing?.id, { status: "DRAFT", sourceType: "AI_RESEARCH", importId: record.id });
     recipeId = saved.recipe.id;
+    // The save re-reads the foods inside its transaction, so it can reject an
+    // ingredient this loop had accepted - a food edited in between, or a rule
+    // this side got wrong. Those are reported with the rest rather than lost:
+    // an ingredient that is in the report but not in the recipe is a gap the
+    // reader can close, one that is in neither is a gap they cannot see.
+    for (const item of saved.skipped) {
+      const index = ingredients.findIndex((ingredient) => ingredient.foodId === item.foodId);
+      const line = index >= 0 ? ingredients[index].sourceLine : item.name;
+      if (index >= 0) ingredients.splice(index, 1);
+      unconverted.push(`${line} (${item.amount} ${item.unit})`);
+      // It is not in the recipe any more, so the notices that describe how it
+      // was weighed must not still name it.
+      const named = (entry: string) => entry === line || entry.startsWith(`${line} (`);
+      for (const list of [estimatedWeights, assumedDensity]) {
+        const at = list.findIndex(named);
+        if (at >= 0) list.splice(at, 1);
+      }
+    }
     if (record.sourceUrl) {
       const source = await prisma.recipeSource.findFirst({ where: { recipeId, url: record.sourceUrl } });
       if (source) await prisma.recipeSource.update({ where: { id: source.id }, data: { title: parsed.name, retrievedAt: new Date() } });
       else await prisma.recipeSource.create({ data: { recipeId, url: record.sourceUrl, title: parsed.name, provider: "RECIPE_IMPORT", retrievedAt: new Date() } });
     }
   }
-  const draft: RecipeImportDraft = { name: parsed.name, description, servings, instructions, ingredients, components, unmatched, unconverted, estimatedWeights, unparsedIngredients: [], aiAssistedIngredients: [], warnings: parsed.warnings, recipeId };
+  const draft: RecipeImportDraft = { name: parsed.name, description, servings, instructions, ingredients, components, unmatched, unconverted, estimatedWeights, assumedDensity, unparsedIngredients: [], aiAssistedIngredients: [], warnings: parsed.warnings, recipeId };
   await prisma.aiIngestionInput.update({ where: { id: inputId }, data: { draft: draft as unknown as Prisma.InputJsonValue } });
-  logger.info("recipe ingredient resolution completed", { inputId, matched: ingredients.length, unmatched: unmatched.length, unconverted: unconverted.length, estimatedWeights: estimatedWeights.length });
+  logger.info("recipe ingredient resolution completed", { inputId, matched: ingredients.length, unmatched: unmatched.length, unconverted: unconverted.length, estimatedWeights: estimatedWeights.length, assumedDensity: assumedDensity.length });
   return draft;
 }

@@ -851,6 +851,7 @@
       "submit": "Rezept auslesen",
       "unconverted": "Diese Zutaten haben eine Einheit, die für das gefundene Lebensmittel nicht umrechenbar ist. Ergänze sie unten mit einer metrischen Menge: {names}",
       "estimatedWeights": "Für diese Zutaten hat die KI das Gewicht aus der Haushaltsmenge geschätzt. Sie sind im Rezept enthalten – prüfe die Gramm-Angaben: {names}",
+      "assumedDensity": "Diese Zutaten wurden über eine angenommene Dichte gewogen, weil das gefundene Lebensmittel keine gespeichert hat. Sie sind im Rezept enthalten – prüfe die Mengen, wenn du das Produkt kennst: {names}",
       "savedAsDraft": "Als Entwurf unter deinen Rezepten gespeichert. Speichern bestätigt diesen Entwurf.",
       "openDraft": "Entwurf ansehen",
       "unmatched": "Diese Zutaten wurden nicht in deinen Lebensmitteln gefunden und müssen manuell ergänzt werden: {names}",

@@ -1,4 +1,4 @@
-import { asUntrustedExcerpt, sanitizeHtml } from "@/lib/url-guard";
+import { asUntrustedExcerpt, ldJsonScripts, sanitizeHtml } from "@/lib/url-guard";
 import { fetchResearchSource } from "./research";
 
 export type StructuredRecipe = {
@@ -50,7 +50,7 @@ function instructionSteps(value: unknown, depth = 0): string[] {
 /** Extract Recipe JSON-LD before falling back to deliberately coarse visible text. */
 export function extractMealPage(html: string, url: string, options: MealPageOptions = {}): MealPage {
   const recipes: Record<string, unknown>[] = [];
-  for (const match of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
+  for (const match of html.matchAll(ldJsonScripts())) {
     try { recipes.push(...recipeObjects(JSON.parse(match[1]))); } catch { /* malformed publisher data is ignored */ }
   }
   const recipe = recipes.find((item) => Array.isArray(item.recipeIngredient) && item.recipeIngredient.length);
@@ -86,9 +86,16 @@ export function extractMealPage(html: string, url: string, options: MealPageOpti
 
 export async function fetchMealPage(raw: string, request?: typeof fetch, options: MealPageOptions = {}): Promise<MealPage> {
   // The shared fetcher validates the submitted destination and every redirect,
-  // applies time/redirect caps, sends no ambient credentials, and rejects the
-  // response instead of retaining a partial oversized recipe.
-  const page = await fetchResearchSource(raw, { strictSize: true, fetch: request, preserveHtml: true });
+  // applies time/redirect caps and sends no ambient credentials.
+  //
+  // An oversized page is read up to the cap rather than rejected, as a research
+  // source already was. Rejecting it made "page exceeds 512 KB" one of the most
+  // common ways an import failed, on pages whose recipe was perfectly readable:
+  // the cap counts decompressed bytes, which a mainstream recipe portal passes
+  // on markup and inline script alone. `keepRecipeJsonLd` then covers the case
+  // a bare prefix would still lose - a publisher whose Recipe JSON-LD sits after
+  // all of that - so the structured data is retrieved either way.
+  const page = await fetchResearchSource(raw, { fetch: request, preserveHtml: true, keepRecipeJsonLd: true });
   return extractMealPage(page.excerpt, page.url, options);
 }
 

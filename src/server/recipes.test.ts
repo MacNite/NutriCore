@@ -100,6 +100,46 @@ describe("saving a recipe", () => {
     await expect(saveRecipe("user-1", { ...input, ingredients: [{ foodId: "food-flour", amount: 2, unit: "EL" }] }))
       .rejects.toThrow(new PortionError("unknown-unit"));
   });
+
+  it("drops an unmeasurable ingredient from a draft instead of failing it", async () => {
+    // An AI import has nobody to report the bad line to yet, and failing the
+    // save threw away a recipe that was otherwise extracted correctly. The
+    // ingredient is reported back so the review screen can name it.
+    tx.food.findMany.mockResolvedValue([flour, butter]);
+    const result = await saveRecipe("user-1", {
+      ...input,
+      ingredients: [{ foodId: "food-flour", amount: 200, unit: "g" }, { foodId: "food-butter", amount: 2, unit: "EL" }],
+    }, undefined, { status: "DRAFT" });
+
+    expect(result.skipped).toEqual([{ foodId: "food-butter", name: "Butter", amount: 2, unit: "EL", reason: "unknown-unit" }]);
+    expect(tx.recipeIngredient.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({ foodId: "food-flour", position: 0 })],
+    }));
+  });
+
+  it("still fails a draft that has no usable ingredient left", async () => {
+    // A partial extraction is worth keeping; an empty one is a failed run, and
+    // storing it as a recipe would leave the reader to work that out.
+    await expect(saveRecipe("user-1", { ...input, ingredients: [{ foodId: "food-flour", amount: 2, unit: "EL" }] }, undefined, { status: "DRAFT" }))
+      .rejects.toThrow(new PortionError("unknown-unit"));
+  });
+
+  it("weighs a volume food through the density assumed for it", async () => {
+    // Every Open Food Facts liquid arrives without a density. Before one was
+    // assumed, this ingredient could not be weighed at all.
+    const stock = {
+      id: "food-stock", name: "Gemüsebrühe", basisAmount: 100, basisUnit: "ML", densityGPerMl: null,
+      nutrients: [{ nutrientKey: "energyKcal", value: 4 }], servings: [], sources: [],
+    };
+    tx.food.findMany.mockResolvedValue([stock]);
+
+    const result = await saveRecipe("user-1", { ...input, ingredients: [{ foodId: "food-stock", amount: 500, unit: "ml" }] });
+
+    expect(result.skipped).toEqual([]);
+    expect(tx.recipeIngredient.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({ foodId: "food-stock", normalizedGrams: 500, normalizedMl: 500 })],
+    }));
+  });
 });
 
 describe("confirming a draft", () => {

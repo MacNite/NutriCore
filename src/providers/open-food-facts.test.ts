@@ -103,6 +103,24 @@ describe("Open Food Facts adapter", () => {
     expect(food?.servingLabel).toBe("30 g");
   });
 
+  it("reads a density from a serving that states both a volume and a weight", async () => {
+    // The only density OFF ever publishes. Without it a drink reaches the app
+    // with none at all, and no recipe ingredient could be weighed from it.
+    vi.stubGlobal(
+      "fetch",
+      json({ status: 1, product: { code: "12345678", product_name: "Saft", quantity: "1 l", serving_size: "200 ml (206 g)", nutriments: {} } }),
+    );
+    expect((await provider().getByBarcode("12345678"))?.densityGPerMl).toBeCloseTo(1.03);
+  });
+
+  it("states no density when the serving gives only one measure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      json({ status: 1, product: { code: "12345678", product_name: "Saft", quantity: "1 l", serving_size: "200 ml", nutriments: {} } }),
+    );
+    expect((await provider().getByBarcode("12345678"))?.densityGPerMl).toBeUndefined();
+  });
+
   it("uses a millilitre basis for drinks", async () => {
     vi.stubGlobal(
       "fetch",

@@ -12,6 +12,12 @@ export interface PortionContext {
   basisUnit: BasisUnit;
   /** Grams per millilitre. Required for any mass <-> volume conversion. */
   densityGPerMl?: number | null;
+  /**
+   * True when the density above is assumed for a food that stores none, rather
+   * than stated by the food itself. The conversion is the same either way; this
+   * only lets a caller say which weights are worth checking.
+   */
+  densityEstimated?: boolean;
   servings?: ServingDefinition[];
 }
 
@@ -185,6 +191,33 @@ export function parseServingSize(raw: string | null | undefined): { amount: numb
   const amount = Number.parseFloat(match[1]);
   if (!Number.isFinite(amount) || amount <= 0) return null;
   return { amount, unit: match[2] };
+}
+
+/**
+ * The density a `serving_size` states outright, in grams per millilitre.
+ *
+ * Open Food Facts publishes no density field, but a minority of products write
+ * their serving as both a volume and a weight - "250 ml (258 g)" - which is a
+ * measured density rather than an assumed one. Where a product says so, that is
+ * worth more than any estimate, so it is read here and stored on the food.
+ */
+export function parseServingDensity(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const text = raw.replace(",", ".").toLowerCase();
+  let grams: number | null = null;
+  let millilitres: number | null = null;
+  for (const match of text.matchAll(/([\d.]+)\s*(kg|mg|g|ml|cl|dl|l)\b/g)) {
+    const amount = Number.parseFloat(match[1]);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const unit = match[2];
+    if (unit in MASS_TO_G) grams ??= amount * MASS_TO_G[unit];
+    else if (unit in VOLUME_TO_ML) millilitres ??= amount * VOLUME_TO_ML[unit];
+  }
+  if (grams === null || millilitres === null) return null;
+  const density = grams / millilitres;
+  // A serving that pairs unrelated numbers - a 500 ml bottle beside a 30 g
+  // portion - would otherwise be stored as a density no food has.
+  return density >= 0.5 && density <= 2 ? density : null;
 }
 
 /** Case/whitespace/punctuation normalisation that keeps brand distinctions intact. */

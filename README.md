@@ -267,8 +267,12 @@ A quick meal accepts text, an image, a public recipe URL, or any combination.
 For a URL, the worker opens the exact submitted address directly (SearXNG is
 never a proxy). It validates DNS and every redirect against private, loopback,
 link-local and reserved networks, permits only standard web ports, follows at
-most three redirects, times out after 10 seconds, accepts HTML/plain text only,
-and rejects responses above 512 KB. No cookies, authorization headers, or
+most three redirects, times out after 10 seconds and accepts HTML/plain text
+only. A page is read up to 512 KB and the rest is abandoned mid-transfer, with
+one exception: the read continues, within a 4 MB budget, to pick up complete
+Recipe JSON-LD blocks that sit past the cap, since publishers routinely put
+them after half a megabyte of markup and inline script. Nothing else from
+beyond the cap is kept. No cookies, authorization headers, or
 application credentials are forwarded. Recipe JSON-LD ingredients are preferred;
 otherwise navigation, scripts, advertisements and boilerplate are stripped from
 the visible main content. At most 20,000 sanitized characters, explicitly marked

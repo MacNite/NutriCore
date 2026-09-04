@@ -21,6 +21,12 @@ export const normalizedFoodSchema = z.object({
   servingAmount: z.number().positive().optional(),
   servingUnit: z.string().optional(),
   servingLabel: z.string().optional(),
+  /**
+   * Grams per millilitre, only where the source states it outright. It is never
+   * estimated here: an assumed density belongs to the code that converts, not
+   * to the record of what the provider said.
+   */
+  densityGPerMl: z.number().positive().optional(),
   /** null means "unknown". It is never coerced to zero. */
   nutrients: z.record(z.string(), z.number().nullable()),
   /**

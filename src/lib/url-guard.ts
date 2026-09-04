@@ -93,6 +93,25 @@ export async function checkUrl(
 export const MAX_RESEARCH_BYTES = 512 * 1024;
 export const MAX_RESEARCH_REDIRECTS = 3;
 export const RESEARCH_TIMEOUT_MS = 10_000;
+/**
+ * How far past the text cap a recipe fetch will keep reading, looking only for
+ * the page's own structured recipe data.
+ *
+ * Half a megabyte of a modern recipe page is mostly inline script and markup,
+ * and publishers routinely put the `Recipe` JSON-LD after all of it. Stopping at
+ * the cap therefore threw away the one part of the document worth having. This
+ * budget bounds that search: nothing but complete JSON-LD blocks is retained
+ * from it, and the request's own timeout still applies to the whole read.
+ */
+export const MAX_RECIPE_SCAN_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Matches one complete `<script type="application/ld+json">…</script>` block.
+ *
+ * A fresh instance per call: a shared global regex carries `lastIndex` between
+ * callers, which silently skips matches for whoever runs second.
+ */
+export const ldJsonScripts = () => /<script\b[^>]*type\s*=\s*["']application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi;
 
 /**
  * Reduces an HTML document to plain text. Script, style and other active

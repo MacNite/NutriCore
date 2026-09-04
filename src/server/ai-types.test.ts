@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PortionContext } from "@/lib/units";
-import { aiJobDestination, componentWeight, ingestionOptions, recipeIngredientAmount, scaleMealComponentsForIntent } from "./ai-types";
+import { aiJobDestination, componentWeight, ingestionOptions, recipeIngredientAmount, scaleMealComponentsForIntent, weighedByAssumedDensity } from "./ai-types";
 
 describe("ingestion intent", () => {
   it.each([
@@ -21,6 +21,13 @@ describe("ingestion intent", () => {
 const flour: PortionContext = { basisUnit: "G", densityGPerMl: null, servings: [] };
 /** A bread that does define a slice, so the source's own words are usable. */
 const bread: PortionContext = { basisUnit: "G", densityGPerMl: null, servings: [{ label: "Scheibe", amount: 1, unit: "Scheibe", gramEquivalent: 30 }] };
+/**
+ * A stock sold by volume that stores no density, as every Open Food Facts
+ * liquid does. Nothing about it can be weighed, so no unit resolves.
+ */
+const brothWithoutDensity: PortionContext = { basisUnit: "ML", densityGPerMl: null, servings: [] };
+/** The same stock once `foodPortionContext` has supplied the assumed density. */
+const broth: PortionContext = { basisUnit: "ML", densityGPerMl: 1, densityEstimated: true, servings: [] };
 
 describe("the weight behind a component", () => {
   it("prefers the chosen candidate, then the component, then the model", () => {
@@ -93,5 +100,48 @@ describe("what a component becomes as a recipe ingredient", () => {
   it("refuses a component that cannot be weighed at all rather than inventing one", () => {
     expect(recipeIngredientAmount({ name: "Gewürze" }, "food", flour)).toBeNull();
     expect(recipeIngredientAmount({ name: "Salz", quantity: 1, unit: "Prise" }, "food", flour)).toBeNull();
+  });
+});
+
+describe("an ingredient whose food cannot be weighed at all", () => {
+  it("is reported as unusable rather than handed on as grams", () => {
+    // The whole recipe import used to fail here. The grams fallback answered
+    // with unit "g" for a food sold by volume with no density, `saveRecipe`
+    // re-resolved that and threw "Cannot resolve portion: density-required",
+    // and one unweighable ingredient destroyed the entire job.
+    expect(recipeIngredientAmount({ name: "Brühe", quantity: 250, unit: "ml", estimatedGrams: 250 }, "food", brothWithoutDensity)).toBeNull();
+    // The same holds however the weight was arrived at.
+    expect(recipeIngredientAmount({ name: "Brühe", quantity: 1, unit: "Schuss", estimatedGrams: 20 }, "food", brothWithoutDensity)).toBeNull();
+    expect(recipeIngredientAmount({ name: "Brühe", quantity: 250, unit: "g" }, "food", brothWithoutDensity)).toBeNull();
+  });
+
+  it("is usable again once a density is assumed for it", () => {
+    // `estimated` stays what it says: a weight the model read off a household
+    // measure. The assumption about the food is a different claim, reported on
+    // its own so the draft can say which of the two a number rests on.
+    expect(recipeIngredientAmount({ name: "Brühe", quantity: 250, unit: "ml" }, "food", broth)).toEqual({ amount: 250, unit: "ml", estimated: false });
+    expect(recipeIngredientAmount({ name: "Brühe", quantity: 1, unit: "Schuss", estimatedGrams: 20 }, "food", broth)).toEqual({ amount: 20, unit: "g", estimated: true });
+  });
+});
+
+describe("weights that rest on an assumed density", () => {
+  it("names the conversions the assumption is carrying", () => {
+    // A millilitre amount of a volume food resolves as a portion without any
+    // density - it only needs one to become a weight - so asking whether the
+    // portion resolved is not enough to tell.
+    expect(weighedByAssumedDensity(250, "ml", broth)).toBe(true);
+    expect(weighedByAssumedDensity(20, "g", broth)).toBe(true);
+  });
+
+  it("says nothing about a food that states its own density", () => {
+    const milk: PortionContext = { basisUnit: "ML", densityGPerMl: 1.03, servings: [] };
+    expect(recipeIngredientAmount({ name: "Milch", quantity: 250, unit: "ml" }, "food", milk)).toEqual({ amount: 250, unit: "ml", estimated: false });
+    expect(weighedByAssumedDensity(250, "ml", milk)).toBe(false);
+  });
+
+  it("says nothing about a conversion that needed no density at all", () => {
+    expect(weighedByAssumedDensity(200, "g", flour)).toBe(false);
+    // An unusable quantity is not a weight the assumption carried.
+    expect(weighedByAssumedDensity(1, "EL", broth)).toBe(false);
   });
 });

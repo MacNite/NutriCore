@@ -28,10 +28,20 @@ carried data so the UI can say "63 % coverage" instead of "0 mg".
 `NutrientDefinition` + `FoodNutrient` is a normalised catalogue, so a new
 micronutrient is a seed row, not a migration.
 
-Mass and volume are only converted through a stored `densityGPerMl`. Without
-one the conversion fails loudly — 1 ml is never assumed to be 1 g. Named
-portions ("slice", "Scheibe") must carry a resolved gram or millilitre
-equivalent; they are never guessed. Raw and cooked foods are separate records.
+Mass and volume are only converted through a `densityGPerMl`. The resolver
+itself never assumes one: without a density the conversion fails loudly, and
+1 ml is never taken to be 1 g. Named portions ("slice", "Scheibe") must carry a
+resolved gram or millilitre equivalent; they are never guessed. Raw and cooked
+foods are separate records.
+
+Where a food is sold by volume and stores no density — which is every liquid
+Open Food Facts supplies, as it publishes no such field — `foodPortionContext`
+supplies an assumed one from `lib/density.ts` so the food can be used as a
+recipe ingredient at all. That assumption is made only for a millilitre basis,
+never for a solid, is flagged as `densityEstimated` so a draft can name the
+weights resting on it, and is always beaten by a density the food actually
+states. Open Food Facts servings that give both measures ("250 ml (258 g)") are
+read as a real density and stored.
 
 Source energy is authoritative. `calculatedEnergyKcal` exists only as a
 diagnostic and never overwrites a provider's value.

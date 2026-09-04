@@ -18,7 +18,7 @@ vi.mock("@/lib/env", () => ({ researchEnabled: () => false }));
 vi.mock("@/providers/ollama", () => ({ OllamaProvider: class {} }));
 vi.mock("./component-resolver", () => ({ resolveComponent }));
 vi.mock("./meal-url", () => ({ fetchMealPage: vi.fn(async () => ({ url: "https://example.test/r", title: "Pfannkuchen", excerpt: "Zutaten:\n- 200 g Mehl", recipeFound: true, structuredRecipe: { name: "Pfannkuchen", description: "Dünne Pfannkuchen von der Seite.", ingredientLines: ["200 g Mehl"], instructions: "1. Mehl abwiegen.\n2. Backen." } })) }));
-vi.mock("./recipes", () => ({ saveRecipe: vi.fn(async () => ({ recipe: { id: "recipe-1", name: "Pfannkuchen" }, food: null })) }));
+vi.mock("./recipes", () => ({ saveRecipe: vi.fn(async () => ({ recipe: { id: "recipe-1", name: "Pfannkuchen" }, food: null, skipped: [] })) }));
 
 import { runRecipeImport } from "./ai-ingestion";
 import { saveRecipe } from "./recipes";
@@ -247,5 +247,54 @@ describe("storing the draft", () => {
     ingestionInput.findUnique.mockResolvedValue(input({ intent: "MEAL" }));
 
     await expect(run()).rejects.toThrow();
+  });
+});
+
+describe("an ingredient whose food is sold by volume", () => {
+  /** Every Open Food Facts liquid: a millilitre basis and no density at all. */
+  const stock = { id: "food-stock", name: "Gemüsebrühe", basisAmount: 100, basisUnit: "ML", densityGPerMl: null, servings: [] };
+
+  beforeEach(() => {
+    ai.complete.mockResolvedValue({ ...extraction, components: [{ name: "Gemüsebrühe", quantity: 500, unit: "ml" }] });
+    food.findUnique.mockResolvedValue(stock);
+    resolveComponent.mockResolvedValue({ selectedFoodId: "food-stock", candidates: [{ foodId: "food-stock", grams: 500 }], grams: 500, gramsSource: "UNIT" });
+  });
+
+  it("keeps it, and says the weight rests on an assumed density", async () => {
+    // This is the case that used to fail the entire import with "Cannot resolve
+    // portion: density-required" - not the one ingredient, the whole job.
+    const draft = await run();
+
+    expect(draft.ingredients).toEqual([expect.objectContaining({ foodId: "food-stock", amount: 500, unit: "ml" })]);
+    expect(draft.unconverted).toEqual([]);
+    expect(draft.assumedDensity).toEqual(["Gemüsebrühe (500 ml)"]);
+  });
+
+  it("reports it instead of failing when the save cannot weigh it either", async () => {
+    // The save re-reads the food in its own transaction and can still reject an
+    // ingredient this side accepted. A partial recipe beats no recipe.
+    vi.mocked(saveRecipe).mockResolvedValueOnce({
+      recipe: { id: "recipe-1", name: "Suppe" }, food: null,
+      skipped: [{ foodId: "food-stock", name: "Gemüsebrühe", amount: 500, unit: "ml", reason: "density-required" }],
+    } as never);
+
+    const draft = await run();
+
+    expect(draft.ingredients).toEqual([]);
+    expect(draft.unconverted).toEqual(["Gemüsebrühe (500 ml)"]);
+    // It is not in the recipe, so nothing may still describe how it was weighed.
+    expect(draft.assumedDensity).toEqual([]);
+  });
+
+  it("reports a household measure it cannot weigh at all", async () => {
+    // No stated quantity to convert and no model weight either: there is no
+    // number to put in the recipe, so it is named rather than invented.
+    ai.complete.mockResolvedValue({ ...extraction, components: [{ name: "Gemüsebrühe", quantity: 1, unit: "Schuss" }] });
+    resolveComponent.mockResolvedValue({ selectedFoodId: "food-stock", candidates: [{ foodId: "food-stock", grams: null }], grams: null, gramsSource: "NONE" });
+
+    const draft = await run();
+
+    expect(draft.ingredients).toEqual([]);
+    expect(draft.unconverted).toEqual(["Gemüsebrühe (1 Schuss)"]);
   });
 });

@@ -16,13 +16,16 @@ import {
   type NutritionSource,
   type ResearchResult,
 } from "@/lib/research";
-import { asUntrustedExcerpt, checkUrl, MAX_RESEARCH_BYTES, MAX_RESEARCH_REDIRECTS, RESEARCH_TIMEOUT_MS, sanitizeHtml } from "@/lib/url-guard";
+import { asUntrustedExcerpt, checkUrl, ldJsonScripts, MAX_RECIPE_SCAN_BYTES, MAX_RESEARCH_BYTES, MAX_RESEARCH_REDIRECTS, RESEARCH_TIMEOUT_MS, sanitizeHtml } from "@/lib/url-guard";
 import { normalizeName } from "@/lib/units";
+import { estimatedDensityGPerMl } from "@/lib/density";
 import { OllamaProvider } from "@/providers/ollama";
 import { requireUser, type SessionUser } from "./session";
 import { jobPriority } from "./ai-types";
 import { repairResearchResult } from "./ai-repair";
 import { visibleFoodWhere } from "./foods";
+import { saveRecipe } from "./recipes";
+import { NotFoundError, PortionError } from "./diary";
 import { validDateKey } from "@/lib/date";
 
 /**
@@ -59,6 +62,42 @@ async function transition(id: string, userId: string, to: ResearchStatus, data: 
   return prisma.researchJob.update({ where: { id }, data: { ...data, status: to } });
 }
 
+/** Joins the retained chunks into one buffer of exactly `size` bytes. */
+const concat = (parts: Uint8Array[], size: number) => {
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const part of parts) {
+    bytes.set(part.subarray(0, Math.min(part.byteLength, size - offset)), offset);
+    offset += part.byteLength;
+    if (offset >= size) break;
+  }
+  return bytes;
+};
+
+const decode = (bytes: Uint8Array) =>
+  // `fatal: false` so a multi-byte character split by a cap degrades to a
+  // replacement character rather than throwing away the whole page.
+  new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+
+/**
+ * The page's complete `Recipe` JSON-LD blocks that the text cap cut off.
+ *
+ * Only blocks that are not already whole inside the retained prefix are
+ * returned, and only ones that actually name a recipe: everything else on the
+ * far side of the cap is discarded unread. Appending these to the prefix is
+ * what lets a publisher who puts their structured data at the end of a very
+ * long document still be imported.
+ */
+function recipeJsonLdBeyond(combined: string, prefixLength: number): string[] {
+  const blocks: string[] = [];
+  for (const match of combined.matchAll(ldJsonScripts())) {
+    if (match.index === undefined || match.index + match[0].length <= prefixLength) continue;
+    if (!/"recipe"/i.test(match[1])) continue;
+    blocks.push(match[0]);
+  }
+  return blocks;
+}
+
 /**
  * Reads the first `MAX_RESEARCH_BYTES` of a response and abandons the rest.
  *
@@ -67,13 +106,22 @@ async function transition(id: string, userId: string, to: ResearchStatus, data: 
  * for a modern recipe site, and the page was downloaded in full before being
  * thrown away. Only the first 20,000 characters of text are ever used anyway, so
  * a prefix is not a worse source - it is the same source, fetched cheaply.
+ *
+ * `keepRecipeJsonLd` keeps scanning past that cap, within its own budget, for
+ * the structured recipe data the cap would otherwise have cut off - see
+ * `MAX_RECIPE_SCAN_BYTES`. Nothing else from beyond the cap is retained.
  */
-async function readCapped(response: Response, rejectOversize = false): Promise<{ bytes: Uint8Array; truncated: boolean }> {
-  if (!response.body) return { bytes: new Uint8Array(), truncated: false };
+async function readCapped(
+  response: Response,
+  options: { keepRecipeJsonLd?: boolean } = {},
+): Promise<{ text: string; truncated: boolean }> {
+  if (!response.body) return { text: "", truncated: false };
 
   const reader = response.body.getReader();
   const parts: Uint8Array[] = [];
+  const beyond: Uint8Array[] = [];
   let size = 0;
+  let beyondSize = 0;
   let truncated = false;
 
   try {
@@ -81,32 +129,41 @@ async function readCapped(response: Response, rejectOversize = false): Promise<{
       const { done, value } = await reader.read();
       if (done) break;
       if (!value) continue;
-      const room = MAX_RESEARCH_BYTES - size;
-      if (value.byteLength > room || (!rejectOversize && value.byteLength === room)) {
-        if (rejectOversize) throw new Error("source-too-large");
-        parts.push(value.subarray(0, room));
-        size += room;
-        truncated = true;
-        break;
+      if (!truncated) {
+        const room = MAX_RESEARCH_BYTES - size;
+        if (value.byteLength >= room) {
+          parts.push(value.subarray(0, room));
+          size += room;
+          truncated = true;
+          if (!options.keepRecipeJsonLd) break;
+          const overflow = value.subarray(room);
+          beyond.push(overflow);
+          beyondSize += overflow.byteLength;
+          continue;
+        }
+        parts.push(value);
+        size += value.byteLength;
+        continue;
       }
-      parts.push(value);
-      size += value.byteLength;
+      // Past the cap the bytes are only searched, never kept as page text.
+      if (beyondSize >= MAX_RECIPE_SCAN_BYTES) break;
+      beyond.push(value);
+      beyondSize += value.byteLength;
     }
   } finally {
     // Releasing without draining tells the transport to stop sending.
     await reader.cancel().catch(() => undefined);
   }
 
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const part of parts) {
-    bytes.set(part, offset);
-    offset += part.byteLength;
-  }
-  return { bytes, truncated };
+  const prefix = decode(concat(parts, size));
+  if (!beyondSize) return { text: prefix, truncated };
+  // Decoded as one buffer so a character split across the cap is still read
+  // correctly, which a block starting right at the boundary depends on.
+  const combined = decode(concat([...parts, ...beyond], size + Math.min(beyondSize, MAX_RECIPE_SCAN_BYTES)));
+  return { text: [prefix, ...recipeJsonLdBeyond(combined, prefix.length)].join("\n"), truncated };
 }
 
-export async function fetchResearchSource(raw: string, options: { strictSize?: boolean; fetch?: typeof fetch; preserveHtml?: boolean } = {}) {
+export async function fetchResearchSource(raw: string, options: { fetch?: typeof fetch; preserveHtml?: boolean; keepRecipeJsonLd?: boolean } = {}) {
   const request = options.fetch ?? fetch;
   let current = raw;
   for (let redirects = 0; redirects <= MAX_RESEARCH_REDIRECTS; redirects++) {
@@ -122,12 +179,10 @@ export async function fetchResearchSource(raw: string, options: { strictSize?: b
     if (!response.ok) throw new Error(`source-http-${response.status}`);
     const contentType = (response.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase();
     if (!new Set(["text/html", "application/xhtml+xml", "text/plain"]).has(contentType)) throw new Error("source-unsupported-content");
-    const announced = Number(response.headers.get("content-length"));
-    if (options.strictSize && Number.isFinite(announced) && announced > MAX_RESEARCH_BYTES) throw new Error("source-too-large");
-    const { bytes, truncated } = await readCapped(response, options.strictSize);
-    // `fatal: false` so a multi-byte character split by the cap degrades to a
-    // replacement character rather than throwing away the whole page.
-    const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    // No size is refused up front. A declared `content-length` is the compressed
+    // length, which the cap - counted on decompressed bytes - cannot be compared
+    // against anyway, and both callers now read a prefix rather than reject.
+    const { text, truncated } = await readCapped(response, { keepRecipeJsonLd: options.keepRecipeJsonLd });
     return { url: checked.url.toString(), title: checked.url.hostname, excerpt: options.preserveHtml ? text : sanitizeHtml(text), truncated };
   }
   throw new Error("source-redirect-limit");
@@ -139,8 +194,9 @@ export type SourceErrorReason = "blocked" | "unreachable" | "tooLarge" | "redire
 function sourceErrorReason(error: unknown): SourceErrorReason {
   const message = error instanceof Error ? error.message : "";
   if (message.startsWith("unsafe-source:")) return "blocked";
-  // Retained for candidate payloads stored before the fetch started reading a
-  // capped prefix instead of rejecting an over-sized page.
+  // No fetch raises this any more - both callers read a capped prefix instead of
+  // rejecting an over-sized page - but candidate payloads and failed jobs stored
+  // before that change still carry it, and they are still rendered.
   if (message === "source-too-large") return "tooLarge";
   if (message === "source-redirect-limit") return "redirects";
   if (message.startsWith("source-http-")) return "http";
@@ -330,7 +386,9 @@ export async function runResearchJob(researchJobId: string, deps: { ai?: OllamaP
 
   const confidence = scoreConfidence({
     sourceCount: sources.length,
-    sourcesAgree: true,
+    // Nothing here compares one source against another, so neither the
+    // agreement bonus nor the conflict penalty has been earned.
+    sourcesAgree: null,
     matchedIngredientRatio: matches.filter((m) => m.foodId).length / matches.length,
     allQuantitiesPresent: true,
     knownServingWeight: Boolean(result.estimatedServingWeightG),
@@ -343,7 +401,13 @@ export async function runResearchJob(researchJobId: string, deps: { ai?: OllamaP
   // How much the dish weighs is a property of the dish, so it is taken from
   // the model's own quantities rather than from whatever happened to match:
   // otherwise an unmatched ingredient would shrink the portion the user logs.
-  const statedWeightG = result.ingredients.filter((i) => i.unit !== "piece").reduce((sum, i) => sum + i.amount, 0);
+  const statedWeightG = result.ingredients.reduce((sum, i) => {
+    if (i.unit === "g") return sum + i.amount;
+    // Millilitres were added as though they were grams, which quietly reported
+    // a litre of stock as a kilogram. The schema allows no other unit here.
+    if (i.unit === "ml") return sum + i.amount * estimatedDensityGPerMl(i.name);
+    return sum;
+  }, 0);
   const totalWeightG = yieldWeightG ?? (statedWeightG > 0 ? statedWeightG : undefined);
   const payload: CandidatePayload = {
     result: safeResult,
@@ -406,6 +470,61 @@ function researchFoodData(
   };
 }
 
+/**
+ * Stores an accepted research recipe through the same save every other recipe
+ * goes through.
+ *
+ * It used to write `Recipe` and `RecipeIngredient` rows directly, which meant no
+ * ingredient was ever resolved: `normalizedGrams` was filled only for a `g`
+ * amount, so every millilitre and every counted ingredient was stored with no
+ * weight at all. `getRecipe` reads those back as zero grams and zero nutrition,
+ * and the first edit of such a recipe failed the save outright. Going through
+ * `saveRecipe` resolves each ingredient against its food exactly as the recipe
+ * form does, and drops the ones that cannot be weighed instead of storing a
+ * broken row.
+ *
+ * It is saved as a draft on purpose. The loggable food for this run is the one
+ * `researchFoodData` creates - it carries the model's own nutrition, which is
+ * better than a partial ingredient list where little matched - so giving the
+ * recipe a second Food would duplicate the dish in every search. A draft has
+ * none, and the ingredient list stays there to be reviewed and confirmed.
+ */
+export async function saveResearchRecipe(userId: string, payload: CandidatePayload, sources: { title: string; url: string }[]) {
+  const ingredients = payload.matches
+    .filter((match) => match.foodId)
+    .map((match) => ({ foodId: match.foodId!, amount: match.amount, unit: match.unit }));
+  if (!ingredients.length) return null;
+
+  let saved;
+  try {
+    saved = await saveRecipe(userId, {
+      name: payload.result.name,
+      description: payload.result.description,
+      servings: payload.result.servings,
+      yieldWeightG: payload.yieldWeightG ?? null,
+      tags: [],
+      ingredients,
+    }, undefined, { status: "DRAFT", sourceType: "AI_RESEARCH" });
+  } catch (error) {
+    // Only the two failures that mean "these ingredients cannot make a recipe".
+    // The estimate itself is still loggable, so those cost the ingredient list
+    // rather than the run - but a database fault is not one of them, and
+    // swallowing it here would hide it behind a recipe that silently vanished.
+    if (!(error instanceof PortionError) && !(error instanceof NotFoundError)) throw error;
+    logger.warn("Accepted research result was not stored as a recipe", {
+      reason: error.message,
+    });
+    return null;
+  }
+
+  if (sources.length) {
+    await prisma.recipeSource.createMany({
+      data: sources.map((source) => ({ recipeId: saved.recipe.id, title: source.title, url: source.url, provider: "USER_URL" as const, retrievedAt: new Date() })),
+    });
+  }
+  return saved.recipe;
+}
+
 export async function decideResearchAction(formData: FormData) {
   "use server";
   const user = await requireUser();
@@ -426,20 +545,7 @@ export async function decideResearchAction(formData: FormData) {
   const meal = job.meal ?? "SNACKS";
   const isRecipe = payload.result.kind === "recipe";
 
-  if (isRecipe) {
-    await prisma.recipe.create({
-      data: {
-        ownerId: user.id,
-        name: payload.result.name,
-        description: payload.result.description,
-        servings: payload.result.servings,
-        yieldWeightG: payload.yieldWeightG,
-        sourceType: "AI_RESEARCH",
-        ingredients: { create: payload.matches.filter((m) => m.foodId).map((m, position) => ({ foodId: m.foodId!, amount: m.amount, unit: m.unit, normalizedGrams: m.unit === "g" ? m.amount : null, normalizedMl: m.unit === "ml" ? m.amount : null, position })) },
-        sources: { create: job.sources.map((s) => ({ title: s.title, url: s.url, provider: "USER_URL", retrievedAt: new Date() })) },
-      },
-    });
-  }
+  if (isRecipe) await saveResearchRecipe(user.id, payload, job.sources);
 
   const food = await prisma.food.create({
     data: researchFoodData(user, payload, { model: job.model, sources: job.sources }, candidate.confidence ?? 0, isRecipe),

@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { validateReferenceUrl } from "./research";
+import { saveResearchRecipe, validateReferenceUrl } from "./research";
+import { saveRecipe } from "./recipes";
+import { prisma } from "@/lib/db";
+import { PortionError } from "./diary";
 
-vi.mock("@/lib/db", () => ({ prisma: {} }));
+vi.mock("@/lib/db", () => ({ prisma: { recipeSource: { createMany: vi.fn() } } }));
+vi.mock("./recipes", () => ({ saveRecipe: vi.fn(async () => ({ recipe: { id: "recipe-1" }, food: null, skipped: [] })) }));
 
 /** `env()` caches its parse, so each case needs a fresh module graph. */
 async function load(values: Record<string, string>) {
@@ -49,5 +53,53 @@ describe("availability", () => {
 
     const off = await load({ AI_ENABLED: "true", RESEARCH_ENABLED: "false" });
     expect(off.webSourcesAvailable({ researchEnabled: true })).toBe(false);
+  });
+});
+
+describe("storing an accepted research recipe", () => {
+  const payload = {
+    result: { name: "Gemüsesuppe", description: "", servings: 2, kind: "recipe" as const },
+    matches: [
+      { name: "Brühe", amount: 500, unit: "ml", foodId: "food-stock", foodName: "Brühe" },
+      { name: "Möhren", amount: 200, unit: "g", foodId: "food-carrot", foodName: "Möhren" },
+      { name: "Petersilie", amount: 1, unit: "piece", foodId: null, foodName: null },
+    ],
+    yieldWeightG: 700,
+  };
+
+  beforeEach(() => vi.mocked(saveRecipe).mockClear());
+
+  it("goes through the recipe save rather than writing rows itself", async () => {
+    // Writing them directly stored a weight only for a `g` amount, so every
+    // millilitre and every counted ingredient was saved with none - read back
+    // later as zero grams and zero nutrition, and unsavable on the first edit.
+    await saveResearchRecipe("user-1", payload as never, [{ title: "Quelle", url: "https://example.org/s" }]);
+
+    expect(vi.mocked(saveRecipe).mock.calls[0][1]).toMatchObject({
+      name: "Gemüsesuppe",
+      servings: 2,
+      yieldWeightG: 700,
+      ingredients: [
+        { foodId: "food-stock", amount: 500, unit: "ml" },
+        { foodId: "food-carrot", amount: 200, unit: "g" },
+      ],
+    });
+    // A draft, so the run's own estimated food stays the single loggable entry
+    // for the dish rather than being duplicated by the recipe's.
+    expect(vi.mocked(saveRecipe).mock.calls[0][3]).toMatchObject({ status: "DRAFT", sourceType: "AI_RESEARCH" });
+    expect(prisma.recipeSource.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({ recipeId: "recipe-1", url: "https://example.org/s" })],
+    }));
+  });
+
+  it("keeps the loggable estimate when no ingredient can be weighed", async () => {
+    vi.mocked(saveRecipe).mockRejectedValueOnce(new PortionError("density-required"));
+    await expect(saveResearchRecipe("user-1", payload as never, [])).resolves.toBeNull();
+  });
+
+  it("writes no recipe at all when nothing matched a food", async () => {
+    const unmatched = { ...payload, matches: [{ name: "Petersilie", amount: 1, unit: "piece", foodId: null, foodName: null }] };
+    await expect(saveResearchRecipe("user-1", unmatched as never, [])).resolves.toBeNull();
+    expect(saveRecipe).not.toHaveBeenCalled();
   });
 });
