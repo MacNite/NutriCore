@@ -123,6 +123,8 @@
     "ineligible": "For people under 18, during pregnancy or while breastfeeding NutriCore does not calculate a weight-change target. Please use a target agreed with a healthcare professional.",
     "needsProfile": "Add your height, weight, date of birth and biological sex to calculate a target — or enter one manually.",
     "macros": "Macro targets",
+    "micros": "Micro targets",
+    "nutrientOverrideHint": "Nutrients left empty continue to use the calculated target where one is available.",
     "protein": "Protein",
     "carbohydrate": "Carbohydrates",
     "fat": "Fat"

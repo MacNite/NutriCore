@@ -406,6 +406,11 @@ a:hover {
 
 .nutrition-subtitle { margin: -8px 0 16px; }
 .progress-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; }
+.card > summary { cursor: pointer; color: var(--text); }
+.card > summary h2 { display: inline; margin: 0; }
+.card[open] > summary { margin-bottom: 18px; }
+.target-fields { margin: 20px 0; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.target-fields legend { padding: 0 6px; font-weight: 700; }
 .progress-tabs .btn { padding: 7px 13px; }
 .progress-tabs [aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-soft-text); }
 .progress-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }

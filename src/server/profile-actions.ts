@@ -9,6 +9,7 @@ import { requireUser } from "./session";
 import { recalculateTarget } from "./targets";
 import { LOCALES } from "@/i18n/locales";
 import { logger } from "@/lib/logger";
+import { NUTRIENTS } from "@/lib/nutrients";
 
 export interface FormState {
   ok?: boolean;
@@ -120,13 +121,21 @@ export async function saveTargetOverrideAction(_state: FormState, formData: Form
   const parsed = overrideSchema.safeParse(formData.get("overrideKcal") ?? "");
   if (!parsed.success) return { error: "validation" };
 
+  const nutrientEntries = NUTRIENTS.filter((nutrient) => nutrient.key !== "energyKcal" && nutrient.key !== "energyKj").map((nutrient) => {
+    const value = optionalNumber(0.0001, 1_000_000).safeParse(formData.get(`nutrient-${nutrient.key}`) ?? "");
+    return [nutrient.key, value] as const;
+  });
+  if (nutrientEntries.some(([, value]) => !value.success)) return { error: "validation" };
+  const manualNutrients = Object.fromEntries(nutrientEntries.flatMap(([key, value]) => value.success && value.data !== null ? [[key, value.data]] : []));
+
   const latest = await prisma.nutritionTarget.findFirst({ where: { userId: user.id }, orderBy: { validFrom: "desc" } });
-  if (latest) await prisma.nutritionTarget.update({ where: { id: latest.id }, data: { overrideKcal: parsed.data } });
-  else await prisma.nutritionTarget.create({ data: { userId: user.id, overrideKcal: parsed.data } });
+  if (latest) await prisma.nutritionTarget.update({ where: { id: latest.id }, data: { overrideKcal: parsed.data, manualNutrients } });
+  else await prisma.nutritionTarget.create({ data: { userId: user.id, overrideKcal: parsed.data, manualNutrients } });
 
   await recalculateTarget(user.id);
   revalidatePath("/");
   revalidatePath("/settings");
+  revalidatePath("/progress");
   return { ok: true };
 }
 
