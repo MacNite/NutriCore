@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialPortion, portionPreview, portionUnits, type FoodShape } from "./portion";
+import { initialPortion, portionPreview, portionUnits, preferredInitialPortion, type FoodShape } from "./portion";
 
 const food = (overrides: Partial<FoodShape> = {}): FoodShape => ({
   id: "food-1",
@@ -74,5 +74,22 @@ describe("initialPortion", () => {
     // A serving unit with no serving size never reaches the dropdown, so the
     // preview would otherwise scale a portion the form cannot show.
     expect(initialPortion(food({ servingUnit: "Scheibe" }))).toEqual({ quantity: "100", unit: "g" });
+  });
+});
+
+describe("preferredInitialPortion", () => {
+  it("restores the user's last quantity and unit", () => {
+    expect(preferredInitialPortion(food(), { quantity: 80, unit: "g" })).toEqual({ quantity: "80", unit: "g" });
+    expect(preferredInitialPortion(food({ basisUnit: "ML" }), { quantity: 0.5, unit: "l" })).toEqual({ quantity: "0.5", unit: "l" });
+  });
+
+  it("restores a named serving that the food still offers", () => {
+    const sliced = food({ servings: [{ label: "Scheibe", gramEquivalent: 25, mlEquivalent: null }] });
+    expect(preferredInitialPortion(sliced, { quantity: 2, unit: "Scheibe" })).toEqual({ quantity: "2", unit: "Scheibe" });
+  });
+
+  it("falls back when the remembered portion is no longer valid", () => {
+    expect(preferredInitialPortion(food(), { quantity: 2, unit: "Scheibe" })).toEqual({ quantity: "100", unit: "g" });
+    expect(preferredInitialPortion(food(), { quantity: 0, unit: "g" })).toEqual({ quantity: "100", unit: "g" });
   });
 });

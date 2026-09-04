@@ -48,6 +48,23 @@ export function initialPortion(food: FoodShape): { quantity: string; unit: strin
   };
 }
 
+/** Prefer a user's last valid input while retaining the food serving fallback. */
+export function preferredInitialPortion(
+  food: FoodShape,
+  remembered: { quantity: number; unit: string } | null,
+): { quantity: string; unit: string } {
+  if (
+    remembered &&
+    Number.isFinite(remembered.quantity) &&
+    remembered.quantity > 0 &&
+    portionUnits(food).includes(remembered.unit)
+  ) {
+    return { quantity: String(remembered.quantity), unit: remembered.unit };
+  }
+
+  return initialPortion(food);
+}
+
 export function foodPortionContext(food: FoodShape): PortionContext {
   return {
     basisUnit: food.basisUnit === "ML" ? "ML" : "G",
