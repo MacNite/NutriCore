@@ -257,7 +257,8 @@ point `SEARXNG_URL` at the operator's existing instance with JSON output enabled
 a free-text meal (`MEAL_INPUT`), logging a recipe to the diary (`RECIPE_LOG`),
 AI food research (`RESEARCH`), and creating a recipe from a link, an image or
 free text (`RECIPE_IMPORT`). Backfilling missing nutrition (`FOOD_ENRICHMENT`)
-is background work and runs behind all of them - see the priority note below.
+is background work and runs behind all of them, and recipe creation runs ahead
+of all of them - see the priority note below.
 The review pages refresh themselves while the worker is busy, so a queued job
 does not look like a broken one.
 
@@ -426,9 +427,14 @@ they are worth knowing about because the symptoms were indistinguishable:
   unusable value is dropped, never replaced with a guess, and the component is
   reported as skipped exactly as before.
 
-Two queue properties matter alongside them. `AiJob.priority` puts work a user is
-waiting for ahead of background enrichment, because a chronological queue put
-every quick meal behind an entire backfill sweep. And the worker reclaims a job
+Two queue properties matter alongside them. `AiJob.priority` decides what the
+worker takes next, in three bands written by `jobPriority`: recipe creation (20)
+first, then everything else a user is waiting for (10), then background
+enrichment (0). Enrichment sits at the bottom because a chronological queue put
+every quick meal behind an entire backfill sweep; recipe creation sits at the top
+because it is the longest run the worker has and the one whose page a user is
+watching fill in, so waiting behind a few quick meals reads as a broken import.
+Ties within a band are still served oldest first. And the worker reclaims a job
 left `RUNNING` by a worker that died - a claim is conditional on `QUEUED`, so
 otherwise nothing ever picked it up again.
 

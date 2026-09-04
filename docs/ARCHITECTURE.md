@@ -127,7 +127,9 @@ is interpretation rather than fact.
 
 Every AI feature is a queued `AiJob`, never inline work in a request: a local
 model can take minutes, which no page interaction survives. `AiJob.priority`
-keeps work a user is waiting for ahead of background enrichment, and the worker
+keeps recipe creation ahead of the other work a user is waiting for and all of
+that ahead of background enrichment - the recipe run is the longest one the
+worker has and the one a reader is watching a page fill in for - and the worker
 reclaims jobs left `RUNNING` by a worker that died, since a claim is conditional
 on `QUEUED` and nothing else would ever pick them up.
 

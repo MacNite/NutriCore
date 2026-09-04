@@ -35,7 +35,8 @@ vi.mock("./ai-approval", () => ({ autoApproveProposal: vi.fn() }));
 vi.mock("./meal-image", () => ({ discardMealInputImage: vi.fn() }));
 
 import { claimNextJob, findConservativeDuplicate, mealParseSchema, processNextAiJob, reclaimStaleJobs, scaleMealComponentsToServing } from "./ai-jobs";
-import { decideComponents, jobPriority, STUCK_RUNNING_MS } from "./ai-types";
+import { decideComponents, jobPriority, JOB_PRIORITY, STUCK_RUNNING_MS } from "./ai-types";
+import { queueAiIngestion } from "./ai-ingestion-queue";
 import { failResearchJob, runResearchJob } from "./research";
 import { runRecipeImport } from "./ai-ingestion";
 import { resolveComponent } from "./component-resolver";
@@ -101,6 +102,44 @@ describe("what the worker picks up next", () => {
   it("puts background backfilling behind work a user is waiting for", () => {
     expect(jobPriority("FOOD_ENRICHMENT")).toBeLessThan(jobPriority("MEAL_INPUT"));
     expect(jobPriority("MEAL_INPUT")).toBe(jobPriority("RECIPE_LOG"));
+  });
+
+  it("puts recipe generation ahead of every other kind of work", () => {
+    const recipe = jobPriority("AI_INGESTION", "RECIPE");
+    for (const other of [
+      jobPriority("AI_INGESTION", "MEAL"),
+      jobPriority("AI_INGESTION"),
+      jobPriority("BODY_SCAN"),
+      jobPriority("RESEARCH"),
+      jobPriority("RECIPE_LOG"),
+      jobPriority("FOOD_ENRICHMENT"),
+    ]) {
+      expect(recipe).toBeGreaterThan(other);
+    }
+    // The name the same work carried before the ingestion paths were unified.
+    expect(jobPriority("RECIPE_IMPORT")).toBe(recipe);
+  });
+
+  it("queues a recipe import in the recipe band and a quick meal below it", async () => {
+    const created: Array<{ priority?: number }> = [];
+    const tx = {
+      aiIngestionInput: { create: vi.fn(async () => ({ id: "input-1" })) },
+      aiJob: { create: vi.fn(async ({ data }: { data: { priority?: number } }) => created.push(data)) },
+    };
+    // Only for the two calls below: the rest of this file relies on the
+    // array-form transaction the mock is built with.
+    const interactive = async (run: unknown) => {
+      await (run as (t: typeof tx) => Promise<unknown>)(tx);
+      return [];
+    };
+    prismaMock.$transaction.mockImplementationOnce(interactive).mockImplementationOnce(interactive);
+
+    const input = { userId: "user-1", text: "two eggs", sourceUrl: null, servings: 1, imageMime: null, imageData: null, imageExpiresAt: null };
+    await queueAiIngestion({ ...input, intent: "RECIPE" });
+    await queueAiIngestion({ ...input, intent: "MEAL" });
+
+    expect(created[0].priority).toBe(JOB_PRIORITY.RECIPE_GENERATION);
+    expect(created[1].priority).toBe(JOB_PRIORITY.USER_FACING);
   });
 
   /**
