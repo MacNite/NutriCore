@@ -16,6 +16,13 @@ const NAV = [
 /** Bottom navigation keeps the most-used destinations within thumb reach. */
 const MOBILE_NAV = NAV;
 
+// These are destinations in the app's primary hierarchy, even when they are
+// reached through the account menu rather than the three-item navigation.
+// Giving them a history back button made the shared top bar shift away from
+// the stable layout used on Today. Detail and editor screens still keep the
+// contextual way back.
+const TOP_LEVEL_PATHS = new Set(["/", "/foods", "/progress", "/settings", "/admin"]);
+
 export function AppShell({ displayName, children, hasFab }: { displayName: string; children: React.ReactNode; hasFab?: boolean }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
@@ -33,7 +40,7 @@ export function AppShell({ displayName, children, hasFab }: { displayName: strin
     <>
       <div className={hasFab ? "shell shell--with-fab" : "shell"}>
         <header className="topbar">
-          {pathname !== "/" && <BackButton />}
+          {!TOP_LEVEL_PATHS.has(pathname) && <BackButton />}
 
           <Link className="brand" href="/">
             <span className="brand-mark" aria-hidden="true">

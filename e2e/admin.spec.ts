@@ -17,6 +17,7 @@ test("an administrator reaches the panel from settings and gets an invitation li
   await page.getByRole("link", { name: /^administration$/i }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("heading", { name: /^administration$/i })).toBeVisible();
+  await expect(page.locator("header.topbar .back-button")).toHaveCount(0);
 
   const invitee = `invitee${Date.now().toString(36)}@example.test`;
   await page.getByLabel(/^e-?mail$/i).fill(invitee);
