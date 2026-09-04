@@ -15,6 +15,7 @@ import type { RecipeImportDraft } from "@/server/ai-ingestion-actions";
 import { aiEnrichmentMetadata } from "@/server/food-enrichment";
 import { prisma } from "@/lib/db";
 import { ComponentChoice, type ChoiceLabels } from "@/app/ai-review/[id]/component-choice";
+import { lastRecipePortion } from "@/server/last-portions";
 
 export default async function RecipePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ unsaved?: string }> }) {
   const user = await getSessionUser(); if (!user) redirect("/login"); const { id } = await params;
@@ -28,6 +29,7 @@ export default async function RecipePage({ params, searchParams }: { params: Pro
   const sharing = await getTranslations("sharing");
   const draft = recipe.status === "DRAFT";
   const publication = draft ? null : await publicationForRecipe(user.id, id);
+  const rememberedPortion = draft ? null : await lastRecipePortion(user.id, id);
   // What the extraction could not place. Kept on the import rather than on the
   // recipe, because it is a note about one run, not part of the recipe itself.
   const importRecord = draft && recipe.importId
@@ -49,7 +51,7 @@ export default async function RecipePage({ params, searchParams }: { params: Pro
       {recipe.instructions ? <section className="card"><h2>{t("instructions")}</h2><p style={{ whiteSpace: "pre-wrap" }}>{recipe.instructions}</p></section> : null}</div>
       <aside><section className="card"><dl><dt>{t("servings")}</dt><dd>{formatNumber(Number(recipe.servings), user.language)}</dd><dt>{t("yieldWeight")}</dt><dd>{formatNumber(nutrition.finalWeightG, user.language)} g</dd><dt>{t("portionWeight")}</dt><dd>{formatNumber(nutrition.portionWeightG, user.language)} g</dd></dl>{recipe.tags.length ? <p>{recipe.tags.join(", ")}</p> : null}</section><section className="card"><h2>{t("coverage")}</h2><p>{Object.entries(nutrition.coverage).slice(0, 4).map(([key, value]) => `${key}: ${value === null ? "–" : formatPercent(value, user.language)}`).join(" · ")}</p></section><section className="card"><h2>{t("provenance")}</h2><p>{draft ? t("draftHint") : t(`source.${recipe.sourceType}` as "source.RECIPE")}</p>{recipe.sources.map((source) => <p key={source.id}><a href={source.url} target="_blank" rel="noreferrer noopener external">{source.title ?? source.url}</a>{source.retrievedAt ? ` · ${source.retrievedAt.toISOString().slice(0, 10)}` : ""}</p>)}</section>{draft
       ? <section className="card"><h2>{t("draftReview")}</h2><p className="muted">{t("draftNotice")}</p>{unmatched.length ? <p className="notice notice-warn">{t("draftUnmatched", { names: unmatched.join(", ") })}</p> : null}{unconverted.length ? <p className="notice notice-warn">{t("draftUnconverted", { names: unconverted.join(", ") })}</p> : null}{estimatedWeights.length ? <p className="notice notice-warn">{t("draftEstimatedWeights", { names: estimatedWeights.join(", ") })}</p> : null}{unparsed.length ? <p className="notice notice-warn">{t("import.unparsed", { names: unparsed.join(", ") })}</p> : null}{aiAssisted.length ? <p className="notice notice-warn">{t("import.aiAssisted", { names: aiAssisted.join(", ") })}</p> : null}<ConfirmRecipeForm id={id}>{reviewComponents.map((component, index) => <div className="row" key={`${component.name}-${index}`}><div className="row-body"><strong>{component.name}</strong><ComponentChoice component={component} index={index} labels={choiceLabels} readOnly={false} /></div></div>)}</ConfirmRecipeForm></section>
-      : <section className="card"><h2>{t("log")}</h2><LogRecipeForm id={id} date={formatDateKey(new Date())} portionWeightG={nutrition.portionWeightG} /></section>}{draft ? null : <section className="card"><h2>{sharing("shareHeading")}</h2>{publication?.status === "PUBLISHED"
+      : <section className="card"><h2>{t("log")}</h2><LogRecipeForm id={id} date={formatDateKey(new Date())} portionWeightG={nutrition.portionWeightG} initialQuantity={rememberedPortion?.quantity ?? 1} /></section>}{draft ? null : <section className="card"><h2>{sharing("shareHeading")}</h2>{publication?.status === "PUBLISHED"
       ? <><p className="muted">{sharing("publishedOn", { date: publication.publishedAt.toISOString().slice(0, 10) })}</p><p><Link href={`/recipes/shared/${publication.id}`}>{sharing("viewPublication")}</Link></p><WithdrawPublicationForm id={publication.id} recipeId={id} /></>
       : <PublishRecipeForm recipeId={id} republish={Boolean(publication)} defaults={{ title: recipe.name, description: recipe.description ?? "", instructions: recipe.instructions ?? "", tags: recipe.tags }} />}</section>}
       <section className="card"><DeleteRecipeForm id={id} /></section></aside></div>

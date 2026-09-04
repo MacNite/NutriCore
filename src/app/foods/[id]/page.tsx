@@ -9,8 +9,9 @@ import { formatDateKey } from "@/server/diary";
 import { LogFoodForm } from "./log-food-form";
 import { PortionProvider } from "./portion-context";
 import { PortionNutrients } from "./portion-nutrients";
-import { initialPortion, type FoodShape } from "./portion";
+import { preferredInitialPortion, type FoodShape } from "./portion";
 import { prisma } from "@/lib/db";
+import { lastFoodPortion } from "@/server/last-portions";
 
 export default async function FoodDetailPage({
   params,
@@ -43,7 +44,7 @@ export default async function FoodDetailPage({
     densityGPerMl: food.densityGPerMl,
     servings: food.servings,
   };
-  const portion = initialPortion(shape);
+  const portion = preferredInitialPortion(shape, await lastFoodPortion(user.id, food.id));
   const enrichment = aiEnrichmentMetadata(sources).map((item) => ({ ...item, nutrientNames: item.nutrientKeys.map((key) => names.get(key) ?? key) }));
 
   return (
