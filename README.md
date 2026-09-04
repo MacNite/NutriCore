@@ -8,6 +8,12 @@ NutriCore is a TypeScript modular monolith: Next.js serves the responsive PWA
 and the API, Prisma owns the PostgreSQL schema, and provider modules isolate
 external data and AI behind adapters.
 
+**Website:** [macnite.github.io/NutriCore](https://macnite.github.io/NutriCore/)
+— feature overview, an interactive demo running on static data, and a deep dive
+on setup, the codebase and deployment. Its source is in [`website/`](website/),
+and it is published by
+[`.github/workflows/website.yml`](.github/workflows/website.yml).
+
 ## Screens and features
 
 Implemented and covered by tests:

@@ -1,0 +1,102 @@
+name: Website
+
+# Builds the marketing site in `website/` and publishes it to GitHub Pages.
+#
+# The generator has no dependencies - it is plain Node reading this repository -
+# so there is nothing to install and no lockfile to restore. What the build does
+# need is the repository itself: `website/src/data.mjs` reads the dataset
+# manifest, the nutrient catalogue and the Prisma schema, so the figures on the
+# site are always this commit's figures.
+#
+# Pages must be configured once, in Settings -> Pages, with "Source: GitHub
+# Actions". Until then the deploy job fails and the build job still passes.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "website/**"
+      - ".github/workflows/website.yml"
+      # The sources the site quotes its own numbers from.
+      - "datasets/bundled/manifest.json"
+      - "src/lib/nutrients.ts"
+      - "prisma/schema.prisma"
+      - "package.json"
+      - "public/icon.svg"
+  pull_request:
+    paths:
+      - "website/**"
+      - ".github/workflows/website.yml"
+      - "datasets/bundled/manifest.json"
+      - "src/lib/nutrients.ts"
+      - "prisma/schema.prisma"
+      - "package.json"
+      - "public/icon.svg"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer commit on main supersedes a deployment that has not gone out yet.
+# In-progress deployments are never cancelled: Pages does not like it.
+concurrency:
+  group: website-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # `--check` fails the build on an internal link or an asset reference
+      # that resolves to nothing, so a renamed page cannot reach a visitor.
+      - name: Build the site
+        run: node website/build.mjs --check
+
+      - name: Report what was built
+        run: |
+          {
+            echo "### Website"
+            echo
+            echo '```'
+            ls -la website/dist
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/dist
+
+      # Reviewers of a pull request get the built site as a downloadable
+      # artifact, so a change can be looked at before it is merged.
+      - name: Upload a reviewable copy
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: website
+          path: website/dist
+          retention-days: 7
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
