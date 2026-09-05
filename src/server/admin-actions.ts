@@ -9,7 +9,7 @@ import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { hashPassword, passwordProblem } from "@/lib/auth";
 import { endSession, requireAdmin, requireUser } from "./session";
-import { clientAddress } from "./auth-actions";
+import { clientAddress } from "@/lib/client-address";
 import { deliverInvitation, issueInvitation, redeemableInvitation } from "./admin";
 import { encryptMailPassword, getMailConfiguration } from "@/lib/mail";
 import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";

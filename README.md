@@ -960,6 +960,12 @@ only from the Administrator Panel.
 - Ownership checks on every user-owned entity
 - SSRF protection with DNS resolution and private-range blocking, and the connection is pinned to the address that passed the check so a name cannot resolve publicly for the check and privately for the fetch
 - Secrets only from the environment, never logged, never shown in the UI
+- Content-Security-Policy with a per-request nonce, plus `nosniff`,
+  `Referrer-Policy: same-origin`, `Permissions-Policy` and `frame-ancestors 'none'`;
+  HSTS is added only when `APP_URL` is HTTPS. The policy allows the camera,
+  because barcode scanning and body-scan capture need it, and denies the rest
+- `connect-src 'self'`: every external provider is reached from the server, never
+  from the browser
 - No advertising SDKs, no third-party analytics, no telemetry
 - Uploaded photos are validated by their bytes, not their filename or declared
   type, held for minutes at most and swept by the worker

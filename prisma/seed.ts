@@ -18,7 +18,7 @@
  */
 import { PrismaClient, type BasisUnit, type FoodType, type SourceType } from "@prisma/client";
 import argon2 from "argon2";
-import { PASSWORD_MIN_LENGTH } from "../src/lib/auth";
+import { PASSWORD_MIN_LENGTH, passwordProblem } from "../src/lib/auth";
 import { normalizeName } from "../src/lib/units";
 import { seedNutrientCatalogue } from "./seed-catalogue";
 
@@ -149,9 +149,12 @@ async function main() {
         "or run `npm run db:seed:catalogue` if all you wanted was the nutrient definitions.",
     );
   }
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    throw new Error(`SEED_PASSWORD must be at least ${PASSWORD_MIN_LENGTH} characters, matching the application's own policy.`);
-  }
+  // The application's own policy, not a second weaker one beside it: a seeded
+  // account is a real account and should not accept a password the sign-up form
+  // would refuse.
+  const problem = passwordProblem(password);
+  if (problem === "too-short") throw new Error(`SEED_PASSWORD must be at least ${PASSWORD_MIN_LENGTH} characters.`);
+  if (problem === "too-common") throw new Error("SEED_PASSWORD is on the common-password list the application rejects.");
 
   console.warn("\n*** Seeding DEMO DATA: a demo@nutricore.local account and a month of fake diary entries. ***\n");
 

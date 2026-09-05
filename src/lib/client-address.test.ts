@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clientAddress } from "./auth-actions";
+import { clientAddress } from "@/lib/client-address";
 
 /**
  * The rate-limit key. If a caller can choose it, every limit keyed on it is
