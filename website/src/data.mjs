@@ -53,6 +53,7 @@ function countFiles(directory, predicate) {
 const manifest = readJson("datasets/bundled/manifest.json", { datasets: {} });
 const pkg = readJson("package.json", { version: "0.0.0", dependencies: {}, devDependencies: {} });
 const nutrientSource = readText("src/lib/nutrients.ts");
+const envExample = readText(".env.example");
 const schema = readText("prisma/schema.prisma");
 const dockerfile = readText("Dockerfile");
 
@@ -91,6 +92,13 @@ export const facts = {
   minerals: countMatches(nutrientSource, /category:\s*"mineral"/g),
 
   models: countMatches(schema, /^model\s/gm),
+
+  /**
+   * Documented settings in `.env.example`, commented-out defaults included:
+   * a commented line is still a setting the file tells you how to use.
+   */
+  settings: countMatches(envExample, /^#?[A-Z][A-Z0-9_]*=/gm),
+
   locales: ["Deutsch", "English"],
 
   tests: countFiles("src", (name) => name.endsWith(".test.ts")) + countFiles("tests", (name) => name.endsWith(".test.ts")),

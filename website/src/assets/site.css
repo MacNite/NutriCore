@@ -523,7 +523,7 @@ section { position: relative; }
 
 /* --- Section headers ----------------------------------------------------- */
 
-.section-head { grid-column: span 12; max-width: 46ch; margin-bottom: clamp(2rem, 4vw, 3.4rem); }
+.section-head { grid-column: span 12; max-width: 52ch; margin-bottom: clamp(2rem, 4vw, 3.4rem); }
 .section-head .h2 { margin-bottom: 1rem; }
 
 /* --- Feature entries (numbered, ruled, alternating) ---------------------- */
@@ -707,6 +707,38 @@ section { position: relative; }
 .bar.carb i { background: var(--carb); }
 .bar.fat { background: var(--fat-soft); }
 .bar.fat i { background: var(--fat); }
+
+/* --- Ledger (the "what it costs" figure) --------------------------------- */
+
+.ledger { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.ledger-head {
+  font-size: 0.68rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--rule-strong);
+  margin-bottom: 0.3rem;
+}
+.ledger-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.42rem 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.83rem;
+  color: var(--ink-2);
+}
+.ledger-row b { color: var(--ink); font-weight: 500; }
+.ledger-row.total {
+  border-bottom: 0;
+  border-top: 1px solid var(--rule-strong);
+  margin-top: 0.3rem;
+  padding-top: 0.7rem;
+  font-size: 0.95rem;
+}
+.ledger-row.total b { color: var(--jade-text); }
 
 /* --- Tables -------------------------------------------------------------- */
 
