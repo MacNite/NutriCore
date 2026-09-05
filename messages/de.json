@@ -416,6 +416,9 @@
       "info": "Muskeln, Wasser, Fett und Knochen werden getrennt gemessen und überschneiden sich: Körperwasser steckt großteils im fettfreien Gewebe. Die Werte ergeben deshalb keine 100 Prozent und werden nicht als Anteile eines Ganzen dargestellt.",
       "chartLabel": "Vier-Achsen-Form aus Muskeln, Wasser, Fett und Knochen. Jede Achse ist so skaliert, dass die Referenzmessung auf dem mittleren Ring liegt.",
       "hint": "Achse auswählen, um Wert, Veränderung und Quelle anzuzeigen.",
+      "noValues": "Für den {date} sind keine Werte zur Körperzusammensetzung erfasst. Muskeln, Wasser, Fett und Knochen kommen von einer smarten Waage oder einem Körperscan — ein Maßband misst sie nicht.",
+      "noReferenceValues": "Die Referenzmessung vom {date} enthält keine Werte zur Körperzusammensetzung, es gibt also nichts zu vergleichen. Wähle oben eine Referenz mit solchen Werten.",
+      "needsSecond": "Das ist die erste Messung mit Werten zur Körperzusammensetzung. Die Form zeigt eine Veränderung ab der zweiten.",
       "axisValue": "{value} {unit}",
       "ringUnchanged": "Referenz",
       "axis": {

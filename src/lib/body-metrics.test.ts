@@ -3,10 +3,14 @@ import {
   bodyMassIndex,
   carryForward,
   deltaBetween,
+  comparableBefore,
+  comparableIndices,
   emptyMeasurement,
   formatDelta,
   indexNearestDaysBefore,
   isEmptyMeasurement,
+  isWeightOnly,
+  latestComparableIndex,
   metricDelta,
   metricSource,
   metricValue,
@@ -178,7 +182,7 @@ describe("relative fat mass", () => {
 
 describe("quick reference choices", () => {
   const series = Array.from({ length: 10 }, (_unused, index) =>
-    session(new Date(Date.UTC(2026, 0, 1 + index * 7)).toISOString().slice(0, 10)),
+    session(new Date(Date.UTC(2026, 0, 1 + index * 7)).toISOString().slice(0, 10), { waistCm: 90 }),
   );
 
   it("picks the session closest to the requested distance", () => {
@@ -192,5 +196,52 @@ describe("quick reference choices", () => {
 
   it("falls back to the first session when there is nothing earlier", () => {
     expect(indexNearestDaysBefore([series[0]], 0, 90)).toBe(0);
+  });
+
+  it("only lands on a session it was told to consider", () => {
+    /* Index 5 is the nearest four weeks back, but if only 0 and 2 were
+       measured the choice has to be one of those. */
+    expect(indexNearestDaysBefore(series, 9, 28, [0, 2])).toBe(2);
+  });
+});
+
+describe("sessions worth comparing", () => {
+  /* What the progress page actually holds: a weigh-in most days, a check-in
+     with a tape and a smart scale now and then. */
+  const days = [
+    session("2026-08-30", { weightKg: 83.1 }),
+    session("2026-08-31", { weightKg: 82.8 }),
+    session("2026-09-01", { weightKg: 82.9 }),
+    session("2026-09-02", { weightKg: 82.6, bodyFatPct: 20.6, muscleKg: 33.7, boneKg: 3.2 }),
+    session("2026-09-04", { weightKg: 82.4 }),
+  ];
+
+  it("does not count a day that only has a weight on it", () => {
+    expect(isWeightOnly(days[0])).toBe(true);
+    expect(isWeightOnly(days[3])).toBe(false);
+    expect(isWeightOnly(session("2026-09-02", { waistCm: 84.2 }))).toBe(false);
+  });
+
+  it("offers only the real check-ins", () => {
+    expect(comparableIndices(days)).toEqual([3]);
+  });
+
+  it("opens on the newest check-in rather than on the newest weigh-in", () => {
+    expect(latestComparableIndex(days)).toBe(3);
+  });
+
+  it("reports no reference when every earlier day was a weigh-in", () => {
+    expect(comparableBefore(comparableIndices(days), 3)).toBeNull();
+  });
+
+  it("reads back against the previous check-in, skipping the weigh-ins between", () => {
+    const withEarlier = [session("2026-08-01", { waistCm: 91 }), ...days];
+    expect(comparableIndices(withEarlier)).toEqual([0, 4]);
+    expect(comparableBefore(comparableIndices(withEarlier), 4)).toBe(0);
+  });
+
+  it("falls back to every day for someone who has only ever logged weight", () => {
+    const weightOnly = days.filter((day) => isWeightOnly(day));
+    expect(comparableIndices(weightOnly)).toEqual([0, 1, 2, 3]);
   });
 });

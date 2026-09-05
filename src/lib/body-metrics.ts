@@ -197,6 +197,23 @@ export const emptyMeasurement = (date: string): BodyMeasurement => ({
 export const isEmptyMeasurement = (measurement: BodyMeasurement) =>
   BODY_METRICS.every((def) => metricValue(measurement, def.key) == null);
 
+/**
+ * Everything a check-in records. Weight is not in here: it is joined from the
+ * weight log, so every day someone stepped on a scale arrives as a session
+ * carrying nothing else.
+ */
+export const SESSION_METRICS: BodyMetricKey[] = BODY_METRICS.filter((def) => def.key !== "weightKg").map(
+  (def) => def.key,
+);
+
+/**
+ * A day that only has a weight on it. It belongs on the weight chart, but it
+ * measured no circumference and no composition, so it cannot serve as either
+ * end of a body comparison — picking one would compare a body against nothing.
+ */
+export const isWeightOnly = (measurement: BodyMeasurement) =>
+  SESSION_METRICS.every((key) => metricValue(measurement, key) == null);
+
 /* ------------------------------------------------------------------- Deltas */
 
 export type DeltaDirection = "up" | "down" | "flat";
@@ -339,23 +356,61 @@ export function carryForward(
 /** Measurements are held oldest first; the newest one is the current state. */
 export const latestIndex = (measurements: BodyMeasurement[]) => Math.max(measurements.length - 1, 0);
 
+/**
+ * The sessions the body card can be read from, as indices into the full list.
+ * Weight-only days are dropped: offering them as a reference is what made a
+ * single check-in look like five, and comparing against one produces a shape
+ * drawn from no measurements at all.
+ *
+ * Someone who has only ever logged weight gets every day back rather than an
+ * empty selector; there the panels' own empty states carry the message.
+ */
+export function comparableIndices(measurements: BodyMeasurement[]): number[] {
+  const sessions = measurements.flatMap((measurement, index) => (isWeightOnly(measurement) ? [] : [index]));
+  return sessions.length > 0 ? sessions : measurements.map((_unused, index) => index);
+}
+
+/** The newest of those, i.e. where the card opens. */
+export const latestComparableIndex = (measurements: BodyMeasurement[]) => {
+  const sessions = comparableIndices(measurements);
+  return sessions[sessions.length - 1] ?? 0;
+};
+
+/** The newest comparable session strictly before `index`, or none. */
+export function comparableBefore(comparable: readonly number[], index: number): number | null {
+  let found: number | null = null;
+  for (const candidate of comparable) {
+    if (candidate >= index) break;
+    found = candidate;
+  }
+  return found;
+}
+
 export const daysBetween = (from: string, to: string) =>
   Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
 /**
  * Index of the measurement closest to `days` before `currentIndex`, never the
  * current one itself, so a quick choice always yields a usable comparison.
+ *
+ * `eligible` narrows the candidates to the sessions worth comparing against,
+ * so "4 Wochen" lands on a real check-in rather than on the weigh-in that
+ * happens to sit closest to that date.
  */
 export function indexNearestDaysBefore(
   measurements: BodyMeasurement[],
   currentIndex: number,
   days: number,
+  eligible?: readonly number[],
 ): number {
   const current = measurements[currentIndex];
   if (!current || currentIndex === 0) return 0;
-  let best = 0;
+  const candidates = (eligible ?? measurements.map((_unused, index) => index)).filter(
+    (index) => index < currentIndex,
+  );
+  let best = candidates[0] ?? 0;
   let bestDistance = Number.POSITIVE_INFINITY;
-  for (let index = 0; index < currentIndex; index += 1) {
+  for (const index of candidates) {
     const distance = Math.abs(daysBetween(measurements[index].date, current.date) - days);
     if (distance < bestDistance) {
       bestDistance = distance;

@@ -68,10 +68,11 @@ describe("diamond scale", () => {
     expect(radiusForRatio(0)).toBe(DIAMOND.minRadius);
   });
 
-  it("treats a missing value as unchanged rather than as zero", () => {
-    expect(axisRatio(null, 20.6)).toBe(1);
-    expect(axisRatio(18.4, null)).toBe(1);
-    expect(axisRatio(18.4, 0)).toBe(1);
+  it("has no ratio for an axis that cannot be compared", () => {
+    expect(axisRatio(null, 20.6)).toBeNull();
+    expect(axisRatio(18.4, null)).toBeNull();
+    expect(axisRatio(18.4, 0)).toBeNull();
+    expect(axisRatio(18.4, 20.6)).toBeCloseTo(18.4 / 20.6);
   });
 
   it("places the four axes at the compass points", () => {

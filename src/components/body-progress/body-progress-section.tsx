@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/locales";
 import { formatDate } from "@/lib/format";
 import {
   SERIES_METRICS,
+  comparableBefore,
+  comparableIndices,
   indexNearestDaysBefore,
-  latestIndex,
+  latestComparableIndex,
   type BodyMeasurement,
   type BodyProfile,
 } from "@/lib/body-metrics";
@@ -64,11 +66,16 @@ export function BodyProgressSection({
   locale: Locale;
 }) {
   const t = useTranslations("bodyProgress");
-  const [currentIndex, setCurrentIndex] = useState(() => latestIndex(measurements));
+  /* The card opens on the newest real check-in, not simply on the newest day.
+     Weight arrives from the weight log as a session of its own, so the newest
+     day is usually a weigh-in with no body in it — opening there showed four
+     empty axes and a silhouette drawn from nothing. */
+  const comparable = useMemo(() => comparableIndices(measurements), [measurements]);
+  const [currentIndex, setCurrentIndex] = useState(() => latestComparableIndex(measurements));
   /* Four weeks back by default: a week-on-week delta is mostly noise, and the
      selector is right there for anyone who wants a different span. */
   const [referenceIndex, setReferenceIndex] = useState(() =>
-    indexNearestDaysBefore(measurements, latestIndex(measurements), 28),
+    indexNearestDaysBefore(measurements, latestComparableIndex(measurements), 28, comparableIndices(measurements)),
   );
   const [activeRegion, setActiveRegion] = useState<BodyRegionKey | null>(null);
 
@@ -80,16 +87,19 @@ export function BodyProgressSection({
   /** A reference must stay older than the current session it is compared with. */
   function selectCurrent(index: number) {
     setCurrentIndex(index);
-    setReferenceIndex((reference) => (reference < index ? reference : Math.max(index - 1, 0)));
+    setReferenceIndex((reference) =>
+      reference < index ? reference : (comparableBefore(comparable, index) ?? 0),
+    );
   }
 
   function selectReference(index: number) {
-    setReferenceIndex(Math.min(index, Math.max(currentIndex - 1, 0)));
+    setReferenceIndex(index < currentIndex ? index : (comparableBefore(comparable, currentIndex) ?? 0));
   }
 
-  /* One session cannot be compared with anything, so nothing is presented as a
-     change until there are two. */
-  const hasReference = currentIndex > 0;
+  /* Nothing is presented as a change until there is an earlier session to read
+     against — and an earlier weigh-in is not one, because it measured no part
+     of the body this card draws. */
+  const hasReference = comparableBefore(comparable, currentIndex) !== null;
   const referenceLabel = formatDate(measurements[referenceIndex].date, locale);
   /* The figure picker only changes how the drawn body looks, so it goes with
      the drawing. The check-in button stays whatever is on screen. */
@@ -108,6 +118,7 @@ export function BodyProgressSection({
         measurements={measurements}
         referenceIndex={referenceIndex}
         currentIndex={currentIndex}
+        comparable={comparable}
         onReferenceIndex={selectReference}
         activeRegion={activeRegion}
         onActiveRegion={setActiveRegion}

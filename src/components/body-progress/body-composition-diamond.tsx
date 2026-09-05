@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/locales";
+import { formatDate } from "@/lib/format";
 import {
   BODY_METRIC_BY_KEY,
   formatMeasure,
@@ -83,11 +84,27 @@ export function BodyCompositionDiamond({
       ratio,
       delta: metricDelta(current, reference, metric),
       source: metricSource(current, metric),
-      vertex: polarPoint(axis.angleDeg, radiusForRatio(ratio)),
+      /* No point where there is nothing to compare: an axis is plotted only
+         when this session and the reference both measured it. */
+      vertex: ratio == null ? null : polarPoint(axis.angleDeg, radiusForRatio(ratio)),
     };
   });
 
   const activeAxis = axes.find((axis) => axis.key === active) ?? null;
+  const plotted = axes.filter((axis) => axis.vertex !== null);
+  /* Two points would draw a bar across the middle rather than a shape, so the
+     outline waits until three axes can carry it; the dots stand on their own. */
+  const outline = plotted.length >= 3 ? polygonPoints(plotted.map((axis) => axis.vertex!)) : null;
+  /* Why the shape is missing, in the reader's terms: a scale records these
+     values and a tape measure does not, so a session can easily have none. */
+  const gap =
+    plotted.length > 0
+      ? null
+      : axes.every((axis) => axis.value == null)
+        ? t("composition.noValues", { date: formatDate(current.date, locale) })
+        : hasReference
+          ? t("composition.noReferenceValues", { date: referenceLabel })
+          : t("composition.needsSecond");
 
   return (
     <div>
@@ -112,7 +129,9 @@ export function BodyCompositionDiamond({
         <svg
           viewBox={`0 0 ${DIAMOND.width} ${DIAMOND.height}`}
           role="img"
-          aria-label={t("composition.chartLabel")}
+          /* With no shape on it the chart is not "an outline scaled against the
+             reference"; it is the reason there is none. */
+          aria-label={gap ?? t("composition.chartLabel")}
         >
           {DIAMOND_RINGS.map((ratio) => (
             <polygon key={ratio} points={ringPolygon(ratio)} fill="none" stroke="var(--line)" strokeWidth="1" />
@@ -133,29 +152,35 @@ export function BodyCompositionDiamond({
             );
           })}
 
-          {/* The reference sits at ratio 1 on every axis, so it is a fixed diamond. */}
-          <polygon
-            points={ringPolygon(1)}
-            fill="none"
-            stroke="var(--line-strong)"
-            strokeWidth="1.5"
-            strokeDasharray="5 4"
-          />
+          {/* The reference sits at ratio 1 on every axis, so it is a fixed
+              diamond — drawn only where a reference value actually exists,
+              rather than marking one that was never measured. */}
+          {plotted.length > 0 ? (
+            <polygon
+              points={ringPolygon(1)}
+              fill="none"
+              stroke="var(--line-strong)"
+              strokeWidth="1.5"
+              strokeDasharray="5 4"
+            />
+          ) : null}
 
-          <polygon
-            points={polygonPoints(axes.map((axis) => axis.vertex))}
-            fill="var(--accent)"
-            fillOpacity="0.18"
-            stroke="var(--accent)"
-            strokeWidth="2.5"
-            strokeLinejoin="round"
-          />
+          {outline ? (
+            <polygon
+              points={outline}
+              fill="var(--accent)"
+              fillOpacity="0.18"
+              stroke="var(--accent)"
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+            />
+          ) : null}
 
-          {axes.map((axis) => (
+          {plotted.map((axis) => (
             <circle
               key={axis.key}
-              cx={axis.vertex.x}
-              cy={axis.vertex.y}
+              cx={axis.vertex!.x}
+              cy={axis.vertex!.y}
               r={active === axis.key ? 6 : 4}
               fill="var(--accent)"
               stroke="var(--surface)"
@@ -197,11 +222,11 @@ export function BodyCompositionDiamond({
           {/* Pointer targets only: the stat buttons below carry the same data
               for keyboard and assistive technology. */}
           <g aria-hidden="true">
-            {axes.map((axis) => (
+            {plotted.map((axis) => (
               <circle
                 key={axis.key}
-                cx={axis.vertex.x}
-                cy={axis.vertex.y}
+                cx={axis.vertex!.x}
+                cy={axis.vertex!.y}
                 r="30"
                 fill="transparent"
                 style={{ cursor: "pointer" }}
@@ -214,7 +239,16 @@ export function BodyCompositionDiamond({
         </svg>
       </figure>
 
-      {hasReference ? <BodyOverlayLegend referenceLabel={referenceLabel} /> : null}
+      {gap ? (
+        <p className="notice" role="note">
+          <span className="notice-icon" aria-hidden="true">
+            i
+          </span>
+          <span>{gap}</span>
+        </p>
+      ) : null}
+
+      {hasReference && plotted.length > 0 ? <BodyOverlayLegend referenceLabel={referenceLabel} /> : null}
 
       <BodyFold
         label={t("composition.foldLabel")}

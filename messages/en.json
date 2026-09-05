@@ -416,6 +416,9 @@
       "info": "Muscle, water, fat and bone are measured separately and overlap: body water is largely held in lean tissue. They therefore do not add up to 100 percent and are not shown as shares of a whole.",
       "chartLabel": "Four-axis outline of muscle, water, fat and bone. Each axis is scaled so the reference measurement sits on the middle ring.",
       "hint": "Select an axis to see its value, change and source.",
+      "noValues": "No body composition was recorded for {date}. Muscle, water, fat and bone come from a smart scale or a body scan — a tape measure does not record them.",
+      "noReferenceValues": "The reference measurement from {date} has no body composition in it, so there is nothing to compare. Pick a reference above that has those values.",
+      "needsSecond": "This is the first measurement carrying body composition. The outline shows a change from the second one on.",
       "axisValue": "{value} {unit}",
       "ringUnchanged": "Reference",
       "axis": {

@@ -24,6 +24,7 @@ export function BodyProgressCard({
   measurements,
   referenceIndex,
   currentIndex,
+  comparable,
   onReferenceIndex,
   activeRegion,
   onActiveRegion,
@@ -38,6 +39,8 @@ export function BodyProgressCard({
   measurements: BodyMeasurement[];
   referenceIndex: number;
   currentIndex: number;
+  /** The sessions worth comparing against, as indices into `measurements`. */
+  comparable: readonly number[];
   onReferenceIndex: (index: number) => void;
   activeRegion: BodyRegionKey | null;
   onActiveRegion: (region: BodyRegionKey | null) => void;
@@ -67,6 +70,7 @@ export function BodyProgressCard({
           measurements={measurements}
           referenceIndex={referenceIndex}
           currentIndex={currentIndex}
+          comparable={comparable}
           onReferenceIndex={onReferenceIndex}
           locale={locale}
         />
