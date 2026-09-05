@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BARCODE_SCORE, completeness, rankFood, textSimilarity } from "./ranking";
+import { BARCODE_SCORE, SOURCE_TRUST, completeness, rankFood, textSimilarity } from "./ranking";
 
 const base = { textMatch: 0.8, dataCompleteness: 0.8, sourceTrust: 0.8 };
 
@@ -45,6 +45,33 @@ describe("ranking", () => {
     expect(rankFood({ ...base, dataCompleteness: 1 })).toBeGreaterThan(rankFood({ ...base, dataCompleteness: 0.25 }));
   });
 
+  it("does not let owning a food make up for a worse name match", () => {
+    // "Zwiebel": the BLS onion against the user's own "Rote Zwiebel Salsa",
+    // with the similarities the two names actually produce.
+    const onion = rankFood({
+      textMatch: textSimilarity("zwiebel", "speisezwiebel roh"),
+      dataCompleteness: 1,
+      sourceTrust: SOURCE_TRUST.BLS,
+      localeMatch: true,
+    });
+    const salsa = rankFood({
+      textMatch: textSimilarity("zwiebel", "rote zwiebel salsa"),
+      dataCompleteness: 1,
+      sourceTrust: SOURCE_TRUST.RECIPE,
+      localeMatch: true,
+      personalRecipe: true,
+    });
+    expect(onion).toBeGreaterThan(salsa);
+  });
+
+  it("still gives a personal food the whole bonus when it is what was asked for", () => {
+    const asked = { ...base, textMatch: 1, exactNameMatch: true };
+    expect(rankFood({ ...asked, personalRecipe: true }) - rankFood(asked)).toBe(90);
+    // And browsing the recent list, where there is no name to match at all.
+    const browsed = { textMatch: 0, dataCompleteness: 1, sourceTrust: 0.9, browsing: true };
+    expect(rankFood({ ...browsed, customFood: true }) - rankFood(browsed)).toBe(90);
+  });
+
   it("is deterministic", () => {
     const signals = { ...base, favorite: true, daysSinceUse: 3, usageFrequency: 7 };
     expect(rankFood(signals)).toBe(rankFood(signals));
@@ -58,9 +85,31 @@ describe("text similarity", () => {
   });
 
   it("rewards prefixes and partial token overlap", () => {
-    expect(textSimilarity("skyr", "skyr natur")).toBeGreaterThanOrEqual(0.8);
+    // No longer the flat 0.8 this used to assert: a name that begins with the
+    // query still has to answer for the rest of itself, so the value now falls
+    // with each further word. What matters is the order it produces.
+    expect(textSimilarity("skyr", "skyr natur")).toBeGreaterThan(textSimilarity("skyr", "skyr natur vanille"));
     expect(textSimilarity("skyr natur", "skyr")).toBeGreaterThan(0);
     expect(textSimilarity("skyr natur", "skyr natur vanille")).toBeGreaterThan(textSimilarity("skyr natur", "skyr"));
+  });
+
+  it("reads a German compound as the food its head names", () => {
+    // "Speisezwiebel" is a Zwiebel; nothing in it starts with the word, which
+    // is why BLS onions used to score zero for the query and stay invisible.
+    expect(textSimilarity("zwiebel", "speisezwiebel roh")).toBeGreaterThan(0.5);
+    // A compound head counts for more than the same word as a prefix, which is
+    // usually another food made of it.
+    expect(textSimilarity("zwiebel", "speisezwiebel")).toBeGreaterThan(textSimilarity("zwiebel", "zwiebelsuppe"));
+  });
+
+  it("counts what the name says beyond the query, not only what it answers", () => {
+    // The reported case: a dish that merely contains onions must not tie the
+    // onion itself.
+    expect(textSimilarity("zwiebel", "speisezwiebel roh")).toBeGreaterThan(
+      textSimilarity("zwiebel", "rote zwiebel salsa"),
+    );
+    // And a qualifier costs far less than a whole further ingredient.
+    expect(textSimilarity("zwiebel", "zwiebel roh")).toBeGreaterThan(textSimilarity("zwiebel", "zwiebel salsa rot"));
   });
 });
 
