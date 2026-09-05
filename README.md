@@ -260,10 +260,18 @@ worker container can read them. They are removed as soon as structured meal
 extraction succeeds, on terminal failure or administrative cancellation/deletion,
 and by the worker's TTL cleanup after at most 24 hours. Only normalized
 components and non-sensitive input provenance remain in proposals/jobs.
-The maximum meal and recipe image size defaults to 5 MiB and can be changed at
-runtime with `IMAGE_UPLOAD_MAX_MB` (a whole number from 1 through 50). Next.js's
-otherwise-1-MiB Server Action request ceiling is bounded separately at 51 MiB;
-application validation still rejects anything above the configured file limit.
+The maximum meal and recipe image size defaults to 5 MiB and can be changed with
+`IMAGE_UPLOAD_MAX_MB` (a whole number from 1 through 15; a larger value is
+clamped to 15). Next.js's two request-body ceilings - the Server Action limit
+and the separate one that applies because a middleware matches these routes -
+are both derived from it, at `2 x IMAGE_UPLOAD_MAX_MB + 1`, since a body scan
+carrying a front and a side capture is the largest request the application
+makes. Application validation still rejects any single file above the configured
+limit.
+
+Both ceilings are read at build time, so changing `IMAGE_UPLOAD_MAX_MB` at
+runtime lowers per-file validation but does not widen the request ceiling the
+image was built with.
 
 The two containers have separate environments and nothing makes them agree, so
 the worker logs the settings it resolved on startup - AI host, model, timeout,
