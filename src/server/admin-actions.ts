@@ -263,7 +263,7 @@ export async function enqueueFoodEnrichmentAction() {
   if (blocked) redirect(`/admin?enrichmentBlocked=${blocked}#ai-jobs`);
 
   const retryBefore = new Date(Date.now() - ENRICHMENT_RETRY_MS);
-  const definitions = await prisma.nutrientDefinition.findMany({ select: { key: true } });
+  const definitions = await prisma.nutrientDefinition.findMany({ select: { key: true }, orderBy: { sortOrder: "asc" } });
 
   // Paged rather than read whole. The page ordering has to be total for the
   // cursor to be stable, hence the id tiebreak after the two meaningful keys.
