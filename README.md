@@ -329,7 +329,16 @@ three quarters of the catalogue unreachable: search already refuses a food with
 no energy value, so most foods arrive with the macros present and their first
 twelve gaps are exactly what no label publishes - trans fats, omega-3, chloride,
 molybdenum. The window now moves through the catalogue in `sortOrder` and starts
-round again only once every gap has been put to a source at least once.
+round again only once every gap has been put to a source at least once. Every
+completed run records the keys it asked for, including - especially - the runs
+that found nothing, since those are the ones the rotation exists for.
+
+A run that could not read a single page because of the network records nothing
+at all. A blocked address, an oversized page or a 404 is a fact about that page
+and the candidate is simply skipped, but a timeout, a DNS failure, a 429 or a
+5xx is a fact about the moment: reporting it as "nothing found for this food"
+would both withhold the food for the retry window and mark those nutrients as
+tried. Those failures are raised instead, so the job's own retry budget decides.
 
 **And nothing it finds reaches a food unreviewed.** A run records what it read
 as a proposal and waits, which is the "human approves" clause the rest of the
