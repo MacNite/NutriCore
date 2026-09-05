@@ -184,6 +184,7 @@ export default async function AdminPage({
     if (accepted?.skipped?.length) facts.push({ label: t("resultSkipped"), value: accepted.skipped.join(", ") });
     if (outcome?.nutrientKeys?.length) facts.push({ label: t("resultNutrients"), value: outcome.nutrientKeys.join(", ") });
     if (outcome?.proposedKeys?.length) facts.push({ label: t("resultProposed"), value: outcome.proposedKeys.join(", ") });
+    if (outcome?.supersededKeys?.length) facts.push({ label: t("resultSuperseded"), value: outcome.supersededKeys.join(", ") });
     if (outcome?.servingFilled) facts.push({ label: t("resultServing"), value: t("resultServingSet") });
     if (outcome?.recipeName)
       facts.push({

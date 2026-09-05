@@ -321,6 +321,8 @@ export interface AiJobOutcome {
   servingFilled?: boolean;
   /** Keys it found but left for review, when the run may not write by itself. */
   proposedKeys?: string[];
+  /** Keys it was allowed to write but something else had already filled. */
+  supersededKeys?: string[];
   /** A recipe the job created, draft or otherwise. */
   recipeId?: string;
   recipeName?: string;
