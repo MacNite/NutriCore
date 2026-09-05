@@ -5,7 +5,8 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth";
+import { env } from "@/lib/env";
+import { hashPassword, hashSessionToken, passwordProblem, verifyPassword } from "@/lib/auth";
 import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { endSession, startSession } from "./session";
@@ -31,11 +32,41 @@ const registration = credentials.extend({
   displayName: z.string().trim().min(1).max(80),
 });
 
-/** Best-effort client address for rate limiting behind a reverse proxy. */
+/**
+ * The client address to throttle on, read from the right of the proxy chain.
+ *
+ * This used to take the *first* `X-Forwarded-For` entry with no notion of which
+ * proxies were trusted, which made the rate-limit key attacker-chosen: anyone
+ * talking to the app directly could put a fresh fabricated address in that
+ * header on every request and never hit a limit at all.
+ *
+ * `X-Forwarded-For` is append-only, so entries a client forges can only ever be
+ * to the *left* of the ones the infrastructure adds. Counting `hops` from the
+ * right therefore lands on an entry written by a proxy rather than by the
+ * caller. `hops` must be the number of proxies that append to the header, and
+ * the outermost one has to strip any inbound `X-Forwarded-For`, or its entry is
+ * one the client supplied.
+ *
+ * The default is 0 - the header is not trusted at all - because the stock
+ * Compose stack publishes its own port with no proxy in front. That collapses
+ * every direct caller into one bucket, which throttles a shared limit rather
+ * than no limit; the per-account limit in `loginAction` is what keeps that from
+ * being the only defence.
+ */
+export function clientAddress(headerList: { get(name: string): string | null }, hops: number): string {
+  if (hops < 1) return "direct";
+  const chain = (headerList.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  // Fewer entries than configured hops means the request did not arrive through
+  // the expected chain. Trusting the leftmost one here is exactly the original
+  // bug, so it is refused instead.
+  return chain.length >= hops ? chain[chain.length - hops] : "unverified";
+}
+
 async function clientKey() {
-  const headerList = await headers();
-  const forwarded = headerList.get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || headerList.get("x-real-ip") || "unknown";
+  return clientAddress(await headers(), env().TRUSTED_PROXY_HOPS);
 }
 
 export async function loginAction(_state: AuthState, formData: FormData): Promise<AuthState> {
@@ -44,6 +75,18 @@ export async function loginAction(_state: AuthState, formData: FormData): Promis
 
   const parsed = credentials.safeParse({ email: formData.get("email"), password: formData.get("password") });
   if (!parsed.success) return { error: "invalidCredentials" };
+
+  /* Per-account throttle, which unlike the address one cannot be sidestepped by
+     changing where the request appears to come from - and is what actually
+     bounds a distributed guessing run against one account.
+
+     Keyed on a hash so the limiter's key space holds no addresses, and counted
+     for every attempt on an account-shaped input whether or not the account
+     exists, so that being throttled says nothing about which emails are
+     registered. The reply is the same shape as the address limit above, which
+     the login form already renders. */
+  const accountLimit = rateLimit(`login-account:${hashSessionToken(parsed.data.email)}`, RATE_LIMITS.loginAccount.limit, RATE_LIMITS.loginAccount.windowMs);
+  if (!accountLimit.allowed) return { error: "rateLimited", seconds: accountLimit.retryAfterSeconds };
 
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   // Always run a verification so a missing account and a wrong password take

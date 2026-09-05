@@ -945,7 +945,8 @@ only from the Administrator Panel.
 - HTTP-only, SameSite=Lax cookies, `Secure` when `APP_URL` is HTTPS
 - Same-origin validation on state-changing route handlers
 - Registration closes after the first account unless `REGISTRATION_MODE` says otherwise; the first-administrator decision is taken under a PostgreSQL advisory lock so two simultaneous registrations cannot both become administrators
-- Rate limiting on sign-in, registration, search, export and research
+- Rate limiting on sign-in, registration, invitation redemption, search, export and research; sign-in is limited per account as well as per address, so a limit does not depend on the proxy configuration being right
+- `X-Forwarded-For` is trusted only as far as `TRUSTED_PROXY_HOPS` says, counted from the right of the chain, so a client cannot choose its own rate-limit bucket
 - Zod validation on every input, provider response and AI output
 - Ownership checks on every user-owned entity
 - SSRF protection with DNS resolution and private-range blocking, and the connection is pinned to the address that passed the check so a name cannot resolve publicly for the check and privately for the fetch

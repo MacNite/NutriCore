@@ -56,11 +56,20 @@ const scaled = (limit: number, windowMs: number) => ({
 
 export const RATE_LIMITS = {
   login: scaled(10, 15 * 60 * 1000),
+  /* Per-account rather than per-address. The address limit is only as good as
+     the deployment's proxy configuration and collapses to one shared bucket
+     without one; this one bounds guessing against a single account however the
+     attempts are spread across addresses. Tighter than the address limit,
+     because ten wrong passwords for one account is already a lot. */
+  loginAccount: scaled(8, 15 * 60 * 1000),
   register: scaled(5, 60 * 60 * 1000),
   search: scaled(120, 60 * 1000),
   research: scaled(10, 60 * 60 * 1000),
   export: scaled(5, 60 * 60 * 1000),
   invite: scaled(10, 60 * 60 * 1000),
+  /* Redeeming an invitation is unauthenticated and hashes a password, so it is
+     limited per address even though the token itself is unguessable. */
+  inviteAccept: scaled(10, 60 * 60 * 1000),
   /* A scan carries two images and queues CPU work, so it is limited more
      tightly than a search and more loosely than anything a person waits on. */
   bodyScan: scaled(12, 60 * 60 * 1000),
