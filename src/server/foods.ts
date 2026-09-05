@@ -343,6 +343,7 @@ export async function searchFoods(options: SearchOptions): Promise<SearchOutcome
       sameMealContext: Boolean(options.meal && stats?.usualMeals.some((m) => m === options.meal)),
       customFood: food.ownerId !== null && food.sourceType === "USER",
       personalRecipe: food.sourceType === "RECIPE",
+      browsing: query.length === 0,
       dataCompleteness,
       sourceTrust: SOURCE_TRUST[food.sourceType] ?? 0.5,
       servingAvailability: food.servingSize !== null || food.servings.length > 0,

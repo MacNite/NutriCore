@@ -120,6 +120,61 @@ describe("food search visibility", () => {
   });
 });
 
+/**
+ * Ranking, end to end: the order a real German query produces across two
+ * stored tiers.
+ *
+ * The case is the one that reported the bug - a recipe an AI import had added,
+ * "Rote Zwiebel Salsa", came first for every search for "Zwiebel" - and it
+ * needs the whole pipeline rather than `rankFood` alone, because it is the
+ * combination of the similarity, the source trust and the bonus a user's own
+ * food carries that decides it.
+ */
+describe("what a generic query puts first", () => {
+  const complete = [
+    { nutrientKey: "energyKcal", value: 34 },
+    { nutrientKey: "protein", value: 1.2 },
+    { nutrientKey: "carbohydrate", value: 6 },
+    { nutrientKey: "fat", value: 0.2 },
+  ];
+  const generic = {
+    ...foodRow, id: "bls-onion", brand: null, barcode: null, servingSize: null, servingUnit: null,
+    name: "Speisezwiebel roh", normalizedName: "speisezwiebel roh", foodType: "GENERIC",
+    sourceType: "BLS", externalProvider: "BLS", externalId: "G480100", nutrients: complete,
+  };
+  const recipe = {
+    ...foodRow, id: "recipe-salsa", ownerId: "owner-1", brand: null, barcode: null, servingSize: null, servingUnit: null,
+    name: "Rote Zwiebel Salsa", normalizedName: "rote zwiebel salsa", foodType: "RECIPE",
+    sourceType: "RECIPE", externalProvider: "NUTRICORE_RECIPE", externalId: "recipe-1", nutrients: complete,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.favorite.findMany.mockResolvedValue([]);
+    prismaMock.foodUsageStats.findMany.mockResolvedValue([]);
+    prismaMock.food.findFirst.mockResolvedValue(null);
+    // Each stored tier answers with its own rows, read off the source scope the
+    // search adds as the third AND clause - the same thing PostgreSQL uses.
+    prismaMock.food.findMany.mockImplementation((args: { where?: { AND?: unknown[] } }) => {
+      const scope = args?.where?.AND?.[2] as { sourceType?: { in: string[] }; NOT?: unknown };
+      if (scope?.NOT) return Promise.resolve([recipe]);
+      return Promise.resolve(scope?.sourceType?.in?.includes("BLS") ? [generic] : []);
+    });
+  });
+
+  it("ranks the food that is the queried ingredient above a dish that merely contains it", async () => {
+    const outcome = await searchFoods({ userId: "owner-1", query: "Zwiebel", locale: "de" });
+
+    expect(outcome.results.map((result) => result.id)).toEqual(["bls-onion", "recipe-salsa"]);
+  });
+
+  it("still puts the recipe first when the recipe is what was searched for", async () => {
+    const outcome = await searchFoods({ userId: "owner-1", query: "Rote Zwiebel Salsa", locale: "de" });
+
+    expect(outcome.results[0].id).toBe("recipe-salsa");
+  });
+});
+
 describe("foods without a calorie value", () => {
   const withNutrients = (nutrients: { nutrientKey: string; value: number }[], overrides: Record<string, unknown> = {}) => ({
     ...foodRow, ...overrides, nutrients,
