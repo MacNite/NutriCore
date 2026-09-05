@@ -559,7 +559,13 @@ export default async function AdminPage({
                 <input type="hidden" name="force" value="1" />
                 <button className="btn btn-quiet" type="submit">{t("foodDatasets.reimport")}</button>
               </form>
+              {/* Downloads the same artifact the CLI writes. It publishes
+                  nothing: contributing it is a pull request somebody opens. */}
+              <a className="btn btn-quiet" href="/api/admin/enrichment-export" download>
+                {t("foodDatasets.exportEnrichment")}
+              </a>
             </div>
+            <p className="hint" style={{ marginTop: 8 }}>{t("foodDatasets.exportEnrichmentHint")}</p>
           </>
         )}
       </section>

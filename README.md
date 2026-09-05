@@ -297,6 +297,22 @@ release actually publishes and leaves the backfilled ones in the gaps it still
 does not fill - a measured number always wins, and enrichment is no longer lost
 on every dataset upgrade.
 
+**Reviewed values can be contributed back.** `npm run
+datasets:export:enrichment` (or the button on /admin) writes
+`datasets/bundled/ai-enrichment.ndjson.gz` and a manifest entry in the same
+format as the bundled databases, carrying every approved value with the page and
+model it came from. Only foods from a bundled database travel: a BLS code or an
+FDC id means the same food on every deployment, and a food you created has no
+such identity - so nothing private can reach the artifact by construction.
+Nothing is published either: the export writes a file, and contributing it is a
+pull request somebody opens, because shipping a value to every NutriCore is a
+different decision from approving it for one instance.
+
+An artifact that does ship is applied like any other bundled database, last, and
+only into gaps: a nutrient your catalogue already states is never touched, and
+everything it writes lands as `AI_ENRICHMENT` with an estimated source, so it
+stays badged as read by a model rather than measured.
+
 **A run reads the food's own pages before it searches for its name.** A
 reference URL stored on the food - the label a user typed when creating it, or a
 provider's product page - is about that food by construction, where a search for
