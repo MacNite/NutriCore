@@ -948,7 +948,7 @@ only from the Administrator Panel.
 - Rate limiting on sign-in, registration, search, export and research
 - Zod validation on every input, provider response and AI output
 - Ownership checks on every user-owned entity
-- SSRF protection with DNS resolution and private-range blocking
+- SSRF protection with DNS resolution and private-range blocking, and the connection is pinned to the address that passed the check so a name cannot resolve publicly for the check and privately for the fetch
 - Secrets only from the environment, never logged, never shown in the UI
 - No advertising SDKs, no third-party analytics, no telemetry
 - Uploaded photos are validated by their bytes, not their filename or declared

@@ -17,6 +17,7 @@ import {
   type ResearchResult,
 } from "@/lib/research";
 import { asUntrustedExcerpt, checkUrl, ldJsonScripts, MAX_RECIPE_SCAN_BYTES, MAX_RESEARCH_BYTES, MAX_RESEARCH_REDIRECTS, RESEARCH_TIMEOUT_MS, sanitizeHtml } from "@/lib/url-guard";
+import { pinnedFetch } from "@/lib/pinned-fetch";
 import { normalizeName } from "@/lib/units";
 import { estimatedDensityGPerMl } from "@/lib/density";
 import { OllamaProvider } from "@/providers/ollama";
@@ -164,12 +165,19 @@ async function readCapped(
 }
 
 export async function fetchResearchSource(raw: string, options: { fetch?: typeof fetch; preserveHtml?: boolean; keepRecipeJsonLd?: boolean } = {}) {
-  const request = options.fetch ?? fetch;
   let current = raw;
   for (let redirects = 0; redirects <= MAX_RESEARCH_REDIRECTS; redirects++) {
     const checked = await checkUrl(current);
     if (!checked.ok) throw new Error(`unsafe-source:${checked.reason}`);
-    const response = await request(checked.url, { redirect: "manual", signal: AbortSignal.timeout(RESEARCH_TIMEOUT_MS), headers: { Accept: "text/html,application/xhtml+xml,text/plain" } });
+    const init = { redirect: "manual" as const, signal: AbortSignal.timeout(RESEARCH_TIMEOUT_MS), headers: { Accept: "text/html,application/xhtml+xml,text/plain" } };
+    /* Pinned to the address `checkUrl` just validated. Letting the client
+       resolve `checked.url` itself - which is what this did until the guard
+       gained an address to hand over - reopened the DNS-rebinding window the
+       guard exists to close. An injected fetch is for tests, which drive
+       literal addresses and have no resolution step to subvert. */
+    const response = options.fetch
+      ? await options.fetch(checked.url, init)
+      : ((await pinnedFetch(checked.url, checked.address, init)) as unknown as Response);
     if (response.status >= 300 && response.status < 400) {
       const next = response.headers.get("location");
       if (!next || redirects === MAX_RESEARCH_REDIRECTS) throw new Error("source-redirect-limit");
