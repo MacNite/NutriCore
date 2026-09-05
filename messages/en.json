@@ -571,7 +571,7 @@
     },
     "figure": {
       "title": "Body figure",
-      "change": "Figure",
+      "change": "Figure settings",
       "intro": "Choose how the figure is drawn. It is a look, not a finding.",
       "presentation": "Presentation",
       "build": "Build",

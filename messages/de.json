@@ -571,7 +571,7 @@
     },
     "figure": {
       "title": "Körperfigur",
-      "change": "Figur",
+      "change": "Figur einstellen",
       "intro": "Wähle, wie die Figur gezeichnet wird. Das ist eine Darstellung, kein Befund.",
       "presentation": "Darstellung",
       "build": "Statur",
