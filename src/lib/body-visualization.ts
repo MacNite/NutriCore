@@ -67,9 +67,17 @@ export function polarPoint(angleDeg: number, radius: number): Point {
 export const polygonPoints = (points: Point[]) =>
   points.map((point) => `${round(point.x)},${round(point.y)}`).join(" ");
 
-/** Ratio of a current value to its reference; 1 when either side is unknown. */
-export function axisRatio(current: number | null, reference: number | null): number {
-  if (current == null || reference == null || reference === 0) return 1;
+/**
+ * Ratio of a current value to its reference, or null when the axis cannot be
+ * compared at all.
+ *
+ * A missing value used to come back as 1, which put the vertex exactly on the
+ * reference ring: a session that measured nothing was drawn as a complete,
+ * perfectly unchanged body. Unknown and unchanged are not the same claim, so
+ * an axis with nothing behind it now has no point to plot.
+ */
+export function axisRatio(current: number | null, reference: number | null): number | null {
+  if (current == null || reference == null || reference === 0) return null;
   return current / reference;
 }
 

@@ -22,18 +22,25 @@ export function BodyReferenceBar({
   measurements,
   referenceIndex,
   currentIndex,
+  comparable,
   onReferenceIndex,
   locale,
 }: {
   measurements: BodyMeasurement[];
   referenceIndex: number;
   currentIndex: number;
+  /** The sessions worth comparing against, as indices into `measurements`. */
+  comparable: readonly number[];
   onReferenceIndex: (index: number) => void;
   locale: Locale;
 }) {
   const t = useTranslations("bodyProgress");
   const selectId = useId();
   const current = measurements[currentIndex];
+  /* Only real check-ins are offered. A day carrying nothing but a weight would
+     list a date here that has no body behind it, which is how one measurement
+     came to look like a week of them. */
+  const options = comparable.filter((index) => index < currentIndex);
 
   return (
     <div className="body-ref-bar">
@@ -46,9 +53,9 @@ export function BodyReferenceBar({
           value={referenceIndex}
           onChange={(event) => onReferenceIndex(Number(event.target.value))}
         >
-          {measurements.slice(0, Math.max(currentIndex, 1)).map((measurement, index) => (
-            <option key={measurement.date} value={index}>
-              {formatDate(measurement.date, locale)}
+          {options.map((index) => (
+            <option key={measurements[index].date} value={index}>
+              {formatDate(measurements[index].date, locale)}
             </option>
           ))}
         </select>
@@ -62,7 +69,9 @@ export function BodyReferenceBar({
       <div className="body-ref-quick" role="group" aria-label={t("quick.label")}>
         {QUICK.map((choice) => {
           const index =
-            choice.days === null ? 0 : indexNearestDaysBefore(measurements, currentIndex, choice.days);
+            choice.days === null
+              ? (options[0] ?? 0)
+              : indexNearestDaysBefore(measurements, currentIndex, choice.days, comparable);
           return (
             <button
               key={choice.key}
