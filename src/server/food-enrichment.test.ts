@@ -385,6 +385,19 @@ describe("enrichFood: proposing versus applying", () => {
     expect(result.proposedKeys).toEqual([]);
   });
 
+  it("does not spend the cooldown when deciding the write policy fails", async () => {
+    allowResearch(["user-1"]);
+    userProfile.findUnique.mockRejectedValueOnce(new Error("database unavailable"));
+
+    await expect(enrichFood("food-1", "user-1", sourceOffering({ iron: 0.4 }))).rejects.toThrow("database unavailable");
+
+    // Stamped outside the transaction, this left the food withheld for the
+    // retry window with no attempt record - the same inconsistency the empty
+    // path was fixed for, on the branch that happened to find something.
+    expect(food.update).not.toHaveBeenCalled();
+    expect(enrichmentProposal.create).not.toHaveBeenCalled();
+  });
+
   it("moves on to a gap no previous run has asked about", async () => {
     allowResearch(["user-1"]);
     userProfile.findUnique.mockResolvedValue({ autoApplyEnrichment: false });
