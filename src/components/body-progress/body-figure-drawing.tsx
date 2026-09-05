@@ -50,8 +50,9 @@ export function BodyFigureDrawing({
       </g>
 
       <g clipPath={`url(#${id})`}>
-        <path d={figure.briefs} fill="var(--text-muted)" opacity="0.32" />
-        {figure.bra ? <path d={figure.bra} fill="var(--text-muted)" opacity="0.32" /> : null}
+        <path d={figure.briefs} fill="var(--text-muted)" opacity="0.4" />
+        <path d={figure.waistband} fill="var(--text-muted)" opacity="0.62" />
+        {figure.bra ? <path d={figure.bra} fill="var(--text-muted)" opacity="0.4" /> : null}
         {figure.contours.map((d, index) => (
           <path key={index} d={d} fill="none" stroke="var(--line-strong)" strokeWidth="1.1" />
         ))}

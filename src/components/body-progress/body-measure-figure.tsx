@@ -94,8 +94,9 @@ export function BodyMeasureFigure({
         </g>
 
         <g clipPath={`url(#${clipId})`}>
-          <path d={figure.briefs} fill="var(--text-muted)" opacity="0.22" />
-          {figure.bra ? <path d={figure.bra} fill="var(--text-muted)" opacity="0.22" /> : null}
+          <path d={figure.briefs} fill="var(--text-muted)" opacity="0.32" />
+          <path d={figure.waistband} fill="var(--text-muted)" opacity="0.5" />
+          {figure.bra ? <path d={figure.bra} fill="var(--text-muted)" opacity="0.32" /> : null}
         </g>
 
         <g fill="none" stroke="var(--line-strong)" strokeWidth="1.4">

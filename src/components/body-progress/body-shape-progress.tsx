@@ -134,17 +134,6 @@ export function BodyShapeProgress({
           ))}
         </g>
 
-        {/* Garments and interior lines are clipped to the body, so they can be
-            drawn as generous shapes and still end at the silhouette. */}
-        <g clipPath={`url(#${clipIdFor("body")})`}>
-          <path d={figure.briefs} fill="var(--text-muted)" opacity="0.32" />
-          {figure.bra ? <path d={figure.bra} fill="var(--text-muted)" opacity="0.32" /> : null}
-          {figure.contours.map((d, index) => (
-            <path key={index} d={d} fill="none" stroke="var(--line-strong)" strokeWidth="1.1" />
-          ))}
-          <circle cx={figure.navel.cx} cy={figure.navel.cy} r={figure.navel.r} fill="var(--line-strong)" />
-        </g>
-
         {tinted.map((region) => {
           const delta = changes[region.key].delta!;
           const opacity = changeIntensity(delta.percent);
@@ -162,6 +151,18 @@ export function BodyShapeProgress({
             </g>
           );
         })}
+
+        {/* Garments are above change colour and clipped to the body. Their
+            waistband edge keeps them distinct from the softly faded bands. */}
+        <g clipPath={`url(#${clipIdFor("body")})`}>
+          <path d={figure.briefs} fill="var(--text-muted)" opacity="0.4" />
+          <path d={figure.waistband} fill="var(--text-muted)" opacity="0.62" />
+          {figure.bra ? <path d={figure.bra} fill="var(--text-muted)" opacity="0.4" /> : null}
+          {figure.contours.map((d, index) => (
+            <path key={index} d={d} fill="none" stroke="var(--line-strong)" strokeWidth="1.1" />
+          ))}
+          <circle cx={figure.navel.cx} cy={figure.navel.cy} r={figure.navel.r} fill="var(--line-strong)" />
+        </g>
 
         <g fill="none" stroke="var(--accent)" strokeWidth="2">
           {outlineShapes(outline).map((d, index) => (

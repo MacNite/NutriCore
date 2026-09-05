@@ -280,7 +280,7 @@ const FIGURE_BASE: Record<BodyFigure, BodyOutlineInput> = {
 const TYPE_SCALE: Record<BodyType, Record<keyof BodyOutlineInput, number>> = {
   ECTOMORPH: { neckCm: 0.94, chestCm: 0.92, waistCm: 0.86, hipCm: 0.92, upperArmCm: 0.86, thighCm: 0.9, calfCm: 0.92 },
   MESOMORPH: { neckCm: 1.04, chestCm: 1.05, waistCm: 0.94, hipCm: 0.98, upperArmCm: 1.1, thighCm: 1.06, calfCm: 1.06 },
-  ENDOMORPH: { neckCm: 1.06, chestCm: 1.08, waistCm: 1.2, hipCm: 1.1, upperArmCm: 1.06, thighCm: 1.1, calfCm: 1.04 },
+  ENDOMORPH: { neckCm: 1.06, chestCm: 1.08, waistCm: 1.2, hipCm: 1.1, upperArmCm: 1.16, thighCm: 1.16, calfCm: 1.12 },
 };
 
 /**
@@ -390,6 +390,26 @@ export const clipShapes = (outline: BodyOutline, group: BodyClipGroup) =>
  */
 const ARM_GAP = 6;
 
+/** Small-feature proportions are named because a two-pixel change is visible in picker previews. */
+const EXTREMITY = {
+  elbow: 0.78,
+  forearmBelly: 0.86,
+  wrist: 0.5,
+  palm: 0.7,
+  thumb: 0.82,
+  fingertip: 0.18,
+  ankle: 0.44,
+  footOuter: 0.72,
+  footInner: 0.52,
+} as const;
+
+const GARMENT = {
+  briefRise: 14,
+  boxerRise: 2,
+  boxerInseam: 20,
+  waistbandDepth: 4,
+} as const;
+
 interface BodyWidths {
   neck: number;
   chest: number;
@@ -417,6 +437,20 @@ function widths(input: BodyOutlineInput, appearance: BodyAppearance): BodyWidths
     calf: halfWidth(input.calfCm, CROSS_SECTION.calf),
     shoulder,
     deltoid: shoulder + arm * 0.55,
+  };
+}
+
+/** Public landmark breadths make the shared, measurement-driven model directly testable. */
+export function bodyLandmarkWidths(input: BodyOutlineInput, appearance: BodyAppearance) {
+  const w = widths(input, appearance);
+  return {
+    shoulder: w.deltoid * 2,
+    chest: w.chest * 2,
+    waist: w.waist * 2,
+    hip: w.hip * 2,
+    upperArm: w.arm * 2,
+    thigh: w.thigh * 2,
+    calf: w.calf * 2,
   };
 }
 
@@ -491,25 +525,28 @@ function armGeometry(w: BodyWidths, style: BodyShapeStyle): ArmGeometry {
   });
   /* Deltoid, mid upper arm, elbow, the belly of the forearm, wrist, hand and
      fingertips: the stops a hanging arm actually narrows and swells at. */
-  const stops: { at: number; half: number }[] = [
-    { at: 0.02, half: w.arm * 1.06 },
-    { at: ARM_SEGMENT.upper * 0.55, half: w.arm },
-    { at: ARM_SEGMENT.upper, half: w.arm * 0.8 },
-    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore * 0.32, half: w.arm * 0.86 },
-    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore, half: w.arm * 0.5 },
-    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore + ARM_SEGMENT.hand * 0.45, half: w.arm * 0.72 },
-    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore + ARM_SEGMENT.hand, half: w.arm * 0.2 },
+  const stops: { at: number; outer: number; inner?: number }[] = [
+    { at: 0.02, outer: w.arm * 1.06 },
+    { at: ARM_SEGMENT.upper * 0.55, outer: w.arm },
+    { at: ARM_SEGMENT.upper, outer: w.arm * EXTREMITY.elbow },
+    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore * 0.32, outer: w.arm * EXTREMITY.forearmBelly },
+    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore, outer: w.arm * EXTREMITY.wrist },
+    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore + ARM_SEGMENT.hand * 0.28, outer: w.arm * EXTREMITY.palm },
+    /* The thumb sits on the body's side of each hand and breaks the old mitten profile. */
+    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore + ARM_SEGMENT.hand * 0.48, outer: w.arm * 0.58, inner: w.arm * EXTREMITY.thumb },
+    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore + ARM_SEGMENT.hand * 0.66, outer: w.arm * 0.48, inner: w.arm * 0.42 },
+    { at: ARM_SEGMENT.upper + ARM_SEGMENT.fore + ARM_SEGMENT.hand, outer: w.arm * EXTREMITY.fingertip },
   ];
   const centres = stops.map((stop) => at(stop.at));
   return {
     outer: centres.map((centre, index) => ({
-      x: centre.x + across.x * stops[index].half,
-      y: centre.y + across.y * stops[index].half,
+      x: centre.x + across.x * stops[index].outer,
+      y: centre.y + across.y * stops[index].outer,
     })),
     inner: centres
       .map((centre, index) => ({
-        x: centre.x - across.x * stops[index].half,
-        y: centre.y - across.y * stops[index].half,
+        x: centre.x - across.x * (stops[index].inner ?? stops[index].outer),
+        y: centre.y - across.y * (stops[index].inner ?? stops[index].outer),
       }))
       .reverse(),
     midUpper: at(ARM_SEGMENT.upper * 0.5),
@@ -535,7 +572,7 @@ function legGeometry(w: BodyWidths) {
     thigh: w.thigh * 0.88,
     knee: w.thigh * 0.52,
     calf: w.calf * 0.92,
-    ankle: w.calf * 0.44,
+    ankle: w.calf * EXTREMITY.ankle,
   };
   return { centre, half };
 }
@@ -582,10 +619,10 @@ export function buildBodyOutline(
   ];
   /* Front view: the foot is foreshortened to a low, slightly splayed wedge. */
   const foot: Point[] = [
-    { x: cx + leg.centre.ankle + w.calf * 0.66, y: Y.sole - 0.01 * STATURE },
-    { x: cx + leg.centre.ankle + w.calf * 0.62, y: Y.sole },
-    { x: cx + leg.centre.ankle - w.calf * 0.56, y: Y.sole },
-    { x: cx + leg.centre.ankle - w.calf * 0.5, y: Y.sole - 0.01 * STATURE },
+    { x: cx + leg.centre.ankle + w.calf * EXTREMITY.footOuter, y: Y.sole - 0.012 * STATURE },
+    { x: cx + leg.centre.ankle + w.calf * 0.64, y: Y.sole },
+    { x: cx + leg.centre.ankle - w.calf * 0.58, y: Y.sole },
+    { x: cx + leg.centre.ankle - w.calf * EXTREMITY.footInner, y: Y.sole - 0.012 * STATURE },
   ];
   /* The thighs touch from the crotch down to about mid-thigh; the gap opens
      below it. Anything else reads as a stance, which this figure never takes. */
@@ -639,6 +676,9 @@ export interface BodyFigureArt {
   hairFront: string;
   /** Garments, clipped to the body when drawn. */
   briefs: string;
+  garment: "briefs" | "boxer-briefs";
+  /** Narrow top edge, painted separately so underwear cannot read as a progress band. */
+  waistband: string;
   bra: string | null;
   /** Thin interior lines: collarbone, bra straps, knees. */
   contours: string[];
@@ -720,11 +760,11 @@ export function buildBodyFigure(
   const leg = legGeometry(w);
 
   /* Garments are clipped to the body, so they may run past its edges. */
-  const briefsTop = masculine ? Y.hip - 2 : Y.hip - 14;
+  const briefsTop = masculine ? Y.hip - GARMENT.boxerRise : Y.hip - GARMENT.briefRise;
   const briefs = masculine
     ? /* Trunks: a straight hem across both upper thighs. */
-      `M0,${round(briefsTop)} L${width},${round(briefsTop)} L${width},${round(Y.crotch + 20)} L0,${round(
-        Y.crotch + 20,
+      `M0,${round(briefsTop)} L${width},${round(briefsTop)} L${width},${round(Y.crotch + GARMENT.boxerInseam)} L0,${round(
+        Y.crotch + GARMENT.boxerInseam,
       )} Z`
     : /* Briefs: the hem rises towards the hips. */
       move({ x: 0, y: briefsTop }) +
@@ -741,6 +781,9 @@ export function buildBodyFigure(
         { x: 0, y: Y.hip + 12 },
       ) +
       " Z";
+  const waistband = `M0,${round(briefsTop)} L${width},${round(briefsTop)} L${width},${round(
+    briefsTop + GARMENT.waistbandDepth,
+  )} L0,${round(briefsTop + GARMENT.waistbandDepth)} Z`;
 
   const bandTop = Y.chest - 15;
   const bandBottom = Y.chest + 9;
@@ -779,6 +822,16 @@ export function buildBodyFigure(
   ];
   contours.push(mirrorPath(contours[1]));
 
+  /* Two quiet toe creases per foot remain readable without turning clinical art into anatomy. */
+  const toe =
+    move({ x: cx + leg.centre.ankle + w.calf * 0.18, y: Y.sole - 2.5 }) +
+    curveTo(
+      { x: cx + leg.centre.ankle + w.calf * 0.3, y: Y.sole - 4 },
+      { x: cx + leg.centre.ankle + w.calf * 0.48, y: Y.sole - 3.5 },
+      { x: cx + leg.centre.ankle + w.calf * 0.55, y: Y.sole - 1.5 },
+    );
+  contours.push(toe, mirrorPath(toe));
+
   if (bra) {
     /* Straps, from the band up over each shoulder. */
     const strap =
@@ -796,6 +849,8 @@ export function buildBodyFigure(
     hairBack: hair.back,
     hairFront: hair.front,
     briefs,
+    garment: masculine ? "boxer-briefs" : "briefs",
+    waistband,
     bra,
     contours,
     navel: { cx, cy: Y.navel, r: 1.8 },
