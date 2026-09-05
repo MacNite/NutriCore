@@ -11,11 +11,33 @@ exhaustively.
 | Layer | Location | Responsibility |
 | --- | --- | --- |
 | UI | `src/app`, `src/components` | Rendering, forms, accessibility |
+| Edge | `src/middleware.ts` | Per-request CSP nonce and security headers, the password-change gate |
 | Entry | route handlers, server actions | Session, authorisation, validation, rate limiting |
-| Services | `src/server` | Diary, foods, food-dataset import, targets, export, diagnostics |
-| Domain | `src/lib` | Nutrition, calories, units, ranking, research, guards |
-| Adapters | `src/providers` | Open Food Facts, USDA FoodData Central, FatSecret, Ollama; the food source registry and provider interfaces |
+| Services | `src/server` | Diary, foods, food-dataset import, targets, activities, body measurements and scans, recipes and publications, AI jobs and enrichment, retention, export, diagnostics |
+| Domain | `src/lib` | Nutrition, calories, units, ranking, activity METs, body geometry, research, guards |
+| Adapters | `src/providers` | Open Food Facts, USDA FoodData Central, FatSecret, Ollama, the body-scan estimator; the food source registry and provider interfaces |
 | Storage | `prisma` | Schema, migrations, seed |
+
+## Processes
+
+Three, from two images built out of one Dockerfile.
+
+| Process | Started by | Job |
+| --- | --- | --- |
+| `app` | `node server.js` (Next.js standalone) | Serves the PWA and the API |
+| `worker` | `tsx src/worker.ts`, selected by `NUTRICORE_PROCESS=worker` | Drains the AI queue, sweeps expired images and rate-limit buckets, prunes cache-limited provider foods, applies the retention windows, imports the bundled datasets on start-up |
+| `migrate` | `docker/migrate.sh`, from the `migrate` image | Runs `prisma migrate deploy` once and exits |
+
+`app` and `worker` come from the same image and differ only by one environment
+variable; both wait on `migrate` completing successfully, so neither can run
+against a database that is behind the code. Migrations used to run from each
+long-running container's entrypoint, which raced on every start and forced the
+Prisma CLI into the image that faces the network. The `migrate` image is now
+the only one carrying that CLI, and CI asserts both halves of the split.
+
+The worker serves no HTTP, so it proves liveness with a heartbeat file written
+on every queue poll; `docker/healthcheck.sh` reads `NUTRICORE_PROCESS` and
+switches between that file and the HTTP probe.
 
 ## Nutrition model
 
@@ -282,6 +304,24 @@ read only up to `MAX_RESEARCH_BYTES` with the remainder abandoned mid-transfer,
 stripped of scripts and markup, and wrapped in a delimiter that tells the model
 it is reference data and not instructions.
 
+## Activity and the calorie target
+
+An `ActivityEntry` records what was done, for how long, and — snapshotted at the
+moment it was saved — the MET value it was scored with, its compendium code, the
+body weight the estimate used and the resulting active kilocalories. The library
+in `src/lib/activities.ts` is curated from the 2024 Adult Compendium of Physical
+Activities, and keeping the codes means any stored estimate can be audited back
+to the source. Snapshotting means the reverse of the diary's problem is also
+solved: correcting today's weight cannot silently rewrite what last month's run
+is said to have cost.
+
+Whether those calories reach the day's allowance is a preference
+(`UserProfile.addActivityCalories`, on by default) applied by
+`targetWithActivity` at read time, not folded into the stored target. The
+Mifflin-St Jeor components in `NutritionTarget` therefore keep meaning exactly
+what they meant when they were calculated, and switching the preference changes
+what a day shows without rewriting any history.
+
 ## Body scanning
 
 A guided two-view capture estimates circumferences from a front and a side
@@ -338,6 +378,48 @@ plain-HTTP LAN deployment usable while an HTTPS deployment always gets it.
 Server actions carry their own origin validation; route handlers that mutate
 state call `assertSameOrigin`.
 
+## Rate limiting
+
+Two limiters, chosen by what the limit is for.
+
+`src/lib/rate-limit.ts` is a fixed window in process memory. It paces search and
+outbound provider calls, where a limit that resets with the process is a
+politeness measure and nothing more.
+
+`src/server/durable-rate-limit.ts` is the same fixed window held in
+PostgreSQL, one `RateLimitBucket` row per key, and it carries the limits that
+exist to stop somebody: sign-in, registration, invitation redemption. The whole
+decision is a single `INSERT … ON CONFLICT DO UPDATE … RETURNING`, so two
+concurrent callers cannot both read a count under the limit and both write it;
+the same statement resets an elapsed window, so an expired row needs no cleanup
+pass to become usable again. Rows are pruned by the worker only to keep the
+table small. In memory, every restart handed an attacker a fresh allowance —
+and a self-hosted box restarts whenever its operator upgrades an image. If the
+database cannot be reached the in-memory limiter is the fallback, because
+failing open on sign-in is worse than a limit that is merely per-process.
+
+Sign-in is limited per account as well as per address, so the limit does not
+depend on `TRUSTED_PROXY_HOPS` having been set correctly. `X-Forwarded-For` is
+read only as far as that setting allows, counted from the right of the chain,
+which is what stops a client choosing its own bucket.
+
+## Retention
+
+`src/server/retention.ts` holds the windows for the records that had none, and
+the worker applies them on its slow cadence. Uploaded imagery was always
+transient — an explicit expiry, cleared on processing, swept every minute — but
+ingestion text, job diagnostics and spent invitations accumulated for ever.
+
+Ingestion text and source URLs are *emptied* rather than deleted, because
+`Recipe.importId` points at the row and that link is the provenance saying a
+recipe came from an import. Finished AI jobs are deleted with their attempts and
+proposal; failed ones are kept three times as long, because a failure is what
+somebody eventually asks about. Accepted, revoked or expired invitations are
+deleted, and a live one is never touched whatever its age. Every window is
+configurable and `0` disables that sweep. Nothing here touches diary entries,
+foods, recipes, weights, activities or body measurements: those are the user's
+records, and they go when the user or the account does.
+
 ## Recipes
 
 Recipes are personal records and expose a synchronised personal `Food` for the
@@ -357,3 +439,22 @@ resolve through the unit boundary, the import keeps only the units a food can
 actually be measured in and reports the rest ("2 EL Olivenöl") for the user to
 add; the recipe form offers those same units as a dropdown rather than free
 text.
+
+## Publishing a recipe
+
+A `RecipePublication` is a snapshot, not a reference. It stores the title,
+description, instructions, tags, ingredient names with their amounts and the
+nutrition calculated from them — and deliberately no food ids, because
+`Food.ownerId` is the whole boundary between two members and a shared id would
+give it away. Saving somebody's publication copies it: each ingredient resolves
+to a food the recipient may already read (the shared provider row, matched by
+provider id or barcode), and one that resolves to nothing becomes a private
+`IMPORTED` food of theirs carrying the snapshot's values. Nothing the author
+does afterwards reaches that copy, which is the entire reason for copying rather
+than linking.
+
+The one case that is refused rather than fudged is a `CACHE_WITH_TTL` source. A
+FatSecret-derived food may be re-used while the shared row still exists, but its
+values are never written into somebody's permanent private food; once the row
+has been pruned the ingredient is left out of the copy and named on the recipe,
+rather than turning expiring provider content into a permanent local dataset.

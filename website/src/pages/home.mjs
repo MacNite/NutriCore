@@ -483,14 +483,15 @@ const entries = [
     figure: `<div class="figure" data-reveal>${scanDiagram}<div class="figure-caption">The heights it measures at are the same BODY_LANDMARKS the drawn figure is built from, so a scan and the figure it feeds cannot drift apart. Images are discarded once a scan finishes; the estimate, and its interval, is what persists.</div></div>`,
   },
   {
-    title: "One image, two processes, one command",
-    lead: `A standalone Next.js build, an entrypoint that applies migrations before anything answers, a
-      health check that knows whether it is inside the web process or the worker, and a published
-      multi-architecture image. It runs on a NAS or a spare box; it does not need a cloud.`,
+    title: "Two images, three processes, one command",
+    lead: `A standalone Next.js build, a one-shot migration service the app and the worker both wait
+      for, a health check that knows whether it is inside the web process or the worker, and published
+      multi-architecture images. It runs on a NAS or a spare box; it does not need a cloud.`,
     body: `Continuous integration runs the full production build, the end-to-end suite against a real
       PostgreSQL, and a complete food-database import &mdash; then repeats the import to prove it is
       idempotent. That last step is the one thing a unit test with a temporary fixture directory cannot
-      show.`,
+      show. It also asserts that only the migration image carries the Prisma CLI, and that the image
+      serving traffic still talks to the database without it.`,
     meta: [
       ["Image", facts.registry],
       ["Runtime", `Node ${facts.nodeVersion} on Alpine &middot; PostgreSQL ${facts.postgresVersion}`],
@@ -595,11 +596,12 @@ ${entryMarkup}
   <div class="shell grid">
     <div class="section-head" style="grid-column:span 5;margin-bottom:0" data-reveal>
       <p class="eyebrow">Getting it running</p>
-      <h2 class="h2">A file, two commands, one import.</h2>
+      <h2 class="h2">A file, two commands, nothing to import.</h2>
       <p class="lede" style="margin-top:1rem">
-        Compose pulls the published image, applies migrations on start and comes
-        up healthy once PostgreSQL answers. Importing the bundled databases is a
-        single command you may safely run again.
+        Compose pulls the published images, applies migrations in a one-shot
+        service the app and the worker wait for, and comes up healthy once
+        PostgreSQL answers. The bundled food databases are imported by the
+        worker in the background, and re-importing them changes nothing.
       </p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="build.html">
@@ -618,12 +620,10 @@ openssl rand -base64 48   <span class="c"># APP_SECRET</span>
 <span class="c"># 2 - bring the stack up</span>
 docker compose up -d
 
-<span class="c"># 3 - import BLS 4.0 and USDA (idempotent)</span>
-docker compose exec app npm run db:import:foods
-
-<span class="c"># ${num(facts.foods.total)} foods, answered without a network call</span>
+<span class="c"># 3 - the worker imports BLS 4.0 and USDA by itself</span>
+<span class="c">#     ${num(facts.foods.total)} foods, answered without a network call</span>
 curl -s localhost:3000/api/health
-<span class="s">{"status":"ok","service":"nutricore","database":"ok"}</span></pre>
+<span class="s">{"status":"ok","service":"nutricore","database":"ok","time":"..."}</span></pre>
       </div>
       <div class="callout" style="margin-top:1.2rem">
         <strong>The first account is the administrator.</strong> Registration is

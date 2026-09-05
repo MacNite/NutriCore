@@ -29,9 +29,12 @@ any single number.
    images are never re-served to the browser and never logged.
 3. The worker decodes each image with `sharp` at up to 1024 px on the longest
    edge, applying and then discarding EXIF orientation.
-4. `silhouetteFrom` estimates the background colour from a ring of border
-   pixels, thresholds every pixel against it, keeps the largest connected
-   component and fills enclosed holes.
+4. `silhouetteFrom` (`src/lib/silhouette.ts`) estimates the background colour as
+   the median of a ring of border pixels, thresholds every pixel against it,
+   keeps the largest connected component and fills enclosed holes. It is pure
+   and free of `sharp`, so it is tested on pixel arrays directly — and it is the
+   seam a segmentation model would replace, since everything after it is
+   geometry that does not care where the mask came from.
 5. `assessCapture` decides whether the capture is usable at all, and which
    individual levels the arms have spoiled. A rejected capture produces **no
    numbers**, only reasons to retake; an accepted one may still omit a level,
@@ -173,7 +176,11 @@ read — and every ending offers a retake.
 ## Capture conditions
 
 The estimator reads a silhouette, so the conditions are not advice — a capture
-that ignores them is rejected rather than quietly wrong:
+that ignores them is rejected rather than quietly wrong. The camera is optional:
+each view offers a camera button and a file-picker button, and on a plain-HTTP
+LAN deployment (where a browser refuses camera access) both open the picker and
+nothing else changes. A height in the profile is required, because it is the
+only thing that sets the scale.
 
 - a plain, uncluttered wall in even light;
 - close-fitting clothing (loose clothing is measured instead of the body);
