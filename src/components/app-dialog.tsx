@@ -3,8 +3,10 @@
 import { useEffect, useRef } from "react";
 
 /** Shared native dialog with consistent focus restoration and mobile layout. */
-export function AppDialog({ id, title, closeLabel, trigger, triggerClassName = "btn btn-quiet", initialOpen = false, openEvent, onClose, secondaryTrigger, secondaryTriggerLabel, secondaryAutoFocusTarget, secondaryAutoClickTarget, children }: {
+export function AppDialog({ id, title, closeLabel, trigger, triggerLabel, triggerClassName = "btn btn-quiet", initialOpen = false, openEvent, onClose, secondaryTrigger, secondaryTriggerLabel, secondaryAutoFocusTarget, secondaryAutoClickTarget, children }: {
   id: string; title: string; closeLabel: string; trigger?: React.ReactNode;
+  /** Name for a trigger that shows an icon instead of words. */
+  triggerLabel?: string;
   triggerClassName?: string; initialOpen?: boolean;
   openEvent?: string; onClose?: () => void;
   secondaryTrigger?: React.ReactNode; secondaryTriggerLabel?: string;
@@ -28,7 +30,7 @@ export function AppDialog({ id, title, closeLabel, trigger, triggerClassName = "
   }, [openEvent]);
   return <>
     {trigger === undefined ? null : (
-      <button ref={triggerButton} className={triggerClassName} type="button" onClick={() => dialog.current?.showModal()}>{trigger}</button>
+      <button ref={triggerButton} className={triggerClassName} type="button" aria-label={triggerLabel} title={triggerLabel} onClick={() => dialog.current?.showModal()}>{trigger}</button>
     )}
     {secondaryTrigger ? (
       <button className="icon-btn" type="button" onClick={() => {
