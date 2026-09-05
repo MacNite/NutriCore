@@ -83,6 +83,22 @@ export async function enrichmentBlock(
 }
 
 /**
+ * Whether this user has said the backfill may write straight to the food.
+ *
+ * Off by default. Enrichment was the one AI path that wrote into shared data
+ * without anybody confirming it, and "human approves" is the rule the worker
+ * states for every other one. A single-user instance that trusts the backfill
+ * can switch it back on and keep the old behaviour.
+ */
+export async function enrichmentAutoApply(userId: string): Promise<boolean> {
+  const profile = await prisma.userProfile.findUnique({
+    where: { userId },
+    select: { autoApplyEnrichment: true },
+  });
+  return Boolean(profile?.autoApplyEnrichment);
+}
+
+/**
  * The same decision for many foods at once, for the callers that queue jobs.
  *
  * Refusing at the queue is what keeps the admin table honest: a job that could
@@ -373,34 +389,105 @@ export async function enrichFood(
   if (!hasAnyNutrient(verified.per100g) && !(needsServing && extracted.servingSizeG))
     return { filledNutrientKeys: [], servingFilled: false };
 
+  // What the source actually offered for the gaps this run asked about. Values
+  // outside `missing` are the source repeating something the food already has.
+  const offered = Object.entries(verified.per100g).filter(
+    ([nutrientKey, value]) => missing.includes(nutrientKey) && value != null,
+  ) as [string, number][];
+  const offeredServing = needsServing && extracted.servingSizeG ? extracted.servingSizeG : null;
+  if (!offered.length && !offeredServing) return { filledNutrientKeys: [], servingFilled: false, proposedKeys: [] };
+
+  // Whether this run may write, or only propose. Either way it records what it
+  // found and what it asked for: the proposal is the audit trail as well as the
+  // review queue, and a later run reads `requestedKeys` to avoid asking the
+  // same window of the catalogue again.
+  const autoApply = await enrichmentAutoApply(requestedByUserId);
+
   const filledNutrientKeys: string[] = [];
+  const proposedKeys: string[] = [];
   let servingFilled = false;
   await prisma.$transaction(async (tx) => {
-    for (const [nutrientKey, value] of Object.entries(verified.per100g)) {
-      if (!missing.includes(nutrientKey) || value == null) continue;
-      const updated = await tx.foodNutrient.updateMany({ where: { foodId, nutrientKey, value: null }, data: { value, origin: AI_ENRICHMENT_ORIGIN } });
-      if (updated.count) filledNutrientKeys.push(nutrientKey);
-      else if (!food.nutrients.some((n) => n.nutrientKey === nutrientKey)) {
-        try { await tx.foodNutrient.create({ data: { foodId, nutrientKey, value, origin: AI_ENRICHMENT_ORIGIN } }); filledNutrientKeys.push(nutrientKey); }
-        catch (error) { if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error; }
+    const proposal = await tx.enrichmentProposal.create({
+      data: {
+        foodId,
+        sourceUrl: extracted.url,
+        model: extracted.model,
+        retrievedAt: new Date(),
+        requestedKeys: [...requested],
+        servingSizeG: offeredServing,
+      },
+    });
+
+    for (const [nutrientKey, value] of offered) {
+      let applied = false;
+      if (autoApply) {
+        const updated = await tx.foodNutrient.updateMany({ where: { foodId, nutrientKey, value: null }, data: { value, origin: AI_ENRICHMENT_ORIGIN } });
+        if (updated.count) applied = true;
+        else if (!food.nutrients.some((n) => n.nutrientKey === nutrientKey)) {
+          try { await tx.foodNutrient.create({ data: { foodId, nutrientKey, value, origin: AI_ENRICHMENT_ORIGIN } }); applied = true; }
+          catch (error) { if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error; }
+        }
       }
+      await tx.enrichmentProposalValue.create({
+        data: {
+          proposalId: proposal.id,
+          nutrientKey,
+          value,
+          applied,
+          // A value the run was allowed to write needs no second opinion; one it
+          // was not waits for a person, whether or not it could have been written.
+          status: autoApply ? "APPROVED" : "PENDING",
+          reviewedAt: autoApply ? new Date() : null,
+        },
+      });
+      if (applied) filledNutrientKeys.push(nutrientKey);
+      else proposedKeys.push(nutrientKey);
     }
-    if (needsServing && extracted.servingSizeG) {
-      const updated = await tx.food.updateMany({ where: { id: foodId, servingSize: null }, data: { servingSize: extracted.servingSizeG, servingUnit: "g" } });
-      servingFilled = updated.count > 0;
+
+    if (offeredServing) {
+      if (autoApply) {
+        const updated = await tx.food.updateMany({ where: { id: foodId, servingSize: null }, data: { servingSize: offeredServing, servingUnit: "g" } });
+        servingFilled = updated.count > 0;
+      }
+      await tx.enrichmentProposal.update({
+        where: { id: proposal.id },
+        data: { servingApplied: servingFilled, servingStatus: autoApply ? "APPROVED" : "PENDING" },
+      });
     }
+
     if (filledNutrientKeys.length || servingFilled) await tx.foodSource.create({ data: {
       foodId, provider: AI_ENRICHMENT_PROVIDER, retrievedAt: new Date(), url: extracted.url,
       estimated: true, model: extracted.model,
       metadata: { nutrientKeys: filledNutrientKeys, servingSize: servingFilled, sourceUrls: extracted.consideredUrls, addedAt: new Date().toISOString() },
     } });
   });
-  return { filledNutrientKeys, servingFilled };
+  return { filledNutrientKeys, servingFilled, proposedKeys };
 }
 
-export function aiEnrichmentMetadata(sources: { provider: string; metadata: unknown; retrievedAt: Date }[]) {
-  return sources.filter((s) => s.provider === AI_ENRICHMENT_PROVIDER).map((s) => {
-    const metadata = (s.metadata ?? {}) as { nutrientKeys?: string[]; servingSize?: boolean; addedAt?: string };
-    return { nutrientKeys: metadata.nutrientKeys ?? [], servingSize: Boolean(metadata.servingSize), addedAt: metadata.addedAt ?? s.retrievedAt.toISOString() };
-  }).filter((item) => item.nutrientKeys.length || item.servingSize);
+/**
+ * Which of this food's values are the AI's, read from the values themselves.
+ *
+ * This used to be read out of the `FoodSource` metadata, which records what a
+ * run *wrote* rather than what the food currently holds. The two drift: a
+ * dataset import that reclaims one of those nutrients leaves the badge naming a
+ * value that is no longer the model's. `FoodNutrient.origin` is the live
+ * answer and cannot drift, so the badge is now true by construction.
+ *
+ * The source rows are still read, for when it happened and whether a serving
+ * weight came with it - neither of which a nutrient row records.
+ */
+export function aiEnrichmentMetadata(
+  nutrients: { nutrientKey: string; value: unknown | null; origin?: string | null }[],
+  sources: { provider: string; metadata: unknown; retrievedAt: Date }[],
+) {
+  const nutrientKeys = nutrients
+    .filter((nutrient) => nutrient.origin === AI_ENRICHMENT_ORIGIN && nutrient.value !== null)
+    .map((nutrient) => nutrient.nutrientKey);
+  const runs = sources.filter((source) => source.provider === AI_ENRICHMENT_PROVIDER);
+  if (!runs.length) return [];
+
+  const latest = runs.reduce((newest, run) => (run.retrievedAt > newest.retrievedAt ? run : newest));
+  const servingSize = runs.some((run) => ((run.metadata ?? {}) as { servingSize?: boolean }).servingSize === true);
+  const addedAt = ((latest.metadata ?? {}) as { addedAt?: string }).addedAt ?? latest.retrievedAt.toISOString();
+  return nutrientKeys.length || servingSize ? [{ nutrientKeys, servingSize, addedAt }] : [];
 }

@@ -367,6 +367,14 @@ model UserProfile {
   aiEnabled           Boolean         @default(true)
   researchEnabled     Boolean         @default(false)
   /**
+   * Whether nutrition the AI backfill finds may be written straight to the
+   * food, or has to be approved first. Off by default: enrichment is the one
+   * AI path that used to write without review, and "human approves" is the
+   * rule everywhere else in the app. A single-user instance that trusts the
+   * backfill can turn it back on and keep the old behaviour.
+   */
+  autoApplyEnrichment Boolean         @default(false)
+  /**
    * Apply an AI meal proposal to the diary without opening the review screen.
    * Defaults on because a queued meal that is never reviewed is a meal that was
    * never logged, and the review screen is only reachable straight after
@@ -412,7 +420,7 @@ model NutritionTarget {
   carbohydrateG      Decimal? @db.Decimal(8, 2)
   fatG               Decimal? @db.Decimal(8, 2)
   /// User-entered macro and micronutrient goals, keyed by the nutrient catalogue key.
-  manualNutrients     Json?
+  manualNutrients    Json?
   eligible           Boolean  @default(true)
   createdAt          DateTime @default(now())
 
@@ -619,7 +627,6 @@ model Food {
    * src/providers/food.ts). NULL means the food is permanent - which is the
    * case for everything a user created, every recipe, and every bundled
    * database such as BLS or USDA.
-   *
    * A diary entry freezes its own nutrition and provenance and holds the food
    * with `onDelete: SetNull`, so pruning an expired row cannot rewrite or
    * break a logged meal.
@@ -628,16 +635,17 @@ model Food {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
-  owner             User?              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  aliases           FoodAlias[]
-  translations      FoodTranslation[]
-  servings          FoodServing[]
-  sources           FoodSource[]
-  nutrients         FoodNutrient[]
-  recipeIngredients RecipeIngredient[]
-  diaryEntries      DiaryEntry[]
-  favorites         Favorite[]
-  usage             FoodUsageStats[]
+  owner               User?                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  aliases             FoodAlias[]
+  translations        FoodTranslation[]
+  servings            FoodServing[]
+  sources             FoodSource[]
+  nutrients           FoodNutrient[]
+  recipeIngredients   RecipeIngredient[]
+  diaryEntries        DiaryEntry[]
+  favorites           Favorite[]
+  usage               FoodUsageStats[]
+  enrichmentProposals EnrichmentProposal[]
 
   @@unique([externalProvider, externalId])
   @@index([barcode])
@@ -1076,4 +1084,76 @@ model RecipePublicationIngredient {
 
   @@id([publicationId, position])
   @@index([publicationId])
+}
+
+/// Whether a proposed value has been looked at, and what was decided.
+enum EnrichmentReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// One enrichment run's findings for one food, held for a human to approve.
+///
+/// Enrichment was the only AI path in the app that wrote its results straight
+/// into shared data. Every other one - a quick meal, a recipe import, a body
+/// scan - produces something a person confirms, which is the "human approves"
+/// half of the principle the worker states in `ai-jobs.ts`. This table is that
+/// step for nutrition backfill, and doubles as the record of what each run
+/// actually asked a source for.
+model EnrichmentProposal {
+  id             String                 @id @default(cuid())
+  foodId         String
+  /**
+   * The page the values were read from. Null only for the rows the migration
+   * reconstructs for values that were applied before this table existed: what
+   * they came from is known per food, not per value.
+   */
+  sourceUrl      String?
+  model          String?
+  retrievedAt    DateTime
+  /**
+   * Every nutrient key this run asked the source for, answered or not. Kept so
+   * a later run can ask for the keys no run has tried yet, rather than
+   * repeating the same window of the catalogue for ever.
+   */
+  requestedKeys  String[]
+  /// A serving weight the source stated, when the food had none.
+  servingSizeG   Decimal?               @db.Decimal(10, 2)
+  servingStatus  EnrichmentReviewStatus @default(PENDING)
+  /// Whether that serving weight is the one currently on the food.
+  servingApplied Boolean                @default(false)
+  createdAt      DateTime               @default(now())
+
+  food   Food                      @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  values EnrichmentProposalValue[]
+
+  @@index([foodId])
+  @@index([createdAt])
+}
+
+/// One nutrient value a run proposed, and what became of it.
+model EnrichmentProposalValue {
+  id           String                 @id @default(cuid())
+  proposalId   String
+  nutrientKey  String
+  value        Decimal                @db.Decimal(18, 6)
+  status       EnrichmentReviewStatus @default(PENDING)
+  /**
+   * Whether this value is the one currently stored on the food. A pending row
+   * that is already applied is a value written before review existed: approving
+   * keeps it, rejecting takes it back out.
+   */
+  applied      Boolean                @default(false)
+  /**
+   * Who decided, for the audit line. Deliberately not a foreign key: the
+   * decision is worth keeping even once the account that made it is gone.
+   */
+  reviewedById String?
+  reviewedAt   DateTime?
+
+  proposal EnrichmentProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, nutrientKey])
+  @@index([status])
 }

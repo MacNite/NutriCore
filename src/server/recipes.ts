@@ -42,7 +42,10 @@ export interface SaveRecipeOptions {
 }
 
 const foodInclude = {
-  nutrients: { select: { nutrientKey: true, value: true } },
+  // `origin` carries which values the AI backfill wrote, which is what the
+  // enrichment badge is read from now that it reflects the food's live values
+  // rather than what a past run recorded having written.
+  nutrients: { select: { nutrientKey: true, value: true, origin: true } },
   servings: { select: { label: true, unit: true, amount: true, gramEquivalent: true, mlEquivalent: true } },
   sources: { select: { provider: true, metadata: true, retrievedAt: true } },
 } as const;

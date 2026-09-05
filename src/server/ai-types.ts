@@ -319,6 +319,8 @@ export interface AiJobOutcome {
   /** Nutrient keys an enrichment actually wrote, and whether it set a serving. */
   nutrientKeys?: string[];
   servingFilled?: boolean;
+  /** Keys it found but left for review, when the run may not write by itself. */
+  proposedKeys?: string[];
   /** A recipe the job created, draft or otherwise. */
   recipeId?: string;
   recipeName?: string;
