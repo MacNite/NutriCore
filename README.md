@@ -989,6 +989,7 @@ only from the Administrator Panel.
 - Same-origin validation on state-changing route handlers
 - Registration closes after the first account unless `REGISTRATION_MODE` says otherwise; the first-administrator decision is taken under a PostgreSQL advisory lock so two simultaneous registrations cannot both become administrators
 - Rate limiting on sign-in, registration, invitation redemption, search, export and research; sign-in is limited per account as well as per address, so a limit does not depend on the proxy configuration being right
+- The security-sensitive limits are counted in PostgreSQL, so they survive a restart and are shared across processes rather than resetting with each container; the in-memory limiter remains as the fallback if the database cannot be reached
 - `X-Forwarded-For` is trusted only as far as `TRUSTED_PROXY_HOPS` says, counted from the right of the chain, so a client cannot choose its own rate-limit bucket
 - Zod validation on every input, provider response and AI output
 - Ownership checks on every user-owned entity

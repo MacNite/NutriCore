@@ -8,6 +8,7 @@ import { cleanupExpiredMealImages } from "./server/meal-image";
 import { cleanupExpiredScanImages } from "./server/body-scan";
 import { pruneExpiredProviderFoods } from "./server/foods";
 import { sweepRetention } from "./server/retention";
+import { pruneRateLimitBuckets } from "./server/durable-rate-limit";
 import { importAllDatasets } from "./server/food-datasets/import";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -101,6 +102,9 @@ async function pruneExpiredFoods() {
 async function applyRetention() {
   try {
     await sweepRetention();
+    // Expired windows reset themselves on next use, so this is only about
+    // keeping the table from holding rows for keys nobody touches again.
+    await pruneRateLimitBuckets();
   } catch (error) {
     logger.warn("Could not apply the retention policy", {
       reason: error instanceof Error ? error.message : "unknown",

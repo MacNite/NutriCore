@@ -12,6 +12,7 @@ import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { endSession, startSession } from "./session";
 import { RegistrationClosedError, createSelfRegisteredUser } from "./registration";
+import { durableRateLimitOrFallback } from "./durable-rate-limit";
 
 export interface AuthState {
   error?: string;
@@ -37,8 +38,21 @@ async function clientKey() {
   return clientAddress(await headers(), env().TRUSTED_PROXY_HOPS);
 }
 
+/**
+ * The security-sensitive limits, counted in PostgreSQL so they survive a
+ * restart and are shared across processes.
+ *
+ * The in-memory limiter still runs first, and its answer is the fallback if the
+ * database cannot be reached: a limiter that is down must not be the reason
+ * nobody can sign in, and falling back to a real in-process limit is not an
+ * open door.
+ */
+async function durableLimit(key: string, { limit, windowMs }: { limit: number; windowMs: number }) {
+  return durableRateLimitOrFallback(key, limit, windowMs, rateLimit(key, limit, windowMs));
+}
+
 export async function loginAction(_state: AuthState, formData: FormData): Promise<AuthState> {
-  const limit = rateLimit(`login:${await clientKey()}`, RATE_LIMITS.login.limit, RATE_LIMITS.login.windowMs);
+  const limit = await durableLimit(`login:${await clientKey()}`, RATE_LIMITS.login);
   if (!limit.allowed) return { error: "rateLimited", seconds: limit.retryAfterSeconds };
 
   const parsed = credentials.safeParse({ email: formData.get("email"), password: formData.get("password") });
@@ -53,7 +67,7 @@ export async function loginAction(_state: AuthState, formData: FormData): Promis
      exists, so that being throttled says nothing about which emails are
      registered. The reply is the same shape as the address limit above, which
      the login form already renders. */
-  const accountLimit = rateLimit(`login-account:${hashSessionToken(parsed.data.email)}`, RATE_LIMITS.loginAccount.limit, RATE_LIMITS.loginAccount.windowMs);
+  const accountLimit = await durableLimit(`login-account:${hashSessionToken(parsed.data.email)}`, RATE_LIMITS.loginAccount);
   if (!accountLimit.allowed) return { error: "rateLimited", seconds: accountLimit.retryAfterSeconds };
 
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
@@ -73,7 +87,7 @@ export async function loginAction(_state: AuthState, formData: FormData): Promis
 }
 
 export async function registerAction(_state: AuthState, formData: FormData): Promise<AuthState> {
-  const limit = rateLimit(`register:${await clientKey()}`, RATE_LIMITS.register.limit, RATE_LIMITS.register.windowMs);
+  const limit = await durableLimit(`register:${await clientKey()}`, RATE_LIMITS.register);
   if (!limit.allowed) return { error: "rateLimited", seconds: limit.retryAfterSeconds };
 
   const parsed = registration.safeParse({

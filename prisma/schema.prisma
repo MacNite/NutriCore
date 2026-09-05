@@ -1157,3 +1157,25 @@ model EnrichmentProposalValue {
   @@unique([proposalId, nutrientKey])
   @@index([status])
 }
+
+/// One fixed rate-limit window, shared by every process.
+///
+/// The in-memory limiter is a `Map`, which made every limit reset on restart
+/// and gave each replica its own budget. For search or a provider gate that is
+/// fine, and it stays in memory. For sign-in, registration and invitation
+/// redemption it meant an attacker got a fresh allowance whenever the container
+/// did, and there was no record afterwards that anything had happened.
+///
+/// Deliberately not a per-attempt log: one row per key per window is all a
+/// fixed-window limiter needs, and a table that grew a row per request would be
+/// its own denial of service.
+model RateLimitBucket {
+  /// The limiter key, e.g. `login:203.0.113.7`. Never a raw email address:
+  /// account limits are keyed on a hash so this table holds no addresses.
+  key     String   @id
+  count   Int      @default(0)
+  /// When the current window ends. A row past it is reset rather than read.
+  resetAt DateTime
+
+  @@index([resetAt])
+}
