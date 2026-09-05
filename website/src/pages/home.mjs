@@ -253,7 +253,7 @@ const ownershipFigure = `
   </div>
   <div class="code">
     <div class="code-head"><span>export</span><button class="copy" type="button" data-copy>Copy</button></div>
-<pre><span class="c"># Everything you have entered, in formats other tools read.</span>
+<pre><span class="c"># Everything you entered, in formats other tools read.</span>
 <span class="p">GET</span> /api/export/json
 <span class="p">GET</span> /api/export/diary.csv
 <span class="p">GET</span> /api/export/weight.csv</pre>
@@ -261,6 +261,52 @@ const ownershipFigure = `
   <div class="figure-caption">
     src/lib/auth.ts, src/lib/url-guard.ts, src/app/api/export &mdash; the
     database is yours, and so is the door out of it.
+  </div>
+</div>`;
+
+const freeFigure = `
+<div class="figure" data-reveal>
+  <div class="ledger">
+    <div class="ledger-head">NutriCore &mdash; what it costs</div>
+    <div class="ledger-row"><span>Licence fee</span><b>0,00 &euro;</b></div>
+    <div class="ledger-row"><span>Subscription</span><b>0,00 &euro;</b></div>
+    <div class="ledger-row"><span>Accounts with anyone</span><b>none</b></div>
+    <div class="ledger-row"><span>Advertising</span><b>none</b></div>
+    <div class="ledger-row"><span>Features behind a plan</span><b>none</b></div>
+    <div class="ledger-row"><span>Telemetry events</span><b>0</b></div>
+    <div class="ledger-row total"><span>Total</span><b>0,00 &euro;</b></div>
+  </div>
+  <div class="figure-caption">
+    There is no billing code in this repository, because there is nothing to
+    bill for. What it does cost is a machine to run it on, and the electricity
+    to keep it there.
+  </div>
+</div>`;
+
+const customFigure = `
+<div class="figure" data-reveal>
+  <div class="code">
+    <div class="code-head"><span>.env</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><span class="c"># Every source is independent. Turn one off and</span>
+<span class="c"># the search simply stops asking it.</span>
+BLS_ENABLED=<span class="p">true</span>
+USDA_ENABLED=<span class="p">true</span>
+OPENFOODFACTS_ENABLED=<span class="p">false</span>
+FATSECRET_ENABLED=<span class="p">false</span>
+
+<span class="c"># Off until configured. Nothing is called before then.</span>
+AI_ENABLED=<span class="p">false</span>
+RESEARCH_ENABLED=<span class="p">false</span>
+
+DEFAULT_LOCALE=<span class="s">de</span>
+IMAGE_UPLOAD_MAX_MB=<span class="p">5</span>
+INVITATION_EXPIRY_HOURS=<span class="p">72</span></pre>
+  </div>
+  <div class="figure-caption">
+    ${facts.settings} documented settings in .env.example. Inside the
+    application: an energy override, a personal goal for any nutrient in the
+    catalogue, your own foods, servings, recipes and activities, language per
+    account and a theme with the same three states this page has.
   </div>
 </div>`;
 
@@ -282,6 +328,57 @@ const opsFigure = `
 
 const entries = [
   {
+    title: "Your server, your database, your data",
+    lead: `NutriCore runs on hardware you own, against a PostgreSQL you own. There is no
+      account with anyone, no telemetry, no analytics, and in the default configuration not one
+      request leaves the container &mdash; the food databases it searches are already inside it.`,
+    body: `The security work is the ordinary, boring kind: passwords hashed with Argon2id at OWASP
+      parameters, session tokens random 256-bit values of which only a SHA-256 hash is stored, and
+      registration by invitation after the first account. Scan images are discarded once the estimate
+      exists. And the door out is a route, not a support request: the whole diary as JSON, or day and
+      weight histories as CSV, whenever you want them.`,
+    meta: [
+      ["Hash", "Argon2id &middot; 19 MiB &middot; timeCost 2"],
+      ["Sessions", "hashed at rest &mdash; a leaked table hands out nothing"],
+      ["Outbound", "only the sources you switch on, when you search"],
+    ],
+    figure: ownershipFigure,
+  },
+  {
+    title: "Nothing to buy, nobody to sign up with",
+    lead: `No subscription, no advertising, no upsell, no feature held back behind a plan. There is
+      no payment path in the codebase at all, because there is nothing to charge for: you install it,
+      and it is yours.`,
+    body: `That is not a pricing decision so much as a consequence of the shape. Software that runs on
+      your machine and talks to your database has nobody to bill and nothing to monetise &mdash; there
+      is no usage to meter, no profile to sell and no engagement to optimise. The honest caveat: a
+      licence has not been chosen yet, so this is free to run rather than free software.`,
+    meta: [
+      ["Cost", "a machine you already have, plus its electricity"],
+      ["Accounts", "yours, on your instance, invitation-only"],
+      ["Licence", facts.license],
+    ],
+    figure: freeFigure,
+    reverse: true,
+  },
+  {
+    title: "Configured, not just decorated",
+    lead: `${facts.settings} documented settings in one <code>.env</code>. Every food source can be
+      switched off independently, the AI and the web research are off until you fill in an address, and
+      the interface language, the upload ceiling and the invitation lifetime are all yours to set.`,
+    body: `The personalisation goes further than a preferences screen usually does. The calculated
+      energy target can be overridden outright, and <strong>any</strong> nutrient in the catalogue can
+      carry a goal you set yourself &mdash; not just protein, carbohydrate and fat, but fibre, iron,
+      iodine, whatever you are actually watching. Targets are versioned rather than replaced, so
+      changing one keeps the history of what it used to be.`,
+    meta: [
+      ["File", ".env.example &middot; every setting documented in place"],
+      ["Targets", "overrideKcal plus manualNutrients, keyed by catalogue key"],
+      ["Yours", "own foods, servings, recipes, activities, aliases"],
+    ],
+    figure: customFigure,
+  },
+  {
     title: "The food database ships inside the image",
     lead: `BLS 4.0 &mdash; the German national nutrient database, ${num(facts.foods.bls.records)} generic
       foods across ${facts.foods.bls.components} components &mdash; plus USDA Foundation Foods and SR
@@ -297,6 +394,7 @@ const entries = [
       ["Size", "about 5 MB of gzipped NDJSON in the runtime image"],
     ],
     figure: `<div class="figure" data-reveal>${datasetDiagram}<div class="figure-caption">Conversion is a build step, not a deployment step: an artifact under version control is diffable, checksummed and identical on every machine. src/server/food-datasets owns every semantic decision; the converter transcribes and nothing else.</div></div>`,
+    reverse: true,
   },
   {
     title: "A search that knows when to stop asking",
@@ -314,7 +412,6 @@ const entries = [
       ["Effect", "how much network traffic one keystroke may cause"],
     ],
     figure: `<div class="figure" data-reveal>${tierDiagram}<div class="figure-caption">A weak BLS hit still falls through to Open Food Facts &mdash; that is the whole point of the completeness half of the rule. Tier order decides who is asked; src/lib/ranking.ts decides how the answers are ordered.</div></div>`,
-    reverse: true,
   },
   {
     title: `${facts.nutrients} nutrients, held as a catalogue`,
@@ -323,35 +420,38 @@ const entries = [
       does not state a nutrient shows a dash rather than a zero.`,
     body: `The catalogue is a list in one file, not a column layout. Adding iodine to the application
       means adding a row and re-running the seed &mdash; not a migration, not a schema change, not a
-      backfill.`,
+      backfill. It is also what makes a personal goal for any nutrient possible: the goals are keyed by
+      the same catalogue key.`,
     meta: [
       ["File", "src/lib/nutrients.ts"],
       ["Categories", "energy &middot; macro &middot; secondary &middot; mineral &middot; vitamin"],
       ["Missing", "rendered as absent, never as zero"],
     ],
     figure: nutrientFigure,
+    reverse: true,
   },
   {
     title: "Targets you can recompute by hand",
     lead: `Mifflin&ndash;St Jeor for basal rate, the standard activity multipliers, a conservative goal
       adjustment. Every intermediate value is kept, so the day's number can be traced back through the
-      multiplier and the adjustment that produced it.`,
+      multiplier and the adjustment that produced it &mdash; or replaced outright with your own.`,
     body: `The guardrails are part of the calculation rather than a warning printed next to it: an
       automatic adjustment is capped at 500 kcal, an automatic target never falls below 1.200 kcal, and
       pregnancy, breastfeeding or an age outside the formula's population return
-      <code>medical-guidance-required</code> instead of a target.`,
+      <code>medical-guidance-required</code> instead of a target. An override you set yourself is still
+      honoured, so the diary stays usable.`,
     meta: [
       ["File", "src/lib/calories.ts"],
       ["Cap", "MAX_AUTOMATIC_ADJUSTMENT = 500"],
       ["Floor", "MIN_AUTOMATIC_TARGET_KCAL = 1200"],
     ],
     figure: targetFigure,
-    reverse: true,
   },
   {
     title: "AI that proposes, and never writes",
-    lead: `Point it at an Ollama instance on your own network and a photo, a sentence or a recipe URL
-      becomes a draft. A background worker runs the job, resolves each named component against the food
+    lead: `Off by default. Switched on, it points at an Ollama instance on your own network &mdash; so a
+      photo, a sentence or a recipe URL becomes a draft without a word of it reaching anyone else's
+      servers. A background worker runs the job, resolves each named component against the food
       database, and files a proposal.`,
     body: `A proposal is not an entry. Nutrition is always read from a resolved food, never taken from
       the model, and a component nothing matched is shown as unresolved rather than quietly estimated.
@@ -363,12 +463,14 @@ const entries = [
       ["Default", "off &mdash; nothing is called until you configure it"],
     ],
     figure: `<div class="figure" data-reveal>${aiDiagram}<div class="figure-caption">Nothing crosses the last arrow unreviewed, and a component with no resolved food is never written at all. Nutrition always comes from the database, never from the model. src/server/ai-jobs.ts, ai-approval.ts, component-resolver.ts.</div></div>`,
+    reverse: true,
   },
   {
     title: "Body scanning as geometry, not a model",
     lead: `Two silhouettes give a breadth and a depth at the same height. The circumference of that
       cross-section is the perimeter of an ellipse. There are no learned weights anywhere in it, so
-      there is no training population to fall outside of.`,
+      there is no training population to fall outside of &mdash; and the photographs never leave your
+      instance.`,
     body: `Heights are the same <code>BODY_LANDMARKS</code> the drawn figure is built from, so a scan
       and the figure it feeds answer to one model of where a waist is. Nothing here has been validated
       against a tape measure &mdash; which is exactly why every result carries an interval and the
@@ -379,28 +481,12 @@ const entries = [
       ["Honesty", "an interval on every estimate"],
     ],
     figure: `<div class="figure" data-reveal>${scanDiagram}<div class="figure-caption">The heights it measures at are the same BODY_LANDMARKS the drawn figure is built from, so a scan and the figure it feeds cannot drift apart. Images are discarded once a scan finishes; the estimate, and its interval, is what persists.</div></div>`,
-    reverse: true,
-  },
-  {
-    title: "The data is yours, including the way out",
-    lead: `Registration is invitation-based. Passwords are hashed with Argon2id at OWASP parameters,
-      session tokens are random 256-bit values of which only a SHA-256 hash is stored, and the database
-      is a PostgreSQL you run.`,
-    body: `Export is a first-class route rather than a support request: the whole diary as JSON, or day
-      and weight histories as CSV, at any time. There is no telemetry, no analytics and no outbound call
-      you did not switch on.`,
-    meta: [
-      ["Hash", "Argon2id &middot; 19 MiB &middot; timeCost 2"],
-      ["Sessions", "hashed at rest &mdash; a leaked table hands out nothing"],
-      ["Languages", facts.locales.join(" &middot; ")],
-    ],
-    figure: ownershipFigure,
   },
   {
     title: "One image, two processes, one command",
     lead: `A standalone Next.js build, an entrypoint that applies migrations before anything answers, a
       health check that knows whether it is inside the web process or the worker, and a published
-      multi-architecture image.`,
+      multi-architecture image. It runs on a NAS or a spare box; it does not need a cloud.`,
     body: `Continuous integration runs the full production build, the end-to-end suite against a real
       PostgreSQL, and a complete food-database import &mdash; then repeats the import to prove it is
       idempotent. That last step is the one thing a unit test with a temporary fixture directory cannot
@@ -439,12 +525,14 @@ const body = `
 <section class="hero">
   <div class="shell hero-inner grid">
     <div class="hero-copy">
-      <p class="eyebrow">Self-hosted nutrition tracking &middot; v${facts.version}</p>
-      <h1 class="display">Every number<br />has a <em>source</em><br />you can name.</h1>
+      <p class="eyebrow">Self-hosted &middot; no account &middot; no subscription &middot; v${facts.version}</p>
+      <h1 class="display">Yours to run.<br />Yours to <em>change</em>.<br />Yours to keep.</h1>
       <p class="lede">
-        NutriCore logs meals against ${num(facts.foods.total)} reference foods that ship inside the
-        container &mdash; the German BLS 4.0 and USDA FoodData Central, imported into a PostgreSQL you
-        run. No account with anyone. No telemetry. No request leaves the machine until you switch one on.
+        NutriCore is nutrition tracking you install on a machine you own. No account
+        with anyone, nothing to subscribe to, no ads and no telemetry &mdash; and in
+        its default configuration, not one request leaves the container. Every
+        source, every target and every food in it is yours to switch off, override
+        or replace.
       </p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="demo.html">
@@ -455,10 +543,10 @@ const body = `
       </div>
       <p class="hero-note">
         <span class="dot"></span>
-        <span>${num(facts.foods.total)} foods offline</span>
-        <span>${facts.nutrients} nutrients</span>
-        <span>Deutsch &amp; English</span>
-        <span>AI optional, local, reviewed</span>
+        <span>No account</span>
+        <span>No subscription</span>
+        <span>No telemetry</span>
+        <span>${facts.settings} settings in one .env</span>
       </p>
     </div>
     <div class="hero-panel">${heroPanel}</div>
@@ -469,20 +557,20 @@ const body = `
   <div class="shell">
     <div class="measures-inner">
       <div class="measure">
-        <b>${num(facts.foods.total)}</b>
-        <span>reference foods imported from artifacts committed to the repository</span>
-      </div>
-      <div class="measure">
-        <b>${facts.nutrients}</b>
-        <span>nutrients per food, including ${facts.vitamins} vitamins and ${facts.minerals} minerals</span>
-      </div>
-      <div class="measure">
         <b>0</b>
-        <span>outbound requests in the default configuration</span>
+        <span>requests that leave your machine in the default configuration</span>
       </div>
       <div class="measure">
-        <b>1</b>
-        <span>container image, running both the web process and the worker</span>
+        <b>&euro;0</b>
+        <span>no subscription, no ads, nothing held back behind a plan</span>
+      </div>
+      <div class="measure">
+        <b>${facts.settings}</b>
+        <span>documented settings &mdash; every source and feature can be switched off</span>
+      </div>
+      <div class="measure">
+        <b>${num(facts.foods.total)}</b>
+        <span>reference foods, searched without a network call</span>
       </div>
     </div>
   </div>
@@ -492,11 +580,11 @@ const body = `
   <div class="shell grid">
     <div class="section-head" data-reveal>
       <p class="eyebrow">What it actually does</p>
-      <h2 class="h2">Eight decisions the code makes on your behalf.</h2>
+      <h2 class="h2">Most trackers are a service you visit. This one is software you run.</h2>
       <p class="lede">
-        Nutrition apps mostly differ in what they are willing to guess. These are
-        the places NutriCore refuses to &mdash; and where each refusal lives in
-        the source tree.
+        Which changes what it can afford to do &mdash; and what it has to refuse.
+        Ten decisions that follow from it, each one named next to the file in the
+        source tree that makes it.
       </p>
     </div>
 ${entryMarkup}
@@ -567,7 +655,7 @@ curl -s localhost:3000/api/health
 
 export const home = page({
   id: "home",
-  title: "NutriCore — self-hosted nutrition tracking with a source for every number",
-  description: `Self-hosted nutrition tracking. ${num(facts.foods.total)} reference foods from BLS 4.0 and USDA FoodData Central ship inside the container, ${facts.nutrients} nutrients per food, optional local AI that proposes but never writes.`,
+  title: "NutriCore — nutrition tracking that runs on your own server",
+  description: `Self-hosted nutrition tracking with no account, no subscription and no telemetry. ${facts.settings} settings in one .env, a personal goal for any of ${facts.nutrients} nutrients, and ${num(facts.foods.total)} reference foods searched without a network call.`,
   body,
 });
