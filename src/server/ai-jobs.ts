@@ -9,7 +9,7 @@ import { SearxngClient } from "@/providers/searxng";
 import { logger } from "@/lib/logger";
 import { failResearchJob, runResearchJob } from "./research";
 import { fetchMealPage, mealPagePrompt } from "./meal-url";
-import { enrichFood } from "./food-enrichment";
+import { enrichFood, permittedForEnrichment } from "./food-enrichment";
 import { runRecipeImport } from "./ai-ingestion";
 import { describeFailure } from "./ai-failures";
 import { autoApproveProposal } from "./ai-approval";
@@ -257,7 +257,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
   if (!job) return false;
   try {
     if (job.entityType === "FOOD_ENRICHMENT") {
-      const result = await enrichFood(job.entityId, deps);
+      const result = await enrichFood(job.entityId, job.userId, deps);
       await completeJob(job, await describeOutcome(job.id, () => ({
         nutrientKeys: result.filledNutrientKeys,
         servingFilled: result.servingFilled,
@@ -472,7 +472,14 @@ async function queueFoodEnrichments(userId: string, foodIds: string[]) {
 }
 
 async function enqueueEnrichments(userId: string, foodIds: string[]) {
-  for (const entityId of new Set(foodIds)) {
+  const ids = [...new Set(foodIds)];
+  if (!ids.length) return;
+  // Enrichment fetches pages from the open web, so it needs the permission the
+  // resolver a few lines above already honoured for this very user. Queuing it
+  // unconditionally is how a user who had turned "Allow web research" off still
+  // had their food names sent to SearXNG, one job after the meal that named them.
+  const foods = await prisma.food.findMany({ where: { id: { in: ids } }, select: { id: true, ownerId: true } });
+  for (const entityId of await permittedForEnrichment(foods, userId)) {
     const existing = await prisma.aiJob.findFirst({ where: { entityType: "FOOD_ENRICHMENT", entityId, status: { in: ["QUEUED", "RUNNING"] } } });
     if (!existing) await prisma.aiJob.create({ data: { userId, entityType: "FOOD_ENRICHMENT", entityId, priority: jobPriority("FOOD_ENRICHMENT") } });
   }

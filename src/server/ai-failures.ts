@@ -23,6 +23,7 @@ export type AiFailureKind =
   | "SOURCE_BLOCKED"
   | "SOURCE_UNAVAILABLE"
   | "SEARCH_UNAVAILABLE"
+  | "RESEARCH_NOT_PERMITTED"
   | "RATE_LIMITED"
   | "DATA_MISSING"
   | "IMAGE_UNREADABLE"
@@ -41,6 +42,7 @@ export const AI_FAILURE_KINDS: AiFailureKind[] = [
   "SOURCE_BLOCKED",
   "SOURCE_UNAVAILABLE",
   "SEARCH_UNAVAILABLE",
+  "RESEARCH_NOT_PERMITTED",
   "RATE_LIMITED",
   "DATA_MISSING",
   "IMAGE_UNREADABLE",
@@ -64,6 +66,10 @@ const PERMANENT: ReadonlySet<AiFailureKind> = new Set<AiFailureKind>([
   // A missing or malformed setting is the same on every attempt, and burning the
   // retry budget on it only delays every other job behind it.
   "CONFIG_INVALID",
+  // A switch that is off, or consent that was not given, is a decision rather
+  // than a fault: it will read the same on every attempt until somebody changes
+  // it, and retrying only hides it behind two more failures.
+  "RESEARCH_NOT_PERMITTED",
 ]);
 
 export const isPermanentFailure = (kind: AiFailureKind) => PERMANENT.has(kind);
@@ -165,6 +171,8 @@ function classify(
 
   // Named before the generic checks: the message quotes the offending variable.
   if (/Invalid environment configuration/i.test(message)) return "CONFIG_INVALID";
+  // Named before them too, so the "not found" catch-all below cannot claim it.
+  if (/^research-not-permitted:/.test(message)) return "RESEARCH_NOT_PERMITTED";
 
   if (/^unsafe-source:/.test(message)) return "SOURCE_BLOCKED";
   if (message === "source-too-large") return "SOURCE_TOO_LARGE";

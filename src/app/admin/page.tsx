@@ -25,6 +25,9 @@ export async function generateMetadata() {
 const JOB_LABEL = { QUEUED: "jobQueued", RUNNING: "jobRunning", COMPLETED: "jobCompleted", FAILED: "jobFailed" } as const;
 /** Cancelling is not a classifier output, but it is a reason a row can carry. */
 const REASON_KINDS = [...AI_FAILURE_KINDS, "CANCELLED"];
+
+/** Why a sweep queued nothing. Checked against the URL so no arbitrary key is looked up. */
+const ENRICHMENT_BLOCKS: string[] = ["SERVER_DISABLED", "NO_SEARCH_PROVIDER", "USER_DECLINED"];
 const JOBS_PER_PAGE = 50;
 
 /** Entity ids of the rows on this page for one entity type, deduplicated. */
@@ -44,6 +47,7 @@ export default async function AdminPage({
     mailSettings?: string;
     enrichmentQueued?: string;
     enrichmentRemaining?: string;
+    enrichmentBlocked?: string;
     datasetsImported?: string;
     datasetsSkipped?: string;
     datasetsFailed?: string;
@@ -61,7 +65,7 @@ export default async function AdminPage({
   const t = await getTranslations("admin");
   const tDiagnostics = await getTranslations("diagnostics");
   const locale = current.language;
-  const { token, mail, batchSent, batchFailed, mailSettings, enrichmentQueued, enrichmentRemaining, datasetsImported, datasetsSkipped, datasetsFailed, jobs: jobsFilterRaw, jobsPage: jobsPageRaw, jobsOp: jobsOpRaw, jobsCount } = await searchParams;
+  const { token, mail, batchSent, batchFailed, mailSettings, enrichmentQueued, enrichmentRemaining, enrichmentBlocked, datasetsImported, datasetsSkipped, datasetsFailed, jobs: jobsFilterRaw, jobsPage: jobsPageRaw, jobsOp: jobsOpRaw, jobsCount } = await searchParams;
   // Never feed an unvalidated query value into a translation key.
   const jobsOp = (AI_JOB_OPERATIONS as readonly string[]).includes(jobsOpRaw ?? "")
     ? jobsOpRaw
@@ -431,6 +435,14 @@ export default async function AdminPage({
               ? ` ${t("enrichmentRemaining", { count: Number(enrichmentRemaining) })}`
               : ""}
           </p>
+        ) : null}
+        {/* The sweep refused to queue anything. Said here rather than left to be
+            inferred from 25 jobs failing one after another. */}
+        {enrichmentBlocked && ENRICHMENT_BLOCKS.includes(enrichmentBlocked) ? (
+          <div className="notice notice-warn">
+            <span className="notice-icon" aria-hidden="true">!</span>
+            <span>{t(`enrichmentBlocked.${enrichmentBlocked}`)}</span>
+          </div>
         ) : null}
         {jobsOp ? (
           <div className={jobsOp === "noSelection" ? "notice notice-warn" : "notice"}>

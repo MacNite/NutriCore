@@ -1109,6 +1109,11 @@
     "enqueueEnrichment": "Fehlende Nährwerte ergänzen",
     "enrichmentHint": "Für jedes Lebensmittel mit Nährwert- oder Portionslücken einen nachvollziehbaren Ergänzungsauftrag einreihen.",
     "enrichmentQueued": "{count} Ergänzungsaufträge eingereiht.",
+    "enrichmentBlocked": {
+      "SERVER_DISABLED": "Nichts eingereiht: Die Web-Recherche ist für diese Installation abgeschaltet (RESEARCH_ENABLED).",
+      "NO_SEARCH_PROVIDER": "Nichts eingereiht: Es ist keine Quellensuche konfiguriert (SEARXNG_URL).",
+      "USER_DECLINED": "Nichts eingereiht: Dein eigener Schalter „Web-Recherche erlauben“ ist aus."
+    },
     "jobReason": "Grund / Diagnose",
     "jobId": "Auftrags-ID",
     "jobInput": "Eingabe",
@@ -1148,6 +1153,7 @@
       "SOURCE_BLOCKED": "Quelle gesperrt",
       "SOURCE_UNAVAILABLE": "Quelle nicht erreichbar",
       "SEARCH_UNAVAILABLE": "Suche nicht erreichbar",
+      "RESEARCH_NOT_PERMITTED": "Web-Recherche nicht erlaubt",
       "RATE_LIMITED": "Ratenbegrenzung",
       "DATA_MISSING": "Daten fehlen",
       "CANCELLED": "Abgebrochen",
@@ -1166,6 +1172,7 @@
       "SOURCE_BLOCKED": "Die Adresse wurde aus Sicherheitsgründen abgelehnt (privates Netz, unerlaubter Port oder unerlaubtes Schema).",
       "SOURCE_UNAVAILABLE": "Die Seite war nicht abrufbar – Umleitungsgrenze, Zeitüberschreitung oder ein Fehlerstatus.",
       "SEARCH_UNAVAILABLE": "SearXNG war nicht erreichbar oder hat keine JSON-Antwort geliefert. Ohne Quellensuche kann keine Nährwertquelle gefunden werden.",
+      "RESEARCH_NOT_PERMITTED": "Die Anreicherung ruft Seiten aus dem offenen Web ab und benötigt daher RESEARCH_ENABLED, ein konfiguriertes SEARXNG_URL sowie den Schalter „Web-Recherche erlauben“ sowohl der Person, die den Auftrag eingereiht hat, als auch des Eigentümers des Lebensmittels. Die Meldung nennt, welcher davon abgelehnt hat. Ein weiterer Versuch hilft nicht, solange sich daran nichts ändert.",
       "RATE_LIMITED": "Die eigene Ratenbegrenzung hat den Auftrag gestoppt. Später neu starten.",
       "DATA_MISSING": "Ein benötigter Datensatz fehlt, etwa ein gelöschtes Rezept oder Lebensmittel. Ein erneuter Versuch hilft nicht.",
       "CANCELLED": "Von einem Administrator abgebrochen.",

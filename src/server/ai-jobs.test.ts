@@ -30,7 +30,7 @@ vi.mock("./meal-url", () => ({
   mealPagePrompt: vi.fn((page: { excerpt: string }, text: string) => `${text}\nUNTRUSTED:${page.excerpt}`),
 }));
 vi.mock("./ai-ingestion", () => ({ runRecipeImport: vi.fn(), discardRecipeImportImage: vi.fn() }));
-vi.mock("./food-enrichment", () => ({ enrichFood: vi.fn(), missingNutritionKeys: vi.fn(() => []) }));
+vi.mock("./food-enrichment", () => ({ enrichFood: vi.fn(), missingNutritionKeys: vi.fn(() => []), permittedForEnrichment: vi.fn(async () => []) }));
 vi.mock("./ai-approval", () => ({ autoApproveProposal: vi.fn() }));
 vi.mock("./meal-image", () => ({ discardMealInputImage: vi.fn() }));
 

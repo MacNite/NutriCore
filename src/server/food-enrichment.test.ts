@@ -1,5 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
-import { aiEnrichmentMetadata, extractNutritionForName, isPlausibleNutrition, missingNutritionKeys, normalizeNutritionPer100g, rankNutritionSources } from "./food-enrichment";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Most of this file exercises pure functions, but the permission gate and
+// `enrichFood` are the parts the workflow actually got wrong, and both read the
+// database. Only the handful of models they touch are mocked.
+const { prismaMock, food, nutrientDefinition, userProfile } = vi.hoisted(() => {
+  const food = { findUnique: vi.fn(), update: vi.fn() };
+  const nutrientDefinition = { findMany: vi.fn() };
+  const userProfile = { findMany: vi.fn() };
+  return {
+    food,
+    nutrientDefinition,
+    userProfile,
+    prismaMock: { food, nutrientDefinition, userProfile, foodNutrient: { updateMany: vi.fn(), create: vi.fn() }, foodSource: { create: vi.fn() }, $transaction: vi.fn() },
+  };
+});
+vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+
+import { aiEnrichmentMetadata, enrichFood, enrichmentBlock, extractNutritionForName, isPlausibleNutrition, missingNutritionKeys, normalizeNutritionPer100g, permittedForEnrichment, rankNutritionSources } from "./food-enrichment";
 import { AIInvalidOutputError, AIUnavailableError } from "@/providers/ai";
 import type { OllamaProvider } from "@/providers/ollama";
 import type { SearxngClient } from "@/providers/searxng";
@@ -167,5 +184,115 @@ describe("provider failures during extraction", () => {
   it("still moves past a candidate the model answered badly", async () => {
     const ai = { capabilities: async () => ({ model: "local" }), complete: vi.fn().mockRejectedValue(new AIInvalidOutputError("nutrients: expected object")) } as unknown as OllamaProvider;
     await expect(extractNutritionForName("Tofu", ["protein"], { search, ai, fetchSource })).resolves.toBeNull();
+  });
+});
+
+/** Both switches on and a configured SearXNG: the only state that permits a run. */
+function allowResearch(consenting: string[]) {
+  process.env.RESEARCH_ENABLED = "true";
+  process.env.SEARXNG_URL = "http://searxng.test";
+  userProfile.findMany.mockResolvedValue(consenting.map((userId) => ({ userId })));
+}
+
+describe("enrichment permission", () => {
+  afterEach(() => {
+    delete process.env.RESEARCH_ENABLED;
+    delete process.env.SEARXNG_URL;
+    vi.clearAllMocks();
+  });
+
+  it("refuses when the deployment switch is off, before asking anybody's consent", async () => {
+    process.env.RESEARCH_ENABLED = "false";
+    process.env.SEARXNG_URL = "http://searxng.test";
+    expect(await enrichmentBlock({ ownerId: null }, "admin-1")).toBe("SERVER_DISABLED");
+    // Decided before any database round trip: an air-gapped deployment answers
+    // this without consulting a profile at all.
+    expect(userProfile.findMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses when no source discovery is configured, which used to look like success", async () => {
+    process.env.RESEARCH_ENABLED = "true";
+    delete process.env.SEARXNG_URL;
+    // SearxngClient answers an unconfigured instance with an empty result, so
+    // this used to complete as "nothing found" and stamp the food for a month.
+    expect(await enrichmentBlock({ ownerId: null }, "admin-1")).toBe("NO_SEARCH_PROVIDER");
+  });
+
+  it("requires the consent of the user the job belongs to", async () => {
+    allowResearch([]);
+    expect(await enrichmentBlock({ ownerId: null }, "user-1")).toBe("USER_DECLINED");
+    allowResearch(["user-1"]);
+    expect(await enrichmentBlock({ ownerId: null }, "user-1")).toBeNull();
+  });
+
+  it("also requires the food owner's consent, not only the requester's", async () => {
+    // The catalogue sweep runs as the admin but reaches foods somebody else owns.
+    allowResearch(["admin-1"]);
+    expect(await enrichmentBlock({ ownerId: "user-2" }, "admin-1")).toBe("USER_DECLINED");
+    allowResearch(["admin-1", "user-2"]);
+    expect(await enrichmentBlock({ ownerId: "user-2" }, "admin-1")).toBeNull();
+  });
+
+  it("keeps only the foods whose owner agreed when a batch is queued", async () => {
+    allowResearch(["user-1"]);
+    expect(await permittedForEnrichment([
+      { id: "catalogue", ownerId: null },
+      { id: "mine", ownerId: "user-1" },
+      { id: "theirs", ownerId: "user-2" },
+    ], "user-1")).toEqual(["catalogue", "mine"]);
+  });
+
+  it("queues nothing at all when the requester has not consented", async () => {
+    allowResearch([]);
+    expect(await permittedForEnrichment([{ id: "catalogue", ownerId: null }], "user-1")).toEqual([]);
+  });
+
+  it("treats an injected search client as configured, so tests need no variable", async () => {
+    process.env.RESEARCH_ENABLED = "true";
+    delete process.env.SEARXNG_URL;
+    userProfile.findMany.mockResolvedValue([{ userId: "user-1" }]);
+    const search = { search: vi.fn() } as unknown as SearxngClient;
+    expect(await enrichmentBlock({ ownerId: null }, "user-1", { search })).toBeNull();
+  });
+});
+
+describe("enrichFood", () => {
+  beforeEach(() => {
+    food.findUnique.mockResolvedValue({
+      id: "food-1", name: "Käse", ownerId: null, basisUnit: "G", densityGPerMl: null,
+      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }], servings: [],
+    });
+    food.update.mockResolvedValue({});
+    nutrientDefinition.findMany.mockResolvedValue([{ key: "iron", canonicalUnit: "mg" }]);
+  });
+
+  afterEach(() => {
+    delete process.env.RESEARCH_ENABLED;
+    delete process.env.SEARXNG_URL;
+    vi.clearAllMocks();
+  });
+
+  it("refuses a food it may not research, without stamping it as attempted", async () => {
+    process.env.RESEARCH_ENABLED = "false";
+    await expect(enrichFood("food-1", "user-1")).rejects.toThrow("research-not-permitted:SERVER_DISABLED");
+    // `enrichedAt` is what suppresses a food from the sweep for a month. A run
+    // that was never permitted must not spend that.
+    expect(food.update).not.toHaveBeenCalled();
+  });
+
+  it("leaves the food unstamped when the provider is down, so an outage costs no month", async () => {
+    allowResearch(["user-1"]);
+    const ai = { capabilities: vi.fn().mockRejectedValue(new AIUnavailableError("ollama", "ollama unreachable")) } as unknown as OllamaProvider;
+    const search = { search: vi.fn(async () => [{ title: "Käse", url: "https://a.test" }]) } as unknown as SearxngClient;
+    const fetchSource = vi.fn(async (url: string) => ({ url, title: "Käse", excerpt: "Eisen 0,4 mg pro 100 g", truncated: false }));
+    await expect(enrichFood("food-1", "user-1", { ai, search, fetchSource })).rejects.toThrow("ollama unreachable");
+    expect(food.update).not.toHaveBeenCalled();
+  });
+
+  it("stamps a genuine attempt that found nothing, so the sweep moves on", async () => {
+    allowResearch(["user-1"]);
+    const search = { search: vi.fn(async () => []) } as unknown as SearxngClient;
+    await expect(enrichFood("food-1", "user-1", { search })).resolves.toEqual({ filledNutrientKeys: [], servingFilled: false });
+    expect(food.update).toHaveBeenCalledWith({ where: { id: "food-1" }, data: { enrichedAt: expect.any(Date) } });
   });
 });

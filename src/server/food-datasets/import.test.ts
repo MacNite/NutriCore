@@ -18,7 +18,7 @@ const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     datasetImport: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     food: { findMany: vi.fn(), createMany: vi.fn(), update: vi.fn() },
-    foodNutrient: { deleteMany: vi.fn(), createMany: vi.fn() },
+    foodNutrient: { deleteMany: vi.fn(), createMany: vi.fn(), findMany: vi.fn(async (): Promise<unknown[]> => []) },
     foodTranslation: { deleteMany: vi.fn(), createMany: vi.fn() },
     foodAlias: { deleteMany: vi.fn(), createMany: vi.fn() },
     foodServing: { deleteMany: vi.fn(), createMany: vi.fn() },
@@ -120,6 +120,36 @@ describe("importing a dataset", () => {
     expect(prismaMock.foodNutrient.createMany).toHaveBeenCalled();
     expect(prismaMock.foodTranslation.createMany).toHaveBeenCalled();
     expect(prismaMock.foodSource.createMany).toHaveBeenCalled();
+  });
+
+  it("keeps AI-backfilled nutrients the release does not itself supply, and drops the ones it does", async () => {
+    writeArtifacts(records);
+    prismaMock.food.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(records.map((record, index) => ({ id: `food-${index}`, externalId: record.code })));
+    // A previous enrichment filled two gaps on the first food of the release:
+    // `energyKcal`, which BLS carries itself, and `transFat`, which BLS 4.0
+    // deliberately does not publish at all.
+    prismaMock.foodNutrient.findMany.mockResolvedValue([
+      { foodId: "food-0", nutrientKey: "energyKcal", value: 999, sourceValue: null, sourceUnit: null, qualifier: null, origin: "AI_ENRICHMENT" },
+      { foodId: "food-0", nutrientKey: "transFat", value: 0.4, sourceValue: null, sourceUnit: null, qualifier: null, origin: "AI_ENRICHMENT" },
+    ]);
+
+    await importDataset("bls");
+
+    // Nutrients are not scoped by provider the way FoodSource is, so the total
+    // delete used to take a month of backfill with it on every dataset upgrade -
+    // silently, leaving only the audit row behind, still naming values that were
+    // gone. The dataset's own rows go in first, then whatever the AI uniquely holds.
+    const [datasetRows, restored] = prismaMock.foodNutrient.createMany.mock.calls.map((call) => call[0].data);
+    const supplied = new Set(datasetRows.map((row: { foodId: string; nutrientKey: string }) => `${row.foodId}/${row.nutrientKey}`));
+    expect(supplied.has("food-0/energyKcal")).toBe(true);
+
+    // A measured number always wins; the model only keeps the gaps the database
+    // still does not fill.
+    expect(restored).toEqual([
+      expect.objectContaining({ foodId: "food-0", nutrientKey: "transFat", origin: "AI_ENRICHMENT" }),
+    ]);
   });
 
   it("records the version and checksum it imported", async () => {
