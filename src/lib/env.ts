@@ -155,5 +155,53 @@ export function env(): Env {
   return cached;
 }
 
+/**
+ * Refuses to start a production deployment whose `APP_URL` is neither HTTPS nor
+ * local.
+ *
+ * `Secure` on the session cookie is derived from `APP_URL`, which is the right
+ * trade for a self-hosted instance on a plain-HTTP LAN - it has to be able to
+ * sign in at all. The failure mode is a public HTTPS deployment whose `APP_URL`
+ * was left at its `http://localhost:3000` default: everything works, and the
+ * session cookie quietly loses `Secure` and travels wherever the browser is
+ * willing to send it. Nothing anywhere said so.
+ *
+ * A loopback or private-range host is still allowed over plain HTTP, because
+ * that is the deployment the trade-off exists for. `ALLOW_INSECURE_APP_URL=true`
+ * is the escape hatch for anything else, e.g. TLS terminated by a sidecar that
+ * the app cannot see.
+ */
+export function assertSecureDeployment(source: Record<string, string | undefined> = process.env) {
+  if (source.NODE_ENV !== "production") return;
+  if (source.ALLOW_INSECURE_APP_URL === "true") return;
+
+  const raw = source.APP_URL ?? "http://localhost:3000";
+  if (raw.startsWith("https://")) return;
+
+  let host: string;
+  try {
+    host = new URL(raw).hostname;
+  } catch {
+    throw new Error(`APP_URL is not a valid URL: ${raw}`);
+  }
+
+  const local =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "[::1]" ||
+    host.endsWith(".local") ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+  if (local) return;
+
+  throw new Error(
+    `APP_URL is ${raw}, which is neither HTTPS nor a local address. The session cookie's Secure flag is derived ` +
+      "from it, so this deployment would issue session cookies over plain HTTP to a public host. Set an https:// " +
+      "APP_URL, or set ALLOW_INSECURE_APP_URL=true if TLS is terminated somewhere this application cannot see.",
+  );
+}
+
 /** True when a secret is configured, without ever revealing the value. */
 export const hasSecret = (name: string) => Boolean(process.env[name]?.trim());

@@ -203,6 +203,7 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `AI_FALLBACK_MODEL` / `AI_CONFIDENCE_THRESHOLD` | no | Future low-confidence fallback policy; fallback is not called for every job |
 | `SEARXNG_URL` / `SEARXNG_TIMEOUT_MS` | no | JSON source discovery used only after local foods miss |
 | `REGISTRATION_MODE` | no | `bootstrap` (default), `open` or `disabled`. See [Registration policy](#registration-policy) |
+| `ALLOW_INSECURE_APP_URL` | no | Default `false`. Allows a production `APP_URL` that is neither HTTPS nor local, for TLS terminated where the application cannot see it |
 | `TRUSTED_PROXY_HOPS` | no | Default `0`. How many reverse proxies sit in front of this deployment; `X-Forwarded-For` is ignored unless this is set |
 | `INVITATION_EXPIRY_HOURS` | no | Single-use invitation lifetime; default 48 hours |
 | `SMTP_ENABLED` / `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | no | SMTP delivery; setting `SMTP_HOST` makes environment configuration take precedence over the Administrator Panel |
@@ -951,7 +952,10 @@ only from the Administrator Panel.
 
 - Argon2id password hashing with OWASP-aligned parameters
 - Opaque session tokens; only SHA-256 hashes are stored
-- HTTP-only, SameSite=Lax cookies, `Secure` when `APP_URL` is HTTPS
+- HTTP-only, SameSite=Lax cookies, `Secure` when `APP_URL` is HTTPS, from one
+  shared options helper so no security cookie can drift out of the set
+- Start-up refuses a production deployment whose `APP_URL` is neither HTTPS nor a
+  local address, since that is the configuration that silently drops `Secure`
 - Same-origin validation on state-changing route handlers
 - Registration closes after the first account unless `REGISTRATION_MODE` says otherwise; the first-administrator decision is taken under a PostgreSQL advisory lock so two simultaneous registrations cannot both become administrators
 - Rate limiting on sign-in, registration, invitation redemption, search, export and research; sign-in is limited per account as well as per address, so a limit does not depend on the proxy configuration being right

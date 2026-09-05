@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { prisma } from "@/lib/db";
-import { SESSION_COOKIE, SESSION_TTL_MS, createSessionToken, hashSessionToken } from "@/lib/auth";
+import { PASSWORD_CHANGE_COOKIE, SESSION_COOKIE, SESSION_TTL_MS, createSessionToken, hashSessionToken, securityCookieOptions } from "@/lib/auth";
 import type { Locale } from "@/i18n/locales";
 import { DEFAULT_LOCALE, isLocale } from "@/i18n/locales";
 
@@ -76,17 +76,12 @@ export async function startSession(userId: string) {
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   await prisma.session.create({ data: { userId, tokenHash, expiresAt } });
 
-  (await cookies()).set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    // Secure is driven by the deployment URL: a plain-HTTP LAN deployment must
-    // still be able to log in, while an HTTPS deployment always gets Secure.
-    secure: (process.env.APP_URL ?? "").startsWith("https://"),
-    path: "/",
-    expires: expiresAt,
-  });
+  (await cookies()).set(SESSION_COOKIE, token, securityCookieOptions(expiresAt));
   const account = await prisma.user.findUnique({ where: { id: userId }, select: { mustChangePassword: true } });
-  if (account?.mustChangePassword) (await cookies()).set("nutricore_password_change", "1", { httpOnly: true, sameSite: "lax", path: "/", expires: expiresAt });
+  // Same options as the session cookie. This one used to be written without
+  // `secure`, which on an HTTPS deployment made it the one security cookie that
+  // could travel in the clear.
+  if (account?.mustChangePassword) (await cookies()).set(PASSWORD_CHANGE_COOKIE, "1", securityCookieOptions(expiresAt));
 
   // Opportunistic cleanup keeps the session table from growing unbounded.
   await prisma.session.deleteMany({ where: { userId, expiresAt: { lte: new Date() } } });
@@ -98,7 +93,7 @@ export async function endSession() {
   const token = store.get(SESSION_COOKIE)?.value;
   if (token) await prisma.session.deleteMany({ where: { tokenHash: hashSessionToken(token) } });
   store.delete(SESSION_COOKIE);
-  store.delete("nutricore_password_change");
+  store.delete(PASSWORD_CHANGE_COOKIE);
 }
 
 /**
