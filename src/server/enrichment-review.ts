@@ -152,14 +152,30 @@ export interface ReviewDecision {
  * matched on `origin` as well, so a value a dataset has since supplied is never
  * deleted by somebody rejecting the model's older guess at it.
  */
+export interface ReviewOutcome {
+  /** Values the reviewer accepted, whether or not the write landed. */
+  approved: number;
+  /** Of those, the ones that are now the value on the food. */
+  applied: number;
+  /**
+   * Accepted, but something else had filled the nutrient first, so the food
+   * kept the value it already had. Counted apart because "approved" is a
+   * decision and "applied" is a fact about the food, and reporting the
+   * decision as though it were the fact is how the audit trail came to claim
+   * values it had not written.
+   */
+  superseded: number;
+  rejected: number;
+}
+
 export async function applyReview(
   proposalId: string,
   reviewerId: string,
   decision: ReviewDecision,
-): Promise<{ approved: number; rejected: number }> {
+): Promise<ReviewOutcome> {
   const approve = decision.approve ?? [];
   const reject = decision.reject ?? [];
-  if (!approve.length && !reject.length && !decision.serving) return { approved: 0, rejected: 0 };
+  if (!approve.length && !reject.length && !decision.serving) return { approved: 0, applied: 0, superseded: 0, rejected: 0 };
 
   return prisma.$transaction(async (tx) => {
     const proposal = await tx.enrichmentProposal.findUniqueOrThrow({
@@ -171,32 +187,45 @@ export async function applyReview(
       select: { id: true, nutrientKey: true, value: true, applied: true },
     });
     const decided = new Date();
-    const approvedKeys: string[] = [];
+    // Only the keys whose value is now actually on the food. The source row
+    // below cites these, so it can never name a nutrient it did not write.
+    const appliedKeys: string[] = [];
+    let approved = 0;
+    let superseded = 0;
     let rejected = 0;
 
     for (const value of values) {
       if (approve.includes(value.id)) {
+        approved++;
+        // Already on the food - the rows the review migration reconstructed.
+        // Approving one is a decision about a value in use, not a fresh write.
+        let applied = value.applied;
         if (!value.applied) {
           const updated = await tx.foodNutrient.updateMany({
             where: { foodId: proposal.foodId, nutrientKey: value.nutrientKey, value: null },
             data: { value: value.value, origin: AI_ENRICHMENT_ORIGIN },
           });
-          if (!updated.count) {
+          applied = updated.count > 0;
+          if (!applied) {
             try {
               await tx.foodNutrient.create({
                 data: { foodId: proposal.foodId, nutrientKey: value.nutrientKey, value: value.value, origin: AI_ENRICHMENT_ORIGIN },
               });
+              applied = true;
             } catch (error) {
               // Somebody filled it between the proposal and this click. Their
-              // value stands; the decision is still recorded.
+              // value stands, and this one was never written - so it is
+              // recorded as approved but not applied, rather than as a write
+              // that happened.
               if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
             }
           }
         }
-        approvedKeys.push(value.nutrientKey);
+        if (applied) appliedKeys.push(value.nutrientKey);
+        else superseded++;
         await tx.enrichmentProposalValue.update({
           where: { id: value.id },
-          data: { status: "APPROVED", applied: true, reviewedById: reviewerId, reviewedAt: decided },
+          data: { status: "APPROVED", applied, reviewedById: reviewerId, reviewedAt: decided },
         });
       } else {
         if (value.applied) {
@@ -232,7 +261,7 @@ export async function applyReview(
 
     // The provenance row the food page reads. Written on approval rather than on
     // extraction, so a URL is only ever cited for values somebody accepted.
-    if (approvedKeys.length || servingApproved) {
+    if (appliedKeys.length || servingApproved) {
       await tx.foodSource.create({
         data: {
           foodId: proposal.foodId,
@@ -241,11 +270,11 @@ export async function applyReview(
           url: proposal.sourceUrl,
           estimated: true,
           model: proposal.model,
-          metadata: { nutrientKeys: approvedKeys, servingSize: servingApproved, addedAt: decided.toISOString() },
+          metadata: { nutrientKeys: appliedKeys, servingSize: servingApproved, addedAt: decided.toISOString() },
         },
       });
     }
 
-    return { approved: approvedKeys.length, rejected };
+    return { approved, applied: appliedKeys.length, superseded, rejected };
   });
 }

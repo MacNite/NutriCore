@@ -433,7 +433,7 @@ export async function importAllDatasets(
         stats: {
           created: enrichment.stats.filled,
           updated: 0,
-          skipped: enrichment.stats.alreadyPresent + enrichment.stats.unknownFoods,
+          skipped: enrichment.stats.alreadyPresent + enrichment.stats.unknownFoods + enrichment.stats.rejected,
           stale: 0,
           unmapped: [],
           issues: enrichment.stats.issues,

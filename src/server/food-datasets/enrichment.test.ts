@@ -13,8 +13,9 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const { prismaMock, food, foodNutrient, foodSource, datasetImport } = vi.hoisted(() => {
+const { prismaMock, food, foodNutrient, foodSource, datasetImport, nutrientDefinition } = vi.hoisted(() => {
   const food = { findMany: vi.fn(async (): Promise<unknown[]> => []) };
+  const nutrientDefinition = { findMany: vi.fn(async () => [{ key: "iodine" }, { key: "calcium" }, { key: "iron" }]) };
   const foodNutrient = { createMany: vi.fn(), updateMany: vi.fn() };
   const foodSource = { createMany: vi.fn() };
   const datasetImport = { findUnique: vi.fn(async (): Promise<{ checksum: string; recordCount: number } | null> => null), upsert: vi.fn() };
@@ -23,18 +24,22 @@ const { prismaMock, food, foodNutrient, foodSource, datasetImport } = vi.hoisted
     foodNutrient,
     foodSource,
     datasetImport,
-    prismaMock: { food, foodNutrient, foodSource, datasetImport, $transaction: vi.fn(async (ops: unknown[]) => ops) },
+    nutrientDefinition,
+    prismaMock: { food, foodNutrient, foodSource, datasetImport, nutrientDefinition, $transaction: vi.fn(async (ops: unknown[]) => ops) },
   };
 });
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
 import { importEnrichmentDataset, type EnrichmentRecord } from "./enrichment";
 
+/** The artifact is read as unknown, so a test may write a malformed record. */
+type RawRecord = EnrichmentRecord | Record<string, unknown>;
+
 const directory = mkdtempSync(join(tmpdir(), "nutricore-enrichment-"));
 const originalDir = process.env.FOOD_DATASET_DIR;
 
 /** Writes an artifact and manifest exactly as the export script would. */
-function writeArtifact(records: EnrichmentRecord[]) {
+function writeArtifact(records: RawRecord[]) {
   const artifact = gzipSync(Buffer.from(records.map((record) => `${JSON.stringify(record)}\n`).join("")));
   writeFileSync(join(directory, "ai-enrichment.ndjson.gz"), artifact);
   const checksum = createHash("sha256").update(artifact).digest("hex");
@@ -61,7 +66,10 @@ beforeEach(() => {
   process.env.FOOD_DATASET_DIR = directory;
   datasetImport.findUnique.mockResolvedValue(null);
   datasetImport.upsert.mockResolvedValue({});
-  prismaMock.$transaction.mockResolvedValue([]);
+  nutrientDefinition.findMany.mockResolvedValue([{ key: "iodine" }, { key: "calcium" }, { key: "iron" }]);
+  // The importer reads each operation's result to learn what was written, so
+  // the mock answers as the database would: one `count` per queued statement.
+  prismaMock.$transaction.mockImplementation(async (ops: unknown[]) => ops.map(() => ({ count: 1 })));
 });
 
 afterEach(() => {
@@ -142,6 +150,65 @@ describe("importing a shipped enrichment artifact", () => {
 
     expect(outcome?.stats.filled).toBe(1);
     expect(outcome?.stats.issues[0]).toContain("iodine");
+  });
+
+  it("refuses a nutrient this catalogue does not define", async () => {
+    // `FoodNutrient.nutrientKey` is a foreign key onto the catalogue, so
+    // writing an unknown one raises a constraint violation that takes the whole
+    // import down. It has to be caught before any statement is queued.
+    writeArtifact([record([{ key: "unobtainium", value: 1 }, { key: "iodine", value: 12 }])]);
+    food.findMany.mockResolvedValue([{ id: "f1", externalProvider: "BLS", externalId: "B105000", nutrients: [] }]);
+
+    const outcome = await importEnrichmentDataset();
+
+    expect(outcome?.stats.rejected).toBe(1);
+    expect(outcome?.stats.issues[0]).toContain("unobtainium");
+    expect(foodNutrient.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: [expect.objectContaining({ nutrientKey: "iodine" })] }),
+    );
+  });
+
+  it("reports a malformed record instead of throwing on it", async () => {
+    // A null inside `values` used to be dereferenced and take the import with it.
+    writeArtifact([
+      { provider: "BLS", externalId: "B1", values: [null] },
+      { provider: "BLS", externalId: "B2", values: "not an array" },
+      { values: [{ key: "iodine", value: 12 }] },
+      record([{ key: "iodine", value: 12 }]),
+    ]);
+    food.findMany.mockResolvedValue([{ id: "f1", externalProvider: "BLS", externalId: "B105000", nutrients: [] }]);
+
+    const outcome = await importEnrichmentDataset();
+
+    expect(outcome?.stats.rejected).toBe(3);
+    // The one good record still lands.
+    expect(outcome?.stats.filled).toBe(1);
+  });
+
+  it("counts a nutrient named twice once, because the database writes it once", async () => {
+    writeArtifact([record([{ key: "iodine", value: 12 }, { key: "iodine", value: 13 }])]);
+    food.findMany.mockResolvedValue([{ id: "f1", externalProvider: "BLS", externalId: "B105000", nutrients: [] }]);
+
+    const outcome = await importEnrichmentDataset();
+
+    expect(outcome?.stats.filled).toBe(1);
+    expect(outcome?.stats.rejected).toBe(1);
+  });
+
+  it("counts only what the database confirms it wrote", async () => {
+    writeArtifact([record([{ key: "iodine", value: 12 }])]);
+    food.findMany.mockResolvedValue([
+      { id: "f1", externalProvider: "BLS", externalId: "B105000", nutrients: [{ nutrientKey: "iodine", value: null }] },
+    ]);
+    // Another writer filled the row between the read and the write, so the
+    // conditional update matches nothing.
+    prismaMock.$transaction.mockResolvedValue([{ count: 0 }]);
+
+    const outcome = await importEnrichmentDataset();
+
+    expect(outcome?.stats.filled).toBe(0);
+    // And nothing claims to have written it.
+    expect(foodSource.createMany).not.toHaveBeenCalled();
   });
 
   it("costs one query when the checksum has not changed", async () => {

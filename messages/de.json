@@ -1250,7 +1250,8 @@
       "exportEnrichmentHint": "Lädt die freigegebenen, von der KI ergänzten Werte für Katalog-Lebensmittel im Format der mitgelieferten Datenbanken herunter, damit sie zurückfließen können. Enthalten sind nur Lebensmittel aus einer mitgelieferten Datenbank – nie eines, das du oder ein anderer Nutzer angelegt hat. Es wird nichts veröffentlicht: Den Pull Request zu eröffnen bleibt deine Entscheidung."
     },
     "enrichmentReviewTitle": "Vorgeschlagene Nährwerte",
-    "resultProposed": "Zur Prüfung vorgeschlagen"
+    "resultProposed": "Zur Prüfung vorgeschlagen",
+    "resultSuperseded": "Bereits aus anderer Quelle gefüllt"
   },
   "account": {
     "changePasswordTitle": "Neues Passwort wählen",

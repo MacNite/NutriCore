@@ -86,8 +86,43 @@ describe("applying a decision", () => {
     expect(foodNutrient.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { foodId: "food-1", nutrientKey: "iron", value: null } }),
     );
-    // The decision is still recorded even though the write lost the race.
-    expect(result.approved).toBe(1);
+    // The decision is recorded, but not as a write that happened: approving is
+    // what the reviewer did, applying is what became of the food, and the two
+    // parted ways here. Reporting the first as the second is how the audit
+    // trail came to claim values it had never written.
+    expect(result).toEqual({ approved: 1, applied: 0, superseded: 1, rejected: 0 });
+    expect(enrichmentProposalValue.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "APPROVED", applied: false }) }),
+    );
+    // And nothing cites a source for a value this instance did not write.
+    expect(foodSource.create).not.toHaveBeenCalled();
+  });
+
+  it("marks a value applied when the write actually landed", async () => {
+    enrichmentProposalValue.findMany.mockResolvedValue([
+      { id: "v-1", nutrientKey: "iron", value: 0.4, applied: false },
+    ]);
+    foodNutrient.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await applyReview("p-1", "admin-1", { approve: ["v-1"] });
+
+    expect(result).toEqual({ approved: 1, applied: 1, superseded: 0, rejected: 0 });
+    expect(enrichmentProposalValue.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "APPROVED", applied: true }) }),
+    );
+  });
+
+  it("counts a value created from nothing as applied", async () => {
+    enrichmentProposalValue.findMany.mockResolvedValue([
+      { id: "v-1", nutrientKey: "iron", value: 0.4, applied: false },
+    ]);
+    // No row at all yet: the conditional update matches nothing, the create wins.
+    foodNutrient.updateMany.mockResolvedValue({ count: 0 });
+    foodNutrient.create.mockResolvedValue({});
+
+    const result = await applyReview("p-1", "admin-1", { approve: ["v-1"] });
+
+    expect(result).toEqual({ approved: 1, applied: 1, superseded: 0, rejected: 0 });
   });
 
   it("takes a refused value back off the food, matching only what the AI wrote", async () => {
@@ -105,7 +140,7 @@ describe("applying a decision", () => {
     expect(enrichmentProposalValue.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "REJECTED", applied: false }) }),
     );
-    expect(result.rejected).toBe(1);
+    expect(result).toEqual({ approved: 0, applied: 0, superseded: 0, rejected: 1 });
   });
 
   it("keeps an already-applied value without rewriting it", async () => {
@@ -162,7 +197,7 @@ describe("applying a decision", () => {
 
   it("does nothing at all when the decision is empty", async () => {
     const result = await applyReview("p-1", "admin-1", {});
-    expect(result).toEqual({ approved: 0, rejected: 0 });
+    expect(result).toEqual({ approved: 0, applied: 0, superseded: 0, rejected: 0 });
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 });

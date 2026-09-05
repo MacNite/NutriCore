@@ -599,6 +599,8 @@ export async function enrichFood(
 
   const filledNutrientKeys: string[] = [];
   const proposedKeys: string[] = [];
+  /** Accepted, but the nutrient had been filled by something else first. */
+  const supersededKeys: string[] = [];
   let servingFilled = false;
   await prisma.$transaction(async (tx) => {
     const proposal = await tx.enrichmentProposal.create({
@@ -635,7 +637,12 @@ export async function enrichFood(
         },
       });
       if (applied) filledNutrientKeys.push(nutrientKey);
-      else proposedKeys.push(nutrientKey);
+      // Only a value that is actually waiting for somebody is reported as
+      // proposed. An auto-applied one that lost a write race is already
+      // APPROVED, so it will never appear in a review queue, and reporting it
+      // as pending sent an administrator looking for something that is not there.
+      else if (!autoApply) proposedKeys.push(nutrientKey);
+      else supersededKeys.push(nutrientKey);
     }
 
     if (offeredServing) {
@@ -655,7 +662,7 @@ export async function enrichFood(
       metadata: { nutrientKeys: filledNutrientKeys, servingSize: servingFilled, sourceUrls: extracted.consideredUrls, addedAt: new Date().toISOString() },
     } });
   });
-  return { filledNutrientKeys, servingFilled, proposedKeys };
+  return { filledNutrientKeys, servingFilled, proposedKeys, supersededKeys };
 }
 
 /**

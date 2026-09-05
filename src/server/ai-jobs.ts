@@ -262,6 +262,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
         nutrientKeys: result.filledNutrientKeys,
         servingFilled: result.servingFilled,
         proposedKeys: result.proposedKeys,
+        supersededKeys: result.supersededKeys,
       })));
       return true;
     }
