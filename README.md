@@ -297,6 +297,24 @@ release actually publishes and leaves the backfilled ones in the gaps it still
 does not fill - a measured number always wins, and enrichment is no longer lost
 on every dataset upgrade.
 
+**A run reads the food's own pages before it searches for its name.** A
+reference URL stored on the food - the label a user typed when creating it, or a
+provider's product page - is about that food by construction, where a search for
+a generic name can return a different product that happens to share it. It is
+also the cheaper and more private path: one fetch of an address already on
+record instead of naming the food to a search engine. The search still runs when
+those pages cannot be read or carry no nutrition table, so a product page
+without one does not leave the food permanently unenrichable. The backfill's own
+past pages are never re-read - that would make a wrong extraction confirm itself.
+
+**Each run asks about gaps no earlier run has tried.** One page is only ever
+asked for twelve nutrient keys, but taking the first twelve every time made
+three quarters of the catalogue unreachable: search already refuses a food with
+no energy value, so most foods arrive with the macros present and their first
+twelve gaps are exactly what no label publishes - trans fats, omega-3, chloride,
+molybdenum. The window now moves through the catalogue in `sortOrder` and starts
+round again only once every gap has been put to a source at least once.
+
 **And nothing it finds reaches a food unreviewed.** A run records what it read
 as a proposal and waits, which is the "human approves" clause the rest of the
 app already honours. Who approves follows who owns the food, exactly as reading

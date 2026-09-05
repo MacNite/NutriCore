@@ -8,7 +8,7 @@ const { prismaMock, food, nutrientDefinition, userProfile, foodNutrient, enrichm
   const nutrientDefinition = { findMany: vi.fn() };
   const userProfile = { findMany: vi.fn(), findUnique: vi.fn(async (): Promise<{ autoApplyEnrichment: boolean } | null> => null) };
   const foodNutrient = { updateMany: vi.fn(async () => ({ count: 1 })), create: vi.fn() };
-  const enrichmentProposal = { create: vi.fn(async () => ({ id: "proposal-1" })), update: vi.fn() };
+  const enrichmentProposal = { create: vi.fn(async () => ({ id: "proposal-1" })), update: vi.fn(), findMany: vi.fn(async (): Promise<{ requestedKeys: string[] }[]> => []) };
   const enrichmentProposalValue = { create: vi.fn() };
   const tx = { food, foodNutrient, foodSource: { create: vi.fn() }, enrichmentProposal, enrichmentProposalValue };
   return {
@@ -23,7 +23,7 @@ const { prismaMock, food, nutrientDefinition, userProfile, foodNutrient, enrichm
 });
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
-import { aiEnrichmentMetadata, enrichFood, enrichmentBlock, extractNutritionForName, isPlausibleNutrition, missingNutritionKeys, normalizeNutritionPer100g, permittedForEnrichment, rankNutritionSources } from "./food-enrichment";
+import { aiEnrichmentMetadata, enrichFood, enrichmentBlock, nextNutritionKeys, referenceUrls, extractNutritionForName, isPlausibleNutrition, missingNutritionKeys, normalizeNutritionPer100g, permittedForEnrichment, rankNutritionSources } from "./food-enrichment";
 import { AIInvalidOutputError, AIUnavailableError } from "@/providers/ai";
 import type { OllamaProvider } from "@/providers/ollama";
 import type { SearxngClient } from "@/providers/searxng";
@@ -278,7 +278,7 @@ describe("enrichFood", () => {
   beforeEach(() => {
     food.findUnique.mockResolvedValue({
       id: "food-1", name: "Käse", ownerId: null, basisUnit: "G", densityGPerMl: null,
-      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }], servings: [],
+      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }], servings: [], sources: [],
     });
     food.update.mockResolvedValue({});
     nutrientDefinition.findMany.mockResolvedValue([{ key: "iron", canonicalUnit: "mg" }]);
@@ -326,11 +326,14 @@ describe("enrichFood: proposing versus applying", () => {
   beforeEach(() => {
     food.findUnique.mockResolvedValue({
       id: "food-1", name: "Käse", ownerId: null, basisUnit: "G", densityGPerMl: null,
-      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }], servings: [],
+      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }], servings: [], sources: [],
     });
     food.update.mockResolvedValue({});
     nutrientDefinition.findMany.mockResolvedValue([{ key: "iron", canonicalUnit: "mg" }]);
     enrichmentProposal.create.mockResolvedValue({ id: "proposal-1" });
+    // `clearAllMocks` clears calls but keeps implementations, so a resolved
+    // value set by one test would otherwise carry into the next.
+    enrichmentProposal.findMany.mockResolvedValue([]);
     foodNutrient.updateMany.mockResolvedValue({ count: 1 });
   });
 
@@ -372,13 +375,50 @@ describe("enrichFood: proposing versus applying", () => {
     expect(result.proposedKeys).toEqual([]);
   });
 
+  it("moves on to a gap no previous run has asked about", async () => {
+    allowResearch(["user-1"]);
+    userProfile.findUnique.mockResolvedValue({ autoApplyEnrichment: false });
+    nutrientDefinition.findMany.mockResolvedValue([{ key: "iron" }, { key: "iodine" }]);
+    food.findUnique.mockResolvedValue({
+      id: "food-1", name: "Käse", ownerId: null, basisUnit: "G", densityGPerMl: null,
+      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }, { nutrientKey: "iodine", value: null }], servings: [], sources: [],
+    });
+    // A month ago a run already asked this food's source about iron.
+    enrichmentProposal.findMany.mockResolvedValue([{ requestedKeys: ["iron"] }]);
+
+    await enrichFood("food-1", "user-1", sourceOffering({ iodine: 12 }));
+
+    expect(enrichmentProposal.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ requestedKeys: ["iodine"] }) }),
+    );
+  });
+
+  it("reads the food's own recorded page instead of searching for its name", async () => {
+    allowResearch(["user-1"]);
+    userProfile.findUnique.mockResolvedValue({ autoApplyEnrichment: false });
+    food.findUnique.mockResolvedValue({
+      id: "food-1", name: "Käse", ownerId: null, basisUnit: "G", densityGPerMl: null,
+      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }], servings: [],
+      sources: [{ provider: "USER", url: "https://label.test", retrievedAt: new Date("2026-01-01T00:00:00Z") }],
+    });
+
+    const deps = sourceOffering({ iron: 0.4 });
+    await enrichFood("food-1", "user-1", deps);
+
+    expect(deps.fetchSource).toHaveBeenCalledWith("https://label.test");
+    expect(deps.search.search).not.toHaveBeenCalled();
+    expect(enrichmentProposal.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ sourceUrl: "https://label.test" }) }),
+    );
+  });
+
   it("keeps the keys it asked for on the proposal, answered or not", async () => {
     allowResearch(["user-1"]);
     userProfile.findUnique.mockResolvedValue({ autoApplyEnrichment: false });
     nutrientDefinition.findMany.mockResolvedValue([{ key: "iron" }, { key: "iodine" }]);
     food.findUnique.mockResolvedValue({
       id: "food-1", name: "Käse", ownerId: null, basisUnit: "G", densityGPerMl: null,
-      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }, { nutrientKey: "iodine", value: null }], servings: [],
+      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }, { nutrientKey: "iodine", value: null }], servings: [], sources: [],
     });
 
     // The source answers only one of the two gaps.
@@ -389,5 +429,110 @@ describe("enrichFood: proposing versus applying", () => {
     expect(enrichmentProposal.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ requestedKeys: ["iron", "iodine"] }) }),
     );
+  });
+});
+
+describe("choosing which gaps to ask about", () => {
+  const catalogue = ["energyKcal", "protein", "fat", "transFat", "omega3", "chloride", "iodine", "selenium"];
+
+  it("asks for the head of the catalogue when nothing has been tried", () => {
+    expect(nextNutritionKeys(catalogue, [], 3)).toEqual(["energyKcal", "protein", "fat"]);
+  });
+
+  it("moves on to gaps no run has put to a source yet", () => {
+    // The bug this replaces: the same first twelve keys were asked for every
+    // time, so a food whose label carries none of them was re-asked the same
+    // unanswerable question for ever while later nutrients stayed unreachable.
+    expect(nextNutritionKeys(catalogue, ["energyKcal", "protein", "fat"], 3)).toEqual(["transFat", "omega3", "chloride"]);
+  });
+
+  it("keeps catalogue order rather than the order things were tried in", () => {
+    expect(nextNutritionKeys(catalogue, ["omega3", "energyKcal"], 3)).toEqual(["protein", "fat", "transFat"]);
+  });
+
+  it("starts round again once every gap has been tried, for pages published since", () => {
+    expect(nextNutritionKeys(catalogue, catalogue, 2)).toEqual(["energyKcal", "protein"]);
+  });
+
+  it("ignores keys that are no longer missing", () => {
+    expect(nextNutritionKeys(["iodine"], ["energyKcal", "protein"], 3)).toEqual(["iodine"]);
+  });
+});
+
+describe("a food's own recorded pages", () => {
+  const older = new Date("2026-01-01T00:00:00Z");
+  const newer = new Date("2026-02-01T00:00:00Z");
+
+  it("puts the address the user typed ahead of a provider's", () => {
+    expect(referenceUrls([
+      { provider: "OPEN_FOOD_FACTS", url: "https://off.test", retrievedAt: newer },
+      { provider: "USER", url: "https://label.test", retrievedAt: older },
+    ])).toEqual(["https://label.test", "https://off.test"]);
+  });
+
+  it("never re-reads a page the backfill itself took values off", () => {
+    // Reading it again is not a second opinion: it would make a wrong
+    // extraction confirm itself.
+    expect(referenceUrls([
+      { provider: "AI_ENRICHMENT", url: "https://guess.test", retrievedAt: newer },
+      { provider: "USER", url: "https://label.test", retrievedAt: older },
+    ])).toEqual(["https://label.test"]);
+  });
+
+  it("skips source rows that carry no address at all", () => {
+    expect(referenceUrls([{ provider: "USER", url: null, retrievedAt: older }])).toEqual([]);
+  });
+});
+
+describe("reading a food's own page before searching", () => {
+  const ai = () => ({
+    capabilities: vi.fn(async () => ({ model: "qwen3.5:4b" })),
+    complete: vi.fn(async () => ({ nutrients: { iron: 0.4 }, basisAmount: 100, basisUnit: "g" })),
+  }) as unknown as OllamaProvider;
+
+  it("does not name the food to a search engine when its own page can be read", async () => {
+    const search = { search: vi.fn(async () => []) } as unknown as SearxngClient;
+    const fetchSource = vi.fn(async (url: string) => ({ url, title: "Label", excerpt: "Eisen 0,4 mg pro 100 g", truncated: false }));
+
+    const result = await extractNutritionForName("Käse", ["iron"], { ai: ai(), search, fetchSource }, {}, ["https://label.test"]);
+
+    expect(fetchSource).toHaveBeenCalledWith("https://label.test");
+    expect(search.search).not.toHaveBeenCalled();
+    expect(result?.url).toBe("https://label.test");
+  });
+
+  it("falls back to a search when the recorded page carries no nutrition", async () => {
+    // A manufacturer's product page that has no table on it. Stopping here
+    // would leave the food permanently unenrichable - the silent no-op this
+    // whole path exists to stop producing.
+    const search = { search: vi.fn(async () => [{ title: "Käse Nährwerte", url: "https://found.test" }]) } as unknown as SearxngClient;
+    const fetchSource = vi.fn(async (url: string) => ({ url, title: "Käse", excerpt: "Unser Käse wird traditionell hergestellt.", truncated: false }));
+    const provider = {
+      capabilities: vi.fn(async () => ({ model: "qwen3.5:4b" })),
+      complete: vi.fn()
+        .mockRejectedValueOnce(new AIInvalidOutputError("nothing to extract"))
+        .mockResolvedValue({ nutrients: { iron: 0.4 }, basisAmount: 100, basisUnit: "g" }),
+    } as unknown as OllamaProvider;
+
+    const result = await extractNutritionForName("Käse", ["iron"], { ai: provider, search, fetchSource }, {}, ["https://label.test"]);
+
+    expect(fetchSource).toHaveBeenCalledWith("https://label.test");
+    expect(search.search).toHaveBeenCalled();
+    expect(result?.url).toBe("https://found.test");
+    // Both what the food named and what the search offered are on the record.
+    expect(result?.consideredUrls).toEqual(["https://label.test", "https://found.test"]);
+  });
+
+  it("falls back to a search when the recorded page cannot be fetched at all", async () => {
+    const search = { search: vi.fn(async () => [{ title: "Käse Nährwerte", url: "https://found.test" }]) } as unknown as SearxngClient;
+    const fetchSource = vi.fn(async (url: string) => {
+      if (url === "https://gone.test") throw new Error("source-http-404");
+      return { url, title: "Käse Nährwerte", excerpt: "Nährwerte pro 100 g: Eisen 0,4 mg", truncated: false };
+    });
+
+    const result = await extractNutritionForName("Käse", ["iron"], { ai: ai(), search, fetchSource }, {}, ["https://gone.test"]);
+
+    expect(search.search).toHaveBeenCalled();
+    expect(result?.url).toBe("https://found.test");
   });
 });
