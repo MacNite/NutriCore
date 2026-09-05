@@ -772,7 +772,9 @@ npm install
 cp .env.example .env          # set APP_SECRET and POSTGRES_PASSWORD
 docker compose up -d db
 npx prisma migrate deploy
-npm run db:seed               # optional demo data; refuses to run in production
+npm run db:seed               # nutrient catalogue only; safe anywhere
+npm run db:seed:demo          # demo account and a month of fake data; needs
+                              # SEED_PASSWORD, refuses to run in production
 npm run dev
 ```
 
