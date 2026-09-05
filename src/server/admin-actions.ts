@@ -10,7 +10,7 @@ import { endSession, requireAdmin, requireUser } from "./session";
 import { deliverInvitation, issueInvitation, redeemableInvitation } from "./admin";
 import { encryptMailPassword, getMailConfiguration } from "@/lib/mail";
 import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
-import { ENRICHMENT_BATCH_LIMIT, ENRICHMENT_RETRY_MS, missingNutritionKeys } from "./food-enrichment";
+import { ENRICHMENT_BATCH_LIMIT, ENRICHMENT_RETRY_MS, ENRICHMENT_SCAN_LIMIT, missingNutritionKeys, permittedForEnrichment, enrichmentBlock } from "./food-enrichment";
 import { AI_JOB_OPERATIONS, AI_JOB_REQUEUE_DATA, AI_JOB_SELECTION_OPERATIONS, jobPriority, STUCK_RUNNING_MS, type AiJobOperation } from "./ai-types";
 import { discardMealInputImages } from "./meal-image";
 import { DATASET_KEYS, importAllDatasets } from "./food-datasets/import";
@@ -242,47 +242,87 @@ const adminJobsUrl = (filter: string, operation: string, affected: number) => {
  * On-demand only: deliberately no scheduler, so an administrator controls
  * network use.
  *
- * Bounded in two ways. `ENRICHMENT_BATCH_LIMIT` caps one click, because each job
- * holds the single worker for the length of a model call and an uncapped sweep
- * over a large catalogue buried every user-facing job behind it. And a food is
- * skipped for `ENRICHMENT_RETRY_MS` after an attempt: most gaps cannot be filled
- * from one page, so without that the same foods were re-queued on every click.
+ * Bounded in four ways. `ENRICHMENT_BATCH_LIMIT` caps one click, because each
+ * job holds the single worker for the length of a model call and an uncapped
+ * sweep over a large catalogue buried every user-facing job behind it. A food is
+ * skipped for `ENRICHMENT_RETRY_MS` after an attempt, so the same foods are not
+ * re-queued on every click. `ENRICHMENT_SCAN_LIMIT` caps how many foods one
+ * click reads: this used to load the entire catalogue - both bundled databases,
+ * every nutrient row of every food - into memory to queue at most 25 jobs. And
+ * the whole sweep is refused outright unless web research is permitted, since
+ * every job it queues would otherwise fetch pages the deployment or the
+ * administrator has said no to.
  *
  * Press it again to take the next batch.
  */
 export async function enqueueFoodEnrichmentAction() {
   const admin = await requireAdmin();
+  // Asked once, against no particular food, so an administrator learns that the
+  // switch is off instead of watching 25 jobs fail one after another.
+  const blocked = await enrichmentBlock({ ownerId: null }, admin.id);
+  if (blocked) redirect(`/admin?enrichmentBlocked=${blocked}#ai-jobs`);
+
   const retryBefore = new Date(Date.now() - ENRICHMENT_RETRY_MS);
-  const [definitions, foods] = await Promise.all([
-    prisma.nutrientDefinition.findMany({ select: { key: true } }),
-    prisma.food.findMany({
+  const definitions = await prisma.nutrientDefinition.findMany({ select: { key: true } });
+
+  // Paged rather than read whole. The page ordering has to be total for the
+  // cursor to be stable, hence the id tiebreak after the two meaningful keys.
+  const PAGE = 250;
+  const candidates: { id: string; ownerId: string | null }[] = [];
+  let cursor: string | undefined;
+  let scanned = 0;
+
+  while (scanned < ENRICHMENT_SCAN_LIMIT) {
+    const page = await prisma.food.findMany({
       where: { OR: [{ enrichedAt: null }, { enrichedAt: { lt: retryBefore } }] },
-      include: { nutrients: true, servings: true },
+      select: {
+        id: true,
+        ownerId: true,
+        servingSize: true,
+        nutrients: { select: { nutrientKey: true, value: true } },
+        servings: { select: { gramEquivalent: true, mlEquivalent: true } },
+      },
       // Oldest attempt first, so repeated clicks work through the catalogue
       // instead of offering the same foods again.
-      orderBy: [{ enrichedAt: "asc" }, { createdAt: "asc" }],
-    }),
-  ]);
+      orderBy: [{ enrichedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+      take: PAGE,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    if (!page.length) break;
+    cursor = page[page.length - 1].id;
+    scanned += page.length;
 
-  let queued = 0;
-  let remaining = 0;
-  for (const food of foods) {
-    const missing = missingNutritionKeys(definitions, food.nutrients);
-    const missingServing = !food.servingSize && !food.servings.some((s) => s.gramEquivalent || s.mlEquivalent);
-    if (!missing.length && !missingServing) continue;
-    if (queued >= ENRICHMENT_BATCH_LIMIT) {
-      remaining++;
-      continue;
-    }
-    const active = await prisma.aiJob.findFirst({ where: { entityType: "FOOD_ENRICHMENT", entityId: food.id, status: { in: ["QUEUED", "RUNNING"] } } });
-    if (!active) {
-      await prisma.aiJob.create({
-        data: { userId: admin.id, entityType: "FOOD_ENRICHMENT", entityId: food.id, priority: jobPriority("FOOD_ENRICHMENT") },
-      });
-      queued++;
+    for (const food of page) {
+      const missing = missingNutritionKeys(definitions, food.nutrients);
+      const missingServing = !food.servingSize && !food.servings.some((s) => s.gramEquivalent || s.mlEquivalent);
+      if (missing.length || missingServing) candidates.push({ id: food.id, ownerId: food.ownerId });
     }
   }
-  redirect(`/admin?enrichmentQueued=${queued}&enrichmentRemaining=${remaining}#ai-jobs`);
+
+  // A food somebody owns is only swept with that owner's consent; the shared
+  // catalogue rides on the administrator's, checked above.
+  const permitted = await permittedForEnrichment(candidates, admin.id);
+
+  // One query for every candidate rather than one per food. Foods already in
+  // the queue are neither re-queued nor counted as waiting: a second click in a
+  // row would otherwise report the whole batch it had just queued as outstanding.
+  const active = await prisma.aiJob.findMany({
+    where: { entityType: "FOOD_ENRICHMENT", entityId: { in: permitted }, status: { in: ["QUEUED", "RUNNING"] } },
+    select: { entityId: true },
+  });
+  const busy = new Set(active.map((job) => job.entityId));
+  const outstanding = permitted.filter((id) => !busy.has(id));
+  const batch = outstanding.slice(0, ENRICHMENT_BATCH_LIMIT);
+  // Counted over the scanned window, which is why the scan is not cut short at
+  // the batch size: "click again" should be able to say how much is left.
+  const remaining = outstanding.length - batch.length;
+
+  for (const entityId of batch) {
+    await prisma.aiJob.create({
+      data: { userId: admin.id, entityType: "FOOD_ENRICHMENT", entityId, priority: jobPriority("FOOD_ENRICHMENT") },
+    });
+  }
+  redirect(`/admin?enrichmentQueued=${batch.length}&enrichmentRemaining=${remaining}#ai-jobs`);
 }
 
 /**

@@ -2,7 +2,9 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import type { BasisUnit } from "@/lib/units";
 import { prisma } from "@/lib/db";
+import { researchEnabled } from "@/lib/env";
 import { hasAnyNutrient, chooseNutrition } from "@/lib/research";
+import { AI_ENRICHMENT_ORIGIN } from "@/lib/nutrients";
 import { asUntrustedExcerpt } from "@/lib/url-guard";
 import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { AIInvalidOutputError, AIOutputTruncatedError } from "@/providers/ai";
@@ -13,6 +15,90 @@ import { fetchResearchSource } from "./research";
 import { repairNutrientExtraction } from "./ai-repair";
 
 export const AI_ENRICHMENT_PROVIDER = "AI_ENRICHMENT";
+
+/**
+ * Why a food may not be enriched. None of these can change between attempts, so
+ * a job that hits one fails permanently rather than spending its retry budget.
+ */
+export type EnrichmentBlock = "SERVER_DISABLED" | "NO_SEARCH_PROVIDER" | "USER_DECLINED";
+
+/** Prefix `describeFailure` classifies, in the style of the other job errors. */
+export const ENRICHMENT_BLOCKED_PREFIX = "research-not-permitted";
+
+export class EnrichmentNotPermittedError extends Error {
+  constructor(readonly block: EnrichmentBlock) {
+    super(`${ENRICHMENT_BLOCKED_PREFIX}:${block}`);
+    this.name = "EnrichmentNotPermittedError";
+  }
+}
+
+/**
+ * Whether source discovery is configured at all.
+ *
+ * `SearxngClient` answers an unconfigured instance with an empty result rather
+ * than an error, which is indistinguishable from "the web knows nothing about
+ * this food": the job completed, the food was stamped as attempted, and the
+ * administrator was told nothing. An injected client is configured by
+ * definition, so tests do not need the variable.
+ */
+const searchConfigured = (deps: { search?: SearxngClient }) =>
+  Boolean(deps.search) || Boolean(process.env.SEARXNG_URL);
+
+/** The subset of `userIds` whose profile allows fetching pages from the open web. */
+async function consentingUsers(userIds: string[]): Promise<Set<string>> {
+  const ids = [...new Set(userIds)];
+  if (!ids.length) return new Set();
+  const profiles = await prisma.userProfile.findMany({
+    where: { userId: { in: ids }, researchEnabled: true },
+    select: { userId: true },
+  });
+  return new Set(profiles.map((profile) => profile.userId));
+}
+
+/**
+ * Whether this food may be enriched on this user's behalf, and if not, why.
+ *
+ * Enrichment reaches the open web exactly as the meal resolver does, so it owes
+ * the same permission the resolver already honours (`ai-jobs.ts`) and the README
+ * documents: the deployment switch *and* per-user consent. It was the one AI
+ * path that checked neither, so a user could turn "Allow web research" off and a
+ * background job would still name their food to SearXNG.
+ *
+ * Two people can be involved, and both have to agree: whoever caused the job -
+ * the administrator running the catalogue sweep, or the user whose quick meal
+ * queued the follow-up - and, when the food belongs to somebody, its owner,
+ * whose data the name is. A shared catalogue food has no owner, so there the
+ * deployment switch and the requester are the whole answer.
+ */
+export async function enrichmentBlock(
+  food: { ownerId: string | null },
+  requestedByUserId: string,
+  deps: { search?: SearxngClient } = {},
+): Promise<EnrichmentBlock | null> {
+  if (!researchEnabled()) return "SERVER_DISABLED";
+  if (!searchConfigured(deps)) return "NO_SEARCH_PROVIDER";
+  const required = [requestedByUserId, ...(food.ownerId ? [food.ownerId] : [])];
+  const consenting = await consentingUsers(required);
+  return required.every((id) => consenting.has(id)) ? null : "USER_DECLINED";
+}
+
+/**
+ * The same decision for many foods at once, for the callers that queue jobs.
+ *
+ * Refusing at the queue is what keeps the admin table honest: a job that could
+ * never have run is better never created than created and failed.
+ */
+export async function permittedForEnrichment(
+  foods: { id: string; ownerId: string | null }[],
+  requestedByUserId: string,
+  deps: { search?: SearxngClient } = {},
+): Promise<string[]> {
+  if (!foods.length || !researchEnabled() || !searchConfigured(deps)) return [];
+  const owners = foods.flatMap((food) => (food.ownerId ? [food.ownerId] : []));
+  const consenting = await consentingUsers([requestedByUserId, ...owners]);
+  if (!consenting.has(requestedByUserId)) return [];
+  return foods.filter((food) => !food.ownerId || consenting.has(food.ownerId)).map((food) => food.id);
+}
 
 /**
  * How many foods one "Backfill missing nutrition" click may queue. Each job
@@ -27,6 +113,18 @@ export const ENRICHMENT_BATCH_LIMIT = 25;
  * re-queued the same foods on every click, indefinitely.
  */
 export const ENRICHMENT_RETRY_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * How many foods one sweep click may read looking for gaps.
+ *
+ * Whether a food has a gap is a question about its nutrient rows, which no
+ * `where` clause can ask, so candidates are found by reading foods. Without a
+ * ceiling that meant loading the whole catalogue - both bundled databases and
+ * every nutrient row they carry - to queue at most 25 jobs. The scan resumes
+ * from the oldest attempt on the next click, so a catalogue larger than this is
+ * worked through over several clicks rather than missed.
+ */
+export const ENRICHMENT_SCAN_LIMIT = 2_000;
 
 export function missingNutritionKeys(
   definitions: { key: string }[],
@@ -231,6 +329,7 @@ export async function extractNutritionForName(
  */
 export async function enrichFood(
   foodId: string,
+  requestedByUserId: string,
   deps: { ai?: OllamaProvider; search?: SearxngClient; fetchSource?: typeof fetchResearchSource } = {},
 ) {
   const [food, definitions] = await Promise.all([
@@ -238,10 +337,12 @@ export async function enrichFood(
     prisma.nutrientDefinition.findMany({ select: { key: true, canonicalUnit: true } }),
   ]);
   if (!food) throw new Error("Food not found");
-  // Stamped before anything can fail, so a food whose gaps cannot be filled is
-  // not offered up again by the next sweep. It records an attempt, not a
-  // success; a successful one additionally writes a FoodSource.
-  await prisma.food.update({ where: { id: foodId }, data: { enrichedAt: new Date() } });
+
+  // Before anything is read, written or stamped: a run that is not permitted
+  // must leave no trace at all, least of all one that suppresses this food from
+  // the next sweep for a month.
+  const block = await enrichmentBlock(food, requestedByUserId, deps);
+  if (block) throw new EnrichmentNotPermittedError(block);
 
   const missing = missingNutritionKeys(definitions, food.nutrients);
   const needsServing = !food.servingSize && !food.servings.some((s) => s.gramEquivalent || s.mlEquivalent);
@@ -254,6 +355,17 @@ export async function enrichFood(
   if (!gate.allowed) throw new Error(`Research rate limit; retry in ${gate.retryAfterSeconds}s`);
 
   const extracted = await extractNutritionForName(food.name, requested, deps, { basisUnit: food.basisUnit, densityGPerMl: food.densityGPerMl === null ? null : Number(food.densityGPerMl) });
+
+  // Stamped only once a request has actually been made and answered, whatever it
+  // answered. It records an attempt, not a success; a successful one
+  // additionally writes a FoodSource.
+  //
+  // It used to be stamped before any of this could fail, which meant an
+  // unreachable Ollama or a rate limit - neither of which is a statement about
+  // the food - kept it out of the sweep for the whole retry window, over what
+  // was an outage. Anything that throws above now leaves `enrichedAt` alone, so
+  // the job's own retry budget decides, as it does for every other job kind.
+  await prisma.food.update({ where: { id: foodId }, data: { enrichedAt: new Date() } });
   if (!extracted) return { filledNutrientKeys: [], servingFilled: false };
 
   // Use the established verification/selection gate; an empty extraction never writes.
@@ -266,10 +378,10 @@ export async function enrichFood(
   await prisma.$transaction(async (tx) => {
     for (const [nutrientKey, value] of Object.entries(verified.per100g)) {
       if (!missing.includes(nutrientKey) || value == null) continue;
-      const updated = await tx.foodNutrient.updateMany({ where: { foodId, nutrientKey, value: null }, data: { value } });
+      const updated = await tx.foodNutrient.updateMany({ where: { foodId, nutrientKey, value: null }, data: { value, origin: AI_ENRICHMENT_ORIGIN } });
       if (updated.count) filledNutrientKeys.push(nutrientKey);
       else if (!food.nutrients.some((n) => n.nutrientKey === nutrientKey)) {
-        try { await tx.foodNutrient.create({ data: { foodId, nutrientKey, value } }); filledNutrientKeys.push(nutrientKey); }
+        try { await tx.foodNutrient.create({ data: { foodId, nutrientKey, value, origin: AI_ENRICHMENT_ORIGIN } }); filledNutrientKeys.push(nutrientKey); }
         catch (error) { if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error; }
       }
     }

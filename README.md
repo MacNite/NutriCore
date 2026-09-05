@@ -280,6 +280,23 @@ of all of them - see the priority note below.
 The review pages refresh themselves while the worker is busy, so a queued job
 does not look like a broken one.
 
+**Backfilling missing nutrition needs the same permission as any other web
+research.** `FOOD_ENRICHMENT` reaches the open web exactly as the component
+resolver does, so it is refused unless `RESEARCH_ENABLED` is on, `SEARXNG_URL`
+is configured, and the "Allow web research" switch is on for *both* the person
+who caused the job - the administrator running the catalogue sweep, or the user
+whose quick meal queued the follow-up - and, when the food belongs to somebody,
+its owner. A shared catalogue food has no owner, so there the deployment switch
+and the requester decide. A job that is not permitted fails as
+`RESEARCH_NOT_PERMITTED` and does not retry; the sweep says so before queuing
+anything rather than leaving 25 jobs to fail one by one.
+
+Values it writes are marked `AI_ENRICHMENT` in `FoodNutrient.origin`, per
+nutrient. A later dataset import therefore reclaims only the nutrients the new
+release actually publishes and leaves the backfilled ones in the gaps it still
+does not fill - a measured number always wins, and enrichment is no longer lost
+on every dataset upgrade.
+
 #### How a quick meal becomes diary entries
 
 A quick meal accepts text, an image, a public recipe URL, or any combination.

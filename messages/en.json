@@ -1109,6 +1109,11 @@
     "enqueueEnrichment": "Backfill missing nutrition",
     "enrichmentHint": "Queue one reviewable, attributed enrichment job for every food with nutrition or serving gaps.",
     "enrichmentQueued": "Queued {count} enrichment jobs.",
+    "enrichmentBlocked": {
+      "SERVER_DISABLED": "Nothing was queued: web research is switched off for this deployment (RESEARCH_ENABLED).",
+      "NO_SEARCH_PROVIDER": "Nothing was queued: no source discovery is configured (SEARXNG_URL).",
+      "USER_DECLINED": "Nothing was queued: your own “Allow web research” switch is off."
+    },
     "jobReason": "Reason / diagnosis",
     "jobId": "Job ID",
     "jobInput": "Input",
@@ -1148,6 +1153,7 @@
       "SOURCE_BLOCKED": "Source blocked",
       "SOURCE_UNAVAILABLE": "Source unreachable",
       "SEARCH_UNAVAILABLE": "Search unreachable",
+      "RESEARCH_NOT_PERMITTED": "Web research not permitted",
       "RATE_LIMITED": "Rate limited",
       "DATA_MISSING": "Data missing",
       "CANCELLED": "Cancelled",
@@ -1166,6 +1172,7 @@
       "SOURCE_BLOCKED": "The address was refused for safety: a private network, a disallowed port, or a disallowed scheme.",
       "SOURCE_UNAVAILABLE": "The page could not be retrieved - a redirect limit, a timeout, or an error status.",
       "SEARCH_UNAVAILABLE": "SearXNG was unreachable or did not answer with JSON. Without source discovery no nutrition source can be found.",
+      "RESEARCH_NOT_PERMITTED": "Enrichment fetches pages from the open web, so it needs RESEARCH_ENABLED, a configured SEARXNG_URL, and the “Allow web research” switch of both the person who queued the job and the food’s owner. The message names which of those said no. Another attempt will not help until one of them changes.",
       "RATE_LIMITED": "NutriCore's own rate limit stopped the job. Run it again later.",
       "DATA_MISSING": "A record the job needs is gone, such as a deleted recipe or food. Another attempt will not help.",
       "UNKNOWN": "Not classified. The full cause chain is under “Show details”.",

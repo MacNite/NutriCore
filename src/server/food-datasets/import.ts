@@ -22,6 +22,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizeName } from "@/lib/units";
+import { AI_ENRICHMENT_ORIGIN } from "@/lib/nutrients";
 import { logger } from "@/lib/logger";
 import { readDatasetChunks, readJsonSidecar, readManifest, type DatasetManifestEntry } from "./artifacts";
 import { BLS_DATASET, assertBlsComponentUnits, mapBlsRecords, type BlsComponent, type BlsRecord } from "./bls";
@@ -221,6 +222,25 @@ async function writeChunk(foods: ImportableFood[], definition: DatasetDefinition
     });
   }
 
+  // Which AI-backfilled values this import is about to destroy, and which of
+  // them it has no replacement for.
+  //
+  // The delete below is deliberately total - a value the source has withdrawn
+  // must not survive as a stale number - but it used to take the enrichment with
+  // it, silently, on every dataset upgrade: nutrients are not scoped by provider
+  // the way `FoodSource` is, so a month of backfill vanished and left only the
+  // audit row behind, still advertising values that were gone. So the AI rows
+  // are read first and the ones the dataset does not itself supply are written
+  // back afterwards. A real measured number always wins; the model only ever
+  // keeps the gaps the database still does not fill.
+  const supplied = new Set(nutrientRows.map((row) => `${row.foodId}\u0000${row.nutrientKey}`));
+  const survivingAiRows = (
+    await prisma.foodNutrient.findMany({
+      where: { foodId: { in: touchedIds }, origin: AI_ENRICHMENT_ORIGIN },
+      select: { foodId: true, nutrientKey: true, value: true, sourceValue: true, sourceUnit: true, qualifier: true, origin: true },
+    })
+  ).filter((row) => !supplied.has(`${row.foodId}\u0000${row.nutrientKey}`));
+
   // One transaction per chunk: a food and its nutrients are never half-written,
   // and an interrupted import can simply be run again.
   await prisma.$transaction([
@@ -233,6 +253,9 @@ async function writeChunk(foods: ImportableFood[], definition: DatasetDefinition
     prisma.foodServing.deleteMany({ where: { foodId: { in: touchedIds } } }),
     prisma.foodSource.deleteMany({ where: { foodId: { in: touchedIds }, provider: definition.provider } }),
     ...(nutrientRows.length > 0 ? [prisma.foodNutrient.createMany({ data: nutrientRows, skipDuplicates: true })] : []),
+    ...(survivingAiRows.length > 0
+      ? [prisma.foodNutrient.createMany({ data: survivingAiRows, skipDuplicates: true })]
+      : []),
     ...(translationRows.length > 0
       ? [prisma.foodTranslation.createMany({ data: translationRows, skipDuplicates: true })]
       : []),

@@ -68,6 +68,20 @@ export const NUTRIENT_KEYS = NUTRIENTS.map((n) => n.key);
 export const PRIMARY_KEYS = ["energyKcal", "protein", "carbohydrate", "fat"] as const;
 
 /** Values users can type into the custom-food form. */
+/**
+ * `FoodNutrient.origin` for a value the AI backfill wrote.
+ *
+ * The column already records how a *dataset* obtained a value, per nutrient,
+ * which is exactly the granularity enrichment works at. Marking the rows is what
+ * lets a later dataset import tell a measured number from a model-read one, and
+ * what lets the app show which individual values came from a model.
+ *
+ * Kept here, beside the catalogue itself, rather than in `food-enrichment`: the
+ * dataset importer needs it too, and it must not have to pull an Ollama and a
+ * SearXNG client into a CLI import to learn one string.
+ */
+export const AI_ENRICHMENT_ORIGIN = "AI_ENRICHMENT";
+
 export const EDITABLE_KEYS = NUTRIENTS.filter((n) => n.key !== "energyKj").map((n) => n.key);
 
 export const nutrientUnit = (key: string) => NUTRIENT_BY_KEY.get(key)?.unit ?? "";
