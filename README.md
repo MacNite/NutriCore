@@ -202,6 +202,9 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `AI_ENABLED` / `AI_BASE_URL` / `AI_MODEL` | no | Where the model lives and which one to use; defaults to `http://ollama:11434` and `qwen3.5:4b`. The superseded `OLLAMA_BASE_URL` / `OLLAMA_MODEL` are still read as a fallback |
 | `AI_FALLBACK_MODEL` / `AI_CONFIDENCE_THRESHOLD` | no | Future low-confidence fallback policy; fallback is not called for every job |
 | `SEARXNG_URL` / `SEARXNG_TIMEOUT_MS` | no | JSON source discovery used only after local foods miss |
+| `RETAIN_AI_INPUT_DAYS` | no | Days before ingestion text and source URLs are emptied; default 90, `0` disables |
+| `RETAIN_AI_JOB_DAYS` / `RETAIN_FAILED_AI_JOB_DAYS` | no | Days before finished AI jobs and their attempts are deleted; defaults 30 and 90, `0` disables |
+| `RETAIN_INVITATION_DAYS` | no | Days before accepted, revoked or expired invitations are deleted; default 30, `0` disables |
 | `REGISTRATION_MODE` | no | `bootstrap` (default), `open` or `disabled`. See [Registration policy](#registration-policy) |
 | `ALLOW_INSECURE_APP_URL` | no | Default `false`. Allows a production `APP_URL` that is neither HTTPS nor local, for TLS terminated where the application cannot see it |
 | `TRUSTED_PROXY_HOPS` | no | Default `0`. How many reverse proxies sit in front of this deployment; `X-Forwarded-For` is ignored unless this is set |
@@ -662,6 +665,25 @@ only an explicit request for remote results or a complete barcode does.
 A source that is unreachable is skipped, with the results from earlier tiers
 kept and the next tier still consulted. A provider outage degrades the result
 list; it never fails the search.
+
+### How long personal records are kept
+
+Raw imagery has always been transient: meal and scan uploads carry an explicit
+expiry, are cleared as soon as they have been processed, and are swept every
+minute. Everything else used to be kept for ever. The worker now applies these
+windows too, on its slower cadence:
+
+| Record | Default | What happens |
+| --- | --- | --- |
+| `AiIngestionInput` text and source URL | 90 days | Emptied, not deleted: `Recipe.importId` points at the row, and that link is the provenance saying a recipe came from an import |
+| Completed AI jobs | 30 days | Deleted with their attempts and proposal |
+| Failed AI jobs | 90 days | Deleted with their attempts; kept longer because a failure is what somebody eventually asks about |
+| Accepted, revoked or expired invitations | 30 days | Deleted. A live invitation is never touched, whatever its age |
+
+Each window is configurable and `0` disables that sweep for a deployment that
+wants to keep everything. Nothing here touches diary entries, foods, recipes,
+weights or body measurements: those are the user's records, and they go when the
+user deletes them or their account.
 
 ### How long each source may be kept
 
