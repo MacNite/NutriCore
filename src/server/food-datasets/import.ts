@@ -28,6 +28,7 @@ import { readDatasetChunks, readJsonSidecar, readManifest, type DatasetManifestE
 import { BLS_DATASET, assertBlsComponentUnits, mapBlsRecords, type BlsComponent, type BlsRecord } from "./bls";
 import { USDA_DATASETS, assertUsdaNutrientMap, mapUsdaRecords, type UsdaFoodRecord } from "./usda";
 import type { DatasetDefinition, DatasetMapResult, ImportableFood } from "./types";
+import { ENRICHMENT_DATASET_KEY, importEnrichmentDataset } from "./enrichment";
 
 export interface ImportStats {
   created: number;
@@ -417,6 +418,34 @@ export async function importAllDatasets(
     }
   }
 
+  // Last, so it only ever fills gaps the real databases have just declined to
+  // fill. It describes nutrients of foods those datasets own, so running it
+  // before them would write values the very next import reclaimed.
+  try {
+    const enrichment = await importEnrichmentDataset({ force: options.force });
+    if (enrichment) {
+      outcomes.push({
+        key: enrichment.key,
+        version: enrichment.version,
+        changed: enrichment.changed,
+        records: enrichment.records,
+        durationMs: enrichment.durationMs,
+        stats: {
+          created: enrichment.stats.filled,
+          updated: 0,
+          skipped: enrichment.stats.alreadyPresent + enrichment.stats.unknownFoods,
+          stale: 0,
+          unmapped: [],
+          issues: enrichment.stats.issues,
+        },
+      });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    failures.push({ key: ENRICHMENT_DATASET_KEY, error: message });
+    logger.error("Enrichment artifact import failed", { error: message });
+  }
+
   await countStale(outcomes);
   // The stale count is learnt after the row was written, so persist it.
   for (const outcome of outcomes) {
@@ -436,7 +465,10 @@ export async function datasetStatus() {
   const imports = await prisma.datasetImport.findMany();
   const byKey = new Map(imports.map((row) => [row.key, row]));
 
-  return DATASET_KEYS.filter((key) => manifest?.datasets[key]).map((key) => {
+  // The enrichment artifact is optional and is not a `DatasetDefinition`, so it
+  // is listed alongside rather than through `DATASET_KEYS`.
+  const keys = [...DATASET_KEYS, ENRICHMENT_DATASET_KEY];
+  return keys.filter((key) => manifest?.datasets[key]).map((key) => {
     const entry = manifest!.datasets[key];
     const imported = byKey.get(key);
     return {

@@ -1245,7 +1245,9 @@
       "reimport": "Alle neu importieren",
       "empty": "Keine mitgelieferten Datenbanken gefunden. Führe `npm run datasets:convert` aus.",
       "result": "{imported} Lebensmittel geschrieben, {skipped} Datenbank(en) unverändert.",
-      "failed": "{failed} Datenbank(en) konnten nicht importiert werden. Details siehe Server-Log."
+      "failed": "{failed} Datenbank(en) konnten nicht importiert werden. Details siehe Server-Log.",
+      "exportEnrichment": "Geprüfte Nährwerte exportieren",
+      "exportEnrichmentHint": "Lädt die freigegebenen, von der KI ergänzten Werte für Katalog-Lebensmittel im Format der mitgelieferten Datenbanken herunter, damit sie zurückfließen können. Enthalten sind nur Lebensmittel aus einer mitgelieferten Datenbank – nie eines, das du oder ein anderer Nutzer angelegt hat. Es wird nichts veröffentlicht: Den Pull Request zu eröffnen bleibt deine Entscheidung."
     },
     "enrichmentReviewTitle": "Vorgeschlagene Nährwerte",
     "resultProposed": "Zur Prüfung vorgeschlagen"

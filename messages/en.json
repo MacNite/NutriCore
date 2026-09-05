@@ -1245,7 +1245,9 @@
       "reimport": "Re-import everything",
       "empty": "No bundled databases found. Run `npm run datasets:convert`.",
       "result": "{imported} foods written, {skipped} database(s) unchanged.",
-      "failed": "{failed} database(s) could not be imported. See the server log for details."
+      "failed": "{failed} database(s) could not be imported. See the server log for details.",
+      "exportEnrichment": "Export reviewed nutrition",
+      "exportEnrichmentHint": "Downloads the approved AI-backfilled values for catalogue foods, in the bundled-dataset format, so they can be contributed upstream. Only foods from a bundled database are included — never a food you or another user created. Nothing is published: opening the pull request stays your decision."
     },
     "enrichmentReviewTitle": "Proposed nutrition",
     "resultProposed": "Proposed for review"
