@@ -76,6 +76,11 @@ enum MeasurementSource {
   OTHER_DEVICE
   /// Estimated from a guided two-view photo capture. Never a measurement.
   OPTICAL_SCAN
+  /// Imported from an Apple Health or Health Connect export. Whatever device
+  /// originally produced the reading, what this instance knows is that a file
+  /// said so - which is a different claim from a value someone typed, and is
+  /// kept distinct from OTHER_DEVICE for that reason.
+  HEALTH_PLATFORM
 }
 
 /// How far a body scan has got. Every path to ACCEPTED runs through
@@ -196,6 +201,7 @@ model User {
   activityEntries   ActivityEntry[]
   bodyScans         BodyScan[]
   publications      RecipePublication[]
+  healthImports     HealthImportRecord[]
 }
 
 model UserInvitation {
@@ -436,11 +442,58 @@ model WeightEntry {
   weightKg  Decimal  @db.Decimal(6, 2)
   note      String?
   createdAt DateTime @default(now())
+  /**
+   * Where the number came from. Defaults to MANUAL, which is what every row
+   * recorded before importing existed was, so no backfill is needed.
+   *
+   * This is what makes the import rule expressible at all: an entry a person
+   * typed is never overwritten by a file, and without a column saying which is
+   * which there is no way to tell them apart after the fact.
+   */
+  source    MeasurementSource @default(MANUAL)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
   @@index([userId, date])
+}
+
+/**
+ * One sample this instance has already taken from a health export.
+ *
+ * Re-importing the same file, or a later export covering the same history, must
+ * update rather than duplicate - and must be able to tell "already imported and
+ * unchanged" from "changed since". Keeping the external identity here rather
+ * than on `WeightEntry` is deliberate: several metrics land in different tables
+ * (`BodyMeasurement`, `UserProfile`) and a day can hold samples from more than
+ * one of them, so the mapping does not belong to any single one of those rows.
+ *
+ * `value` is stored so a re-import can recognise an unchanged sample without
+ * reading the row it wrote, which is what lets the preview count "new" against
+ * "already imported" before anything is written.
+ */
+model HealthImportRecord {
+  id         String               @id @default(cuid())
+  userId     String
+  platform   HealthImportPlatform
+  /// Identity of the sample in the export it came from. Health Connect supplies
+  /// a UUID; Apple's export has none, so the reader derives a stable one.
+  externalId String
+  /// Which `HealthMetric` this was, as the client's own key.
+  metric     String
+  date       DateTime             @db.Date
+  value      Decimal              @db.Decimal(8, 2)
+  importedAt DateTime             @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform, externalId])
+  @@index([userId, date])
+}
+
+enum HealthImportPlatform {
+  APPLE_HEALTH
+  HEALTH_CONNECT
 }
 
 /// One measuring-tape session. Weight is deliberately absent: it lives in

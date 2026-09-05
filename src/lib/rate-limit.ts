@@ -77,4 +77,8 @@ export const RATE_LIMITS = {
      is the one recipe operation that is limited at all. Generous enough that
      tidying up a batch of recipes never trips it. */
   publish: scaled(30, 60 * 60 * 1000),
+  /* A health import writes thousands of rows from one file. The preview and the
+     confirm each spend one, so this is roughly a dozen real imports an hour -
+     far more than anyone needs, and far less than a loop could do damage with. */
+  healthImport: scaled(24, 60 * 60 * 1000),
 };

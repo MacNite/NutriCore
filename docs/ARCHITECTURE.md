@@ -362,6 +362,94 @@ later. Nothing downstream needs a mesh — the progress figure is drawn from
 circumferences — so the expensive half of a conventional scanning pipeline is
 absent rather than deferred. See `docs/BODY_SCAN.md`.
 
+## Importing from Apple Health and Health Connect
+
+A one-way, manual import of weight and body history from a health export. It is
+not a sync and there is no companion app: neither platform exposes its data to a
+web page or to a server, so a file the user exports by hand is the only path
+that exists without shipping native code.
+
+Parsing happens **in the browser**, which is a deliberate inversion of how every
+other import here works. An Apple `export.xml` is regularly several hundred
+megabytes, and the two body-size limits in `next.config.ts` - both derived from
+the image upload policy, one of which truncates rather than rejects - put it far
+out of reach of an upload. Reducing on the device also means the rest of that
+file, which holds heart rate, sleep, workouts and clinical documents, never
+reaches the server: what is posted is the handful of metrics NutriCore stores.
+
+| Piece | Location | Job |
+| --- | --- | --- |
+| Container | `src/lib/zip-read.ts` | Central directory by ranged `Blob.slice`, entries inflated with `DecompressionStream` |
+| Apple | `src/lib/apple-health-export.ts` | Streaming scanner over `<Record>` opening tags |
+| SQLite | `src/lib/sqlite-read.ts` | Read-only b-tree walk, record format, overflow pages |
+| Health Connect | `src/lib/health-connect-export.ts` | Finds tables by shape, infers units by range |
+| Dispatch | `src/lib/health-file.ts` | Decides which of the four shapes a picked file is |
+| Rules | `src/lib/health-import.ts` | Units, day bucketing, one-per-day, the import decision |
+| Writing | `src/server/health-import.ts` | Plans against the database, then applies the plan |
+
+No dependency was added for any of it. The zip is opened with
+`DecompressionStream`, which browsers have had for years. The database is read
+by hand rather than with sql.js, because sql.js is a WebAssembly build of the
+whole engine and running it would mean adding `'wasm-unsafe-eval'` to
+`script-src` for every page in the application, permanently, so that one
+settings screen could read a file. `security-headers.ts` documents a reason for
+each exception it makes and that would not have been a good one. The SQLite
+*file format* is documented and explicitly stable, which is what makes reading
+it by hand reasonable; the *schema* Health Connect puts inside it is neither,
+which is why tables are discovered rather than named.
+
+Nothing in an export states its units. Apple exports in whichever the reader
+prefers, so kilograms and pounds both appear; Health Connect stores raw numbers
+whose scale is not recorded. Units are therefore resolved by range - a weight
+column reading 70000 is grams and one reading 70 is kilograms, and no real body
+is ambiguous between them - and a column no scale explains is skipped rather
+than guessed at. The same range check drops a reading a device produced during a
+fault. This is the one heuristic in the feature and it is why the import shows a
+preview before writing: the first time somebody learns a column was read at the
+wrong scale should not be after three thousand rows are in their weight log.
+
+### What is imported, and what is not
+
+Weight, body fat, height and waist circumference. Muscle mass is deliberately
+absent: both platforms offer *lean body mass*, which counts bone, organs and
+body water alongside muscle and reads several kilograms high, and writing it
+into `BodyMeasurement.muscleKg` would put a number in that column no device ever
+measured. Steps are absent because there is nothing here that consumes one.
+
+Nothing is written outward. A NutriCore estimate - an optical-scan
+circumference, an RFM body fat, a MET-derived activity energy - is not a
+measurement, and Apple's own review guidelines forbid writing inaccurate data
+into HealthKit. The two rules agree, so the boundary is simply that this
+instance reads and does not write.
+
+### Provenance and the one rule
+
+`WeightEntry.source` is new and defaults to `MANUAL`, which is what every row
+recorded before importing existed was, so no backfill is needed.
+`MeasurementSource.HEALTH_PLATFORM` is a distinct value from `OTHER_DEVICE`:
+whatever device originally produced a reading, what this instance knows is that
+a file said so.
+
+The rule the import enforces, in one sentence: **a value somebody typed is never
+overwritten by a file.** It is the same rule the body-scan review already
+follows - a number a person stands behind outranks one a device produced - and
+`WeightEntry.source` had to exist before it could be expressed at all. For body
+measurements the existing per-value map does the work: a field absent from
+`valueSources` was entered by hand, so no backfill is needed there either.
+Height is the one value a file may fill in but never argue with, because a
+person states their own.
+
+`decideSample` in `src/lib/health-import.ts` holds that rule, and both the
+preview and the write go through it. A preview that counted differently from
+what the import then did would be worse than no preview, so there is exactly one
+place that decides.
+
+Re-importing is idempotent by construction. `HealthImportRecord` maps a sample's
+identity in its export to what was written, so a second run recognises what the
+first one did and reports it as unchanged rather than duplicating it. Health
+Connect rows carry their own UUID; Apple's export carries none, so the reader
+derives one from the record's own fields.
+
 ## Authorisation
 
 Public provider foods have `ownerId = NULL` and are readable by everyone.
