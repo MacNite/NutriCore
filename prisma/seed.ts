@@ -1,11 +1,26 @@
 /**
- * Optional development seed. It refuses to run in production so a deployment
- * can never end up with a demo account.
+ * Optional development seed: a demo account with a month of demo data.
+ *
+ * The nutrient catalogue moved to `seed-catalogue.ts`, which is safe to run
+ * anywhere. Everything left here creates a real, loginable account, so it is
+ * guarded three ways.
+ *
+ * `SEED_PASSWORD` is required and has no default. It used to fall back to
+ * `nutricore-demo-2026`, which is a published credential for an account with a
+ * known address, and the fallback was the dangerous half of the seed: the
+ * NODE_ENV guard below only helps when NODE_ENV is actually set to production,
+ * and it very often is not - an operator troubleshooting from a laptop against
+ * a production DATABASE_URL has an empty NODE_ENV and sailed straight past it.
+ * A missing password now stops the seed wherever it is run from.
+ *
+ * The demo account is also created with `mustChangePassword`, so even a seeded
+ * instance cannot be used with the password the seeder was given.
  */
 import { PrismaClient, type BasisUnit, type FoodType, type SourceType } from "@prisma/client";
 import argon2 from "argon2";
-import { NUTRIENTS } from "../src/lib/nutrients";
+import { PASSWORD_MIN_LENGTH, passwordProblem } from "../src/lib/auth";
 import { normalizeName } from "../src/lib/units";
+import { seedNutrientCatalogue } from "./seed-catalogue";
 
 const prisma = new PrismaClient();
 
@@ -123,39 +138,36 @@ const FOODS: SeedFood[] = [
 ];
 
 async function main() {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Refusing to seed demo data in production");
+  if (process.env.NODE_ENV === "production" && process.env.SEED_ALLOW_PRODUCTION !== "yes") {
+    throw new Error("Refusing to seed demo data in production. Set SEED_ALLOW_PRODUCTION=yes only if you really mean it.");
   }
 
-  for (const nutrient of NUTRIENTS) {
-    await prisma.nutrientDefinition.upsert({
-      where: { key: nutrient.key },
-      create: {
-        key: nutrient.key,
-        nameDe: nutrient.nameDe,
-        nameEn: nutrient.nameEn,
-        canonicalUnit: nutrient.unit,
-        category: nutrient.category,
-        sortOrder: nutrient.sortOrder,
-      },
-      update: {
-        nameDe: nutrient.nameDe,
-        nameEn: nutrient.nameEn,
-        canonicalUnit: nutrient.unit,
-        category: nutrient.category,
-        sortOrder: nutrient.sortOrder,
-      },
-    });
+  const password = process.env.SEED_PASSWORD;
+  if (!password) {
+    throw new Error(
+      "SEED_PASSWORD is required and has no default. This seed creates a real account; choose a password for it, " +
+        "or run `npm run db:seed:catalogue` if all you wanted was the nutrient definitions.",
+    );
   }
-  console.log(`Seeded ${NUTRIENTS.length} nutrient definitions`);
+  // The application's own policy, not a second weaker one beside it: a seeded
+  // account is a real account and should not accept a password the sign-up form
+  // would refuse.
+  const problem = passwordProblem(password);
+  if (problem === "too-short") throw new Error(`SEED_PASSWORD must be at least ${PASSWORD_MIN_LENGTH} characters.`);
+  if (problem === "too-common") throw new Error("SEED_PASSWORD is on the common-password list the application rejects.");
 
-  const password = process.env.SEED_PASSWORD ?? "nutricore-demo-2026";
+  console.warn("\n*** Seeding DEMO DATA: a demo@nutricore.local account and a month of fake diary entries. ***\n");
+
+  console.log(`Seeded ${await seedNutrientCatalogue(prisma)} nutrient definitions`);
   const user = await prisma.user.upsert({
     where: { email: "demo@nutricore.local" },
     create: {
       email: "demo@nutricore.local",
       username: "demo",
       passwordHash: await argon2.hash(password, { type: argon2.argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 }),
+      // Even with a chosen password, a seeded account must not stay usable with
+      // the credential the seeder was handed.
+      mustChangePassword: true,
       profile: {
         create: {
           displayName: "Demo",
@@ -316,7 +328,8 @@ async function main() {
     update: {},
   });
 
-  console.log(`\nDemo account: demo@nutricore.local / ${password}`);
+  console.log("\nDemo account: demo@nutricore.local / the SEED_PASSWORD you supplied");
+  console.log("It must change that password on first sign-in.");
 }
 
 main()

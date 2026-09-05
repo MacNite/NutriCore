@@ -5,11 +5,14 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth";
+import { env } from "@/lib/env";
+import { clientAddress } from "@/lib/client-address";
+import { hashPassword, hashSessionToken, passwordProblem, verifyPassword } from "@/lib/auth";
 import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { endSession, startSession } from "./session";
-import { DEFAULT_LOCALE } from "@/i18n/locales";
+import { RegistrationClosedError, createSelfRegisteredUser } from "./registration";
+import { durableRateLimitOrFallback } from "./durable-rate-limit";
 
 export interface AuthState {
   error?: string;
@@ -31,19 +34,41 @@ const registration = credentials.extend({
   displayName: z.string().trim().min(1).max(80),
 });
 
-/** Best-effort client address for rate limiting behind a reverse proxy. */
 async function clientKey() {
-  const headerList = await headers();
-  const forwarded = headerList.get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || headerList.get("x-real-ip") || "unknown";
+  return clientAddress(await headers(), env().TRUSTED_PROXY_HOPS);
+}
+
+/**
+ * The security-sensitive limits, counted in PostgreSQL so they survive a
+ * restart and are shared across processes.
+ *
+ * The in-memory limiter still runs first, and its answer is the fallback if the
+ * database cannot be reached: a limiter that is down must not be the reason
+ * nobody can sign in, and falling back to a real in-process limit is not an
+ * open door.
+ */
+async function durableLimit(key: string, { limit, windowMs }: { limit: number; windowMs: number }) {
+  return durableRateLimitOrFallback(key, limit, windowMs, rateLimit(key, limit, windowMs));
 }
 
 export async function loginAction(_state: AuthState, formData: FormData): Promise<AuthState> {
-  const limit = rateLimit(`login:${await clientKey()}`, RATE_LIMITS.login.limit, RATE_LIMITS.login.windowMs);
+  const limit = await durableLimit(`login:${await clientKey()}`, RATE_LIMITS.login);
   if (!limit.allowed) return { error: "rateLimited", seconds: limit.retryAfterSeconds };
 
   const parsed = credentials.safeParse({ email: formData.get("email"), password: formData.get("password") });
   if (!parsed.success) return { error: "invalidCredentials" };
+
+  /* Per-account throttle, which unlike the address one cannot be sidestepped by
+     changing where the request appears to come from - and is what actually
+     bounds a distributed guessing run against one account.
+
+     Keyed on a hash so the limiter's key space holds no addresses, and counted
+     for every attempt on an account-shaped input whether or not the account
+     exists, so that being throttled says nothing about which emails are
+     registered. The reply is the same shape as the address limit above, which
+     the login form already renders. */
+  const accountLimit = await durableLimit(`login-account:${hashSessionToken(parsed.data.email)}`, RATE_LIMITS.loginAccount);
+  if (!accountLimit.allowed) return { error: "rateLimited", seconds: accountLimit.retryAfterSeconds };
 
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   // Always run a verification so a missing account and a wrong password take
@@ -62,7 +87,7 @@ export async function loginAction(_state: AuthState, formData: FormData): Promis
 }
 
 export async function registerAction(_state: AuthState, formData: FormData): Promise<AuthState> {
-  const limit = rateLimit(`register:${await clientKey()}`, RATE_LIMITS.register.limit, RATE_LIMITS.register.windowMs);
+  const limit = await durableLimit(`register:${await clientKey()}`, RATE_LIMITS.register);
   if (!limit.allowed) return { error: "rateLimited", seconds: limit.retryAfterSeconds };
 
   const parsed = registration.safeParse({
@@ -78,26 +103,21 @@ export async function registerAction(_state: AuthState, formData: FormData): Pro
   if (problem === "too-common") return { error: "tooCommon" };
 
   const passwordHash = await hashPassword(parsed.data.password);
-  const firstAccount = (await prisma.user.count()) === 0;
 
   let userId: string;
   try {
-    const user = await prisma.user.create({
-      data: {
-        email: parsed.data.email,
-        username: parsed.data.username,
-        passwordHash,
-        role: firstAccount ? "ADMIN" : "USER",
-        profile: {
-          create: {
-            displayName: parsed.data.displayName,
-            language: DEFAULT_LOCALE,
-          },
-        },
-      },
+    const user = await createSelfRegisteredUser({
+      email: parsed.data.email,
+      username: parsed.data.username,
+      passwordHash,
+      displayName: parsed.data.displayName,
     });
     userId = user.id;
   } catch (error) {
+    // The policy refused. Deliberately the same answer whether the instance is
+    // already bootstrapped or registration is switched off outright: neither is
+    // a fact a stranger needs.
+    if (error instanceof RegistrationClosedError) return { error: "registrationClosed" };
     // Unique-constraint violations are the expected failure here.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const target = (error.meta?.target as string[] | undefined)?.join(",") ?? "";

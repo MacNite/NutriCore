@@ -7,6 +7,8 @@ import { ollamaMaxOutputTokens, ollamaTimeoutMs } from "./providers/ollama";
 import { cleanupExpiredMealImages } from "./server/meal-image";
 import { cleanupExpiredScanImages } from "./server/body-scan";
 import { pruneExpiredProviderFoods } from "./server/foods";
+import { sweepRetention } from "./server/retention";
+import { pruneRateLimitBuckets } from "./server/durable-rate-limit";
 import { importAllDatasets } from "./server/food-datasets/import";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -80,6 +82,31 @@ async function pruneExpiredFoods() {
     await pruneExpiredProviderFoods();
   } catch (error) {
     logger.warn("Could not prune expired provider foods", {
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+}
+
+/**
+ * Applies the retention policy to the records that carry no expiry of their own:
+ * ingestion text, finished job diagnostics and settled invitations.
+ *
+ * On the slow cadence beside `pruneExpiredFoods`, because these windows are
+ * measured in days rather than the minutes an uploaded image is kept - running
+ * it every minute would be a table scan a minute for nothing.
+ *
+ * A failure here is logged and dropped for the same reason a sweep failure is:
+ * the next pass retries, and a worker that exits over a deletion leaves exactly
+ * the data it was trying to remove.
+ */
+async function applyRetention() {
+  try {
+    await sweepRetention();
+    // Expired windows reset themselves on next use, so this is only about
+    // keeping the table from holding rows for keys nobody touches again.
+    await pruneRateLimitBuckets();
+  } catch (error) {
+    logger.warn("Could not apply the retention policy", {
       reason: error instanceof Error ? error.message : "unknown",
     });
   }
@@ -161,6 +188,7 @@ async function main() {
   await reclaimStaleJobs();
   await sweepExpiredImages();
   await pruneExpiredFoods();
+  await applyRetention();
   importBundledFoodDatasets();
   let sinceReclaim = 0;
   let lastSweep = Date.now();
@@ -180,6 +208,7 @@ async function main() {
       sinceReclaim = 0;
       await reclaimStaleJobs();
       await pruneExpiredFoods();
+      await applyRetention();
     }
     await delay(pollMs());
   }

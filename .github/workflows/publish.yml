@@ -119,6 +119,44 @@ jobs:
           provenance: mode=max
           sbom: true
 
+      # The migration runner, from the same Dockerfile's `migrate` stage. It is
+      # a separate image on purpose: it is the only one carrying the Prisma CLI,
+      # it runs as a one-shot service and exits, and keeping it apart is what
+      # lets the long-running image drop the CLI and its transitive packages.
+      # Tagged in lockstep with the app image so a pinned version resolves to a
+      # matching pair.
+      - name: Derive migrate tags and labels
+        id: meta-migrate
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}-migrate
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+          labels: |
+            org.opencontainers.image.title=NutriCore migrations
+            org.opencontainers.image.description=One-shot Prisma migration runner for NutriCore
+            org.opencontainers.image.licenses=NOASSERTION
+
+      - name: Build and push the migration runner
+        id: build-migrate
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: migrate
+          platforms: ${{ steps.platforms.outputs.list }}
+          push: true
+          tags: ${{ steps.meta-migrate.outputs.tags }}
+          labels: ${{ steps.meta-migrate.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
       - name: Summarise
         run: |
           {
@@ -130,5 +168,14 @@ jobs:
             echo "Tags:"
             echo '```'
             echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+            echo
+            echo "### Migration runner published"
+            echo
+            echo "**Digest:** \`${{ steps.build-migrate.outputs.digest }}\`"
+            echo
+            echo "Tags:"
+            echo '```'
+            echo "${{ steps.meta-migrate.outputs.tags }}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

@@ -10,7 +10,31 @@ const ARGON2_OPTIONS = {
 } as const;
 
 export const SESSION_COOKIE = "nutricore_session";
+export const PASSWORD_CHANGE_COOKIE = "nutricore_password_change";
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * True when the deployment is served over HTTPS, and so when cookies may carry
+ * `Secure`.
+ *
+ * Driven by `APP_URL` because a self-hosted instance on a plain-HTTP LAN has to
+ * be able to sign in at all, and a `Secure` cookie would never be sent to it.
+ * `assertSecureDeployment` is what keeps that from silently becoming the wrong
+ * answer for a public one.
+ */
+export const secureCookies = (appUrl = process.env.APP_URL) => (appUrl ?? "").startsWith("https://");
+
+/**
+ * One set of cookie options for every security-relevant cookie.
+ *
+ * The session cookie and the password-change gate used to be written with two
+ * separately spelled-out option objects, and they had drifted: the gate cookie
+ * was missing `secure` altogether, so on an HTTPS deployment it was the one
+ * thing still travelling in the clear. Anything that is part of the security
+ * model gets these, and gets them from here.
+ */
+export const securityCookieOptions = (expires: Date, appUrl = process.env.APP_URL) =>
+  ({ httpOnly: true, sameSite: "lax", secure: secureCookies(appUrl), path: "/", expires }) as const;
 
 export const hashPassword = (password: string) => argon2.hash(password, ARGON2_OPTIONS);
 

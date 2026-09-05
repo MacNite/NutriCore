@@ -1,12 +1,16 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 import { hashPassword, passwordProblem } from "@/lib/auth";
 import { endSession, requireAdmin, requireUser } from "./session";
+import { clientAddress } from "@/lib/client-address";
+import { durableRateLimitOrFallback } from "./durable-rate-limit";
 import { deliverInvitation, issueInvitation, redeemableInvitation } from "./admin";
 import { encryptMailPassword, getMailConfiguration } from "@/lib/mail";
 import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
@@ -377,6 +381,19 @@ export async function changeRequiredPasswordAction(formData: FormData) {
 
 export async function acceptInvitationAction(formData: FormData) {
   const token = String(formData.get("token"));
+  /* The other unauthenticated account-creating path, and the only one with no
+     limit on it until now. Guessing a token is not the concern - they are 256
+     bits of `randomBytes` - but an endpoint that hashes a password and opens a
+     transaction per call should not be free to invoke, and an invitation link
+     is shared over channels that leak. */
+  const key = `invite-accept:${clientAddress(await headers(), env().TRUSTED_PROXY_HOPS)}`;
+  const limit = await durableRateLimitOrFallback(
+    key,
+    RATE_LIMITS.inviteAccept.limit,
+    RATE_LIMITS.inviteAccept.windowMs,
+    rateLimit(key, RATE_LIMITS.inviteAccept.limit, RATE_LIMITS.inviteAccept.windowMs),
+  );
+  if (!limit.allowed) redirect(`/invite/${encodeURIComponent(token)}?error=rateLimited`);
   const invitation = await redeemableInvitation(token);
   if (!invitation) redirect(`/invite/${encodeURIComponent(token)}?error=invalid`);
 

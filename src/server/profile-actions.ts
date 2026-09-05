@@ -9,6 +9,7 @@ import { requireUser } from "./session";
 import { recalculateTarget } from "./targets";
 import { LOCALES } from "@/i18n/locales";
 import { logger } from "@/lib/logger";
+import { PASSWORD_CHANGE_COOKIE, SESSION_COOKIE } from "@/lib/auth";
 import { NUTRIENTS } from "@/lib/nutrients";
 
 export interface FormState {
@@ -222,6 +223,11 @@ export async function deleteAccountAction(_state: FormState, formData: FormData)
   await prisma.user.delete({ where: { id: user.id } });
   logger.info("Account deleted", { userId: user.id });
 
-  (await cookies()).delete("nutricore_session");
+  // Both cookies, by their constants. Deleting only the session left the
+  // password-change gate set, which would trap the next account created in this
+  // browser behind a redirect to a page it does not owe.
+  const store = await cookies();
+  store.delete(SESSION_COOKIE);
+  store.delete(PASSWORD_CHANGE_COOKIE);
   redirect("/login");
 }

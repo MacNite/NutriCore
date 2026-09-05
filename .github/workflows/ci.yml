@@ -68,6 +68,13 @@ jobs:
           OPENFOODFACTS_ENABLED: "false"
           # The suite registers one account per test from a single address.
           RATE_LIMIT_MULTIPLIER: "50"
+          # Same reason. The default `bootstrap` mode closes registration once
+          # the first account exists, which is the point of it - but this suite
+          # needs a fresh account per test, so it opts into open registration
+          # exactly as it opts into a relaxed rate limit. The policy itself is
+          # covered by src/server/registration.test.ts and
+          # tests/registration-bootstrap.test.ts.
+          REGISTRATION_MODE: open
 
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -136,9 +143,34 @@ jobs:
       - uses: actions/checkout@v4
       # Proves the production image still builds, which is what deployment runs.
       - run: docker build -t nutricore:ci .
-      # Loading the CLI catches missing runtime-only transitive dependencies
-      # before an image can enter the container restart loop seen in production.
-      - name: Smoke-test the runtime Prisma CLI
+      # The migration runner is a separate image and the only one carrying the
+      # Prisma CLI. Loading the CLI there catches missing runtime-only
+      # transitive dependencies before an image can enter the container restart
+      # loop seen in production - the same check as before, moved to the image
+      # that now actually runs migrations.
+      - run: docker build -t nutricore-migrate:ci --target migrate .
+      - name: Smoke-test the migration runner's Prisma CLI
+        run: >-
+          docker run --rm --entrypoint node nutricore-migrate:ci
+          ./node_modules/prisma/build/index.js --version
+
+      # The other half of that split, asserted rather than assumed: the image
+      # that serves traffic must NOT carry the CLI, because it drags in `effect`
+      # and `deepmerge-ts` and their advisories. Without this, a future change
+      # could quietly put them back.
+      # `sh -c` rather than `--entrypoint test`, which would depend on a `test`
+      # binary being on PATH in the image.
+      - name: The runtime image must not carry the Prisma CLI
+        run: |
+          if docker run --rm --entrypoint sh nutricore:ci -c 'test -e ./node_modules/prisma/build/index.js'; then
+            echo "The Prisma CLI is present in the runtime image; it belongs only in the migrate image." >&2
+            exit 1
+          fi
+          echo "Runtime image carries no Prisma CLI, as intended."
+
+      # The runtime image still has to be able to talk to the database, which is
+      # what makes removing the CLI safe rather than merely smaller.
+      - name: The runtime image can still load @prisma/client
         run: >-
           docker run --rm --entrypoint node nutricore:ci
-          ./node_modules/prisma/build/index.js --version
+          -e "require('@prisma/client').PrismaClient; console.log('@prisma/client loads')"

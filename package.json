@@ -15,12 +15,14 @@
     "check": "npm run lint && npm run typecheck && npm test",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx prisma/seed-catalogue.ts",
     "db:studio": "prisma studio",
     "datasets:convert": "node --max-old-space-size=6144 scripts/convert-food-datasets.mjs",
     "db:import:foods": "tsx scripts/import-food-datasets.ts",
     "datasets:export:enrichment": "tsx scripts/export-enrichment.ts",
-    "website": "node website/build.mjs --check"
+    "website": "node website/build.mjs --check",
+    "db:seed:catalogue": "tsx prisma/seed-catalogue.ts",
+    "db:seed:demo": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "6.15.0",
@@ -29,17 +31,18 @@
     "html-to-image": "^1.11.13",
     "jose": "6.1.0",
     "next": "^15.5.24",
-    "next-intl": "4.3.5",
-    "nodemailer": "^7.0.13",
+    "next-intl": "^4.14.2",
+    "nodemailer": "^10.0.0",
     "react": "19.1.1",
     "react-dom": "19.1.1",
-    "sharp": "^0.34.4",
+    "sharp": "^0.35.4",
     "tsx": "4.20.5",
+    "undici": "^7.29.1",
     "zod": "4.1.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.1",
-    "@playwright/test": "1.55.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "22.18.0",
     "@types/nodemailer": "^7.0.12",
     "@types/react": "19.1.12",
@@ -48,9 +51,12 @@
     "eslint-config-next": "^15.5.24",
     "prisma": "6.15.0",
     "typescript": "5.9.2",
-    "vitest": "3.2.4"
+    "vitest": "^3.2.7"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed-catalogue.ts"
+  },
+  "overrides": {
+    "postcss": "^8.5.23"
   }
 }

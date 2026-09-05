@@ -1,10 +1,21 @@
+import { redactSecrets } from "./redact";
+
 const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 } as const;
 type Level = keyof typeof LEVELS;
 
 const SECRET_KEY = /(secret|password|token|api_?key|authorization|cookie)/i;
 
-/** Redacts anything that looks like a credential before it can reach stdout. */
+/**
+ * Redacts anything that looks like a credential before it can reach stdout.
+ *
+ * Two passes, because they catch different things. Keys are matched by name,
+ * which handles `{ apiKey: "..." }`. String *values* are then scrubbed for
+ * credential-shaped substrings, which handles the case the key check cannot
+ * see: a `reason` or `detail` whose text happens to quote a URL with an API key
+ * in its query string.
+ */
 function redact(value: unknown): unknown {
+  if (typeof value === "string") return redactSecrets(value, 2000);
   if (Array.isArray(value)) return value.map(redact);
   if (value && typeof value === "object") {
     return Object.fromEntries(

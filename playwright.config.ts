@@ -45,5 +45,22 @@ export default defineConfig({
         url: `${baseURL}/api/health`,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
+        env: {
+          /* The suite registers a fresh account per test. The default
+             `bootstrap` mode closes registration once the first account
+             exists - which is the whole point of it - so the suite opts into
+             open registration here, in the same spirit as the relaxed
+             RATE_LIMIT_MULTIPLIER it already sets in CI.
+
+             Set here rather than only in the workflow so that running
+             `npm run test:e2e` locally behaves the same way; without it, every
+             test after the first fails looking for a form the server correctly
+             stopped rendering.
+
+             The policy this opts out of is covered by
+             src/server/registration.test.ts and
+             tests/registration-bootstrap.test.ts. */
+          REGISTRATION_MODE: "open",
+        },
       },
 });

@@ -107,8 +107,10 @@ docker compose up -d
 ```
 
 Open <http://localhost:3000> and create the first account. Health is at
-`/api/health`. The first registered account becomes the administrator; later
-accounts should normally be invited. Invitations can be delivered through the
+`/api/health`. The first registered account becomes the administrator, and the
+sign-up page closes itself as soon as that account exists - later accounts are
+created by invitation. See [Registration policy](#registration-policy) if you
+want different behaviour. Invitations can be delivered through the
 configurable SMTP mailer. No demo account is ever created
 automatically.
 
@@ -188,6 +190,7 @@ All variables are documented inline in [`.env.example`](.env.example).
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `APP_IMAGE` | no | Prebuilt image to run; ignored when building locally |
+| `MIGRATE_IMAGE` | no | The one-shot migration runner. Pin it to the same tag as `APP_IMAGE` |
 | `APP_URL` | yes | Drives the `Secure` cookie flag and origin checks |
 | `APP_SECRET` | yes | Minimum 32 characters; validated at start-up |
 | `POSTGRES_PASSWORD` | yes | Compose builds `DATABASE_URL` from it |
@@ -200,6 +203,12 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `AI_ENABLED` / `AI_BASE_URL` / `AI_MODEL` | no | Where the model lives and which one to use; defaults to `http://ollama:11434` and `qwen3.5:4b`. The superseded `OLLAMA_BASE_URL` / `OLLAMA_MODEL` are still read as a fallback |
 | `AI_FALLBACK_MODEL` / `AI_CONFIDENCE_THRESHOLD` | no | Future low-confidence fallback policy; fallback is not called for every job |
 | `SEARXNG_URL` / `SEARXNG_TIMEOUT_MS` | no | JSON source discovery used only after local foods miss |
+| `RETAIN_AI_INPUT_DAYS` | no | Days before ingestion text and source URLs are emptied; default 90, `0` disables |
+| `RETAIN_AI_JOB_DAYS` / `RETAIN_FAILED_AI_JOB_DAYS` | no | Days before finished AI jobs and their attempts are deleted; defaults 30 and 90, `0` disables |
+| `RETAIN_INVITATION_DAYS` | no | Days before accepted, revoked or expired invitations are deleted; default 30, `0` disables |
+| `REGISTRATION_MODE` | no | `bootstrap` (default), `open` or `disabled`. See [Registration policy](#registration-policy) |
+| `ALLOW_INSECURE_APP_URL` | no | Default `false`. Allows a production `APP_URL` that is neither HTTPS nor local, for TLS terminated where the application cannot see it |
+| `TRUSTED_PROXY_HOPS` | no | Default `0`. How many reverse proxies sit in front of this deployment; `X-Forwarded-For` is ignored unless this is set |
 | `INVITATION_EXPIRY_HOURS` | no | Single-use invitation lifetime; default 48 hours |
 | `SMTP_ENABLED` / `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | no | SMTP delivery; setting `SMTP_HOST` makes environment configuration take precedence over the Administrator Panel |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | no | Optional SMTP authentication credentials |
@@ -255,10 +264,18 @@ worker container can read them. They are removed as soon as structured meal
 extraction succeeds, on terminal failure or administrative cancellation/deletion,
 and by the worker's TTL cleanup after at most 24 hours. Only normalized
 components and non-sensitive input provenance remain in proposals/jobs.
-The maximum meal and recipe image size defaults to 5 MiB and can be changed at
-runtime with `IMAGE_UPLOAD_MAX_MB` (a whole number from 1 through 50). Next.js's
-otherwise-1-MiB Server Action request ceiling is bounded separately at 51 MiB;
-application validation still rejects anything above the configured file limit.
+The maximum meal and recipe image size defaults to 5 MiB and can be changed with
+`IMAGE_UPLOAD_MAX_MB` (a whole number from 1 through 15; a larger value is
+clamped to 15). Next.js's two request-body ceilings - the Server Action limit
+and the separate one that applies because a middleware matches these routes -
+are both derived from it, at `2 x IMAGE_UPLOAD_MAX_MB + 1`, since a body scan
+carrying a front and a side capture is the largest request the application
+makes. Application validation still rejects any single file above the configured
+limit.
+
+Both ceilings are read at build time, so changing `IMAGE_UPLOAD_MAX_MB` at
+runtime lowers per-file validation but does not widen the request ceiling the
+image was built with.
 
 The two containers have separate environments and nothing makes them agree, so
 the worker logs the settings it resolved on startup - AI host, model, timeout,
@@ -650,6 +667,25 @@ A source that is unreachable is skipped, with the results from earlier tiers
 kept and the next tier still consulted. A provider outage degrades the result
 list; it never fails the search.
 
+### How long personal records are kept
+
+Raw imagery has always been transient: meal and scan uploads carry an explicit
+expiry, are cleared as soon as they have been processed, and are swept every
+minute. Everything else used to be kept for ever. The worker now applies these
+windows too, on its slower cadence:
+
+| Record | Default | What happens |
+| --- | --- | --- |
+| `AiIngestionInput` text and source URL | 90 days | Emptied, not deleted: `Recipe.importId` points at the row, and that link is the provenance saying a recipe came from an import |
+| Completed AI jobs | 30 days | Deleted with their attempts and proposal |
+| Failed AI jobs | 90 days | Deleted with their attempts; kept longer because a failure is what somebody eventually asks about |
+| Accepted, revoked or expired invitations | 30 days | Deleted. A live invitation is never touched, whatever its age |
+
+Each window is configurable and `0` disables that sweep for a deployment that
+wants to keep everything. Nothing here touches diary entries, foods, recipes,
+weights or body measurements: those are the user's records, and they go when the
+user deletes them or their account.
+
 ### How long each source may be kept
 
 Persistence is a licensing question before it is a caching question, so it
@@ -711,9 +747,16 @@ force a re-import.
 
 ## Database migrations, upgrade, backup and restore
 
-The container runs `prisma migrate deploy` at start-up. It deliberately does
+A separate one-shot `migrate` service runs `prisma migrate deploy` and exits;
+the app and the worker both wait for it to succeed before starting, so neither
+ever runs against a database that is behind the code. It deliberately does
 **not** run `prisma db push`, which can drop columns to force the live database
 to match the schema.
+
+Migrations used to run from the entrypoint of both long-running containers,
+which meant they raced each other on every start and the Prisma CLI had to ship
+in the image that serves traffic. The `migrate` service is the only image
+carrying that CLI, and it is short-lived.
 
 Migrations also install the nutrient catalogue, which is reference data rather
 than demo data: every stored nutrient value has a foreign key onto it, so a
@@ -721,6 +764,32 @@ database without it cannot hold a single food. Adding a nutrient means adding it
 to `src/lib/nutrients.ts` **and** shipping a migration; a test fails if the two
 drift apart. The optional development seed is only ever about sample foods,
 diary entries and a demo account.
+
+### Upgrading to the release that added the migration service
+
+Three things changed that an existing deployment has to know about. The compose
+file itself needs no editing - the `migrate` service is already in it - but two
+of these will stop the app from starting if they are ignored.
+
+1. **`APP_URL` must be HTTPS for a public hostname.** The `Secure` flag on the
+   session cookie is derived from it, so a public deployment on a plain-HTTP
+   `APP_URL` was silently issuing session cookies without it. Start-up now
+   refuses that combination rather than continuing quietly. Loopback, `.local`
+   and private-range addresses still start over HTTP, since that is the
+   self-hosted LAN case the allowance exists for. If TLS is terminated somewhere
+   the application cannot see, set `ALLOW_INSECURE_APP_URL=true`.
+2. **Set `TRUSTED_PROXY_HOPS` if you run behind a reverse proxy** - almost
+   certainly `1`. `X-Forwarded-For` is no longer trusted by default, because a
+   client could otherwise write its own rate-limit key and never meet a limit.
+   Left at `0` behind a proxy, sign-in throttling still works but every client
+   shares one bucket. Make sure the outermost proxy strips inbound
+   `X-Forwarded-For`.
+3. **Pin `MIGRATE_IMAGE` alongside `APP_IMAGE`** if you pin versions at all.
+
+Registration also closes once the first account exists; on an instance that
+already has accounts, the sign-up page is now closed rather than open to anyone
+who knows the URL. `REGISTRATION_MODE=open` restores the old behaviour if that
+is genuinely wanted.
 
 ```sh
 # Upgrade
@@ -741,8 +810,8 @@ the server. A bind-mounted backup on the same pool is not a backup.
 ### A migration that failed
 
 Prisma records a migration that failed and then refuses to apply any later one,
-which shows up as `Error: P3009` in the app **and** the worker log, both of them
-restarting for ever:
+which shows up as `Error: P3009` in the `migrate` service log, leaving the app
+and the worker waiting on a dependency that never completes:
 
 ```
 migrate found failed migrations in the target database, new migrations will not
@@ -750,14 +819,14 @@ be applied. The <name> migration started at <time> failed
 ```
 
 Each migration is applied to PostgreSQL inside a transaction, so a failed one
-left nothing of itself behind. The start-up script therefore marks it rolled
+left nothing of itself behind. The migration service therefore marks it rolled
 back and applies it again, once, which recovers the stack by itself as soon as
 an image carrying the corrected migration is pulled. Should the second attempt
-fail too, start-up stops with the database error that caused it - fix the
-migration rather than the record of it. The same recovery by hand:
+fail too, it stops with the database error that caused it - fix the migration
+rather than the record of it. The same recovery by hand:
 
 ```sh
-docker compose run --rm --entrypoint sh app -c \
+docker compose run --rm --entrypoint sh migrate -c \
   'node ./node_modules/prisma/build/index.js migrate resolve --rolled-back <name>'
 ```
 
@@ -768,7 +837,9 @@ npm install
 cp .env.example .env          # set APP_SECRET and POSTGRES_PASSWORD
 docker compose up -d db
 npx prisma migrate deploy
-npm run db:seed               # optional demo data; refuses to run in production
+npm run db:seed               # nutrient catalogue only; safe anywhere
+npm run db:seed:demo          # demo account and a month of fake data; needs
+                              # SEED_PASSWORD, refuses to run in production
 npm run dev
 ```
 
@@ -910,17 +981,53 @@ Publishing is rate limited per account. Everything here is instance-local:
 there is no public access, no federation and no discovery beyond the members of
 this installation.
 
+## Registration policy
+
+`REGISTRATION_MODE` decides who may create an account without an invitation.
+
+| Mode | Behaviour |
+| --- | --- |
+| `bootstrap` (default) | The sign-up page works until the first account exists, and that account becomes the administrator. After that, registration is closed and new members are invited |
+| `open` | Anyone who can reach the sign-up page can create an account. Only for a deployment that genuinely wants public sign-up |
+| `disabled` | No self-registration at all, including the first account. For an instance whose administrator is provisioned by other means |
+
+The policy is enforced in the server action, not in the page: posting directly
+to the registration endpoint on a bootstrapped instance is refused with the same
+answer whether the instance is closed or already has an account.
+
+There is deliberately no separate "invite-only" mode, because `bootstrap`
+already becomes invitation-only the moment the first account exists, and a mode
+that closed registration before any administrator existed would lock the
+operator out of their own new instance.
+
+Note that any signed-in member - not only an administrator - can invite another
+user from Settings when SMTP is configured. If that is not the membership policy
+you want, an administrator can disable SMTP delivery so invitations are issued
+only from the Administrator Panel.
+
 ## Security considerations
 
 - Argon2id password hashing with OWASP-aligned parameters
 - Opaque session tokens; only SHA-256 hashes are stored
-- HTTP-only, SameSite=Lax cookies, `Secure` when `APP_URL` is HTTPS
+- HTTP-only, SameSite=Lax cookies, `Secure` when `APP_URL` is HTTPS, from one
+  shared options helper so no security cookie can drift out of the set
+- Start-up refuses a production deployment whose `APP_URL` is neither HTTPS nor a
+  local address, since that is the configuration that silently drops `Secure`
 - Same-origin validation on state-changing route handlers
-- Rate limiting on sign-in, registration, search, export and research
+- Registration closes after the first account unless `REGISTRATION_MODE` says otherwise; the first-administrator decision is taken under a PostgreSQL advisory lock so two simultaneous registrations cannot both become administrators
+- Rate limiting on sign-in, registration, invitation redemption, search, export and research; sign-in is limited per account as well as per address, so a limit does not depend on the proxy configuration being right
+- The security-sensitive limits are counted in PostgreSQL, so they survive a restart and are shared across processes rather than resetting with each container; the in-memory limiter remains as the fallback if the database cannot be reached
+- `X-Forwarded-For` is trusted only as far as `TRUSTED_PROXY_HOPS` says, counted from the right of the chain, so a client cannot choose its own rate-limit bucket
 - Zod validation on every input, provider response and AI output
 - Ownership checks on every user-owned entity
-- SSRF protection with DNS resolution and private-range blocking
+- SSRF protection with DNS resolution and private-range blocking, and the connection is pinned to the address that passed the check so a name cannot resolve publicly for the check and privately for the fetch
 - Secrets only from the environment, never logged, never shown in the UI
+- Content-Security-Policy with a per-request nonce, plus `nosniff`,
+  `Referrer-Policy: same-origin`, `Permissions-Policy` and `frame-ancestors 'none'`;
+  HSTS is added only when `APP_URL` is HTTPS. The policy allows the camera,
+  because barcode scanning and body-scan capture need it, and denies the rest
+- `connect-src 'self'`: every external provider is reached from the server, never
+  from the browser
 - No advertising SDKs, no third-party analytics, no telemetry
 - Uploaded photos are validated by their bytes, not their filename or declared
   type, held for minutes at most and swept by the worker
