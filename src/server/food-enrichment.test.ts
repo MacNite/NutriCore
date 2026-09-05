@@ -3,15 +3,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Most of this file exercises pure functions, but the permission gate and
 // `enrichFood` are the parts the workflow actually got wrong, and both read the
 // database. Only the handful of models they touch are mocked.
-const { prismaMock, food, nutrientDefinition, userProfile } = vi.hoisted(() => {
-  const food = { findUnique: vi.fn(), update: vi.fn() };
+const { prismaMock, food, nutrientDefinition, userProfile, foodNutrient, enrichmentProposal, enrichmentProposalValue } = vi.hoisted(() => {
+  const food = { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(async () => ({ count: 1 })) };
   const nutrientDefinition = { findMany: vi.fn() };
-  const userProfile = { findMany: vi.fn() };
+  const userProfile = { findMany: vi.fn(), findUnique: vi.fn(async (): Promise<{ autoApplyEnrichment: boolean } | null> => null) };
+  const foodNutrient = { updateMany: vi.fn(async () => ({ count: 1 })), create: vi.fn() };
+  const enrichmentProposal = { create: vi.fn(async () => ({ id: "proposal-1" })), update: vi.fn() };
+  const enrichmentProposalValue = { create: vi.fn() };
+  const tx = { food, foodNutrient, foodSource: { create: vi.fn() }, enrichmentProposal, enrichmentProposalValue };
   return {
     food,
     nutrientDefinition,
     userProfile,
-    prismaMock: { food, nutrientDefinition, userProfile, foodNutrient: { updateMany: vi.fn(), create: vi.fn() }, foodSource: { create: vi.fn() }, $transaction: vi.fn() },
+    foodNutrient,
+    enrichmentProposal,
+    enrichmentProposalValue,
+    prismaMock: { ...tx, nutrientDefinition, userProfile, $transaction: vi.fn(async (run: (t: typeof tx) => unknown) => run(tx)) },
   };
 });
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
@@ -27,11 +34,22 @@ describe("food enrichment", () => {
       { nutrientKey: "protein", value: 0 }, { nutrientKey: "iron", value: null },
     ])).toEqual(["iron", "salt"]);
   });
-  it("only exposes an AI badge audit when something was filled", () => {
+  it("reads the AI badge off the food's live values, not off what a run once wrote", () => {
     const date = new Date("2026-01-02T00:00:00Z");
-    expect(aiEnrichmentMetadata([{ provider: "OPEN_FOOD_FACTS", metadata: null, retrievedAt: date }])).toEqual([]);
-    expect(aiEnrichmentMetadata([{ provider: "AI_ENRICHMENT", metadata: { nutrientKeys: [] }, retrievedAt: date }])).toEqual([]);
-    expect(aiEnrichmentMetadata([{ provider: "AI_ENRICHMENT", metadata: { nutrientKeys: ["iron"], addedAt: date.toISOString() }, retrievedAt: date }])[0].nutrientKeys).toEqual(["iron"]);
+    const aiRun = { provider: "AI_ENRICHMENT", metadata: { addedAt: date.toISOString() }, retrievedAt: date };
+    const ai = { nutrientKey: "iron", value: 0.4, origin: "AI_ENRICHMENT" };
+    const measured = { nutrientKey: "protein", value: 12, origin: "Analyse" };
+
+    // No AI run at all: nothing to badge.
+    expect(aiEnrichmentMetadata([ai], [{ provider: "OPEN_FOOD_FACTS", metadata: null, retrievedAt: date }])).toEqual([]);
+    // A run that wrote nothing the food still holds is not badged either.
+    expect(aiEnrichmentMetadata([measured], [aiRun])).toEqual([]);
+    expect(aiEnrichmentMetadata([ai, measured], [aiRun])[0].nutrientKeys).toEqual(["iron"]);
+
+    // The reason for reading the values rather than the record: a dataset import
+    // that reclaims a nutrient leaves the old metadata still naming it.
+    const stale = { provider: "AI_ENRICHMENT", metadata: { nutrientKeys: ["iron", "calcium"], addedAt: date.toISOString() }, retrievedAt: date };
+    expect(aiEnrichmentMetadata([ai, measured], [stale])[0].nutrientKeys).toEqual(["iron"]);
   });
 });
 
@@ -294,5 +312,82 @@ describe("enrichFood", () => {
     const search = { search: vi.fn(async () => []) } as unknown as SearxngClient;
     await expect(enrichFood("food-1", "user-1", { search })).resolves.toEqual({ filledNutrientKeys: [], servingFilled: false });
     expect(food.update).toHaveBeenCalledWith({ where: { id: "food-1" }, data: { enrichedAt: expect.any(Date) } });
+  });
+});
+
+describe("enrichFood: proposing versus applying", () => {
+  /** A source that offers one value for the food's one gap. */
+  const sourceOffering = (per100g: Record<string, number>) => ({
+    ai: { capabilities: vi.fn(async () => ({ model: "qwen3.5:4b" })), complete: vi.fn(async () => ({ nutrients: per100g, basisAmount: 100, basisUnit: "g" })) } as unknown as OllamaProvider,
+    search: { search: vi.fn(async () => [{ title: "Käse Nährwerte", url: "https://a.test" }]) } as unknown as SearxngClient,
+    fetchSource: vi.fn(async (url: string) => ({ url, title: "Käse Nährwerte", excerpt: "Nährwerte pro 100 g: Eisen 0,4 mg", truncated: false })),
+  });
+
+  beforeEach(() => {
+    food.findUnique.mockResolvedValue({
+      id: "food-1", name: "Käse", ownerId: null, basisUnit: "G", densityGPerMl: null,
+      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }], servings: [],
+    });
+    food.update.mockResolvedValue({});
+    nutrientDefinition.findMany.mockResolvedValue([{ key: "iron", canonicalUnit: "mg" }]);
+    enrichmentProposal.create.mockResolvedValue({ id: "proposal-1" });
+    foodNutrient.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  afterEach(() => {
+    delete process.env.RESEARCH_ENABLED;
+    delete process.env.SEARXNG_URL;
+    vi.clearAllMocks();
+  });
+
+  it("records a proposal and touches no nutrient when review is required", async () => {
+    allowResearch(["user-1"]);
+    userProfile.findUnique.mockResolvedValue({ autoApplyEnrichment: false });
+
+    const result = await enrichFood("food-1", "user-1", sourceOffering({ iron: 0.4 }));
+
+    expect(foodNutrient.updateMany).not.toHaveBeenCalled();
+    expect(foodNutrient.create).not.toHaveBeenCalled();
+    expect(enrichmentProposalValue.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ nutrientKey: "iron", status: "PENDING", applied: false }) }),
+    );
+    // Nothing reached the food, so the job reports what is waiting instead.
+    expect(result.filledNutrientKeys).toEqual([]);
+    expect(result.proposedKeys).toEqual(["iron"]);
+  });
+
+  it("writes straight through when the user has switched review off", async () => {
+    allowResearch(["user-1"]);
+    userProfile.findUnique.mockResolvedValue({ autoApplyEnrichment: true });
+
+    const result = await enrichFood("food-1", "user-1", sourceOffering({ iron: 0.4 }));
+
+    expect(foodNutrient.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ origin: "AI_ENRICHMENT" }) }),
+    );
+    expect(enrichmentProposalValue.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "APPROVED", applied: true }) }),
+    );
+    expect(result.filledNutrientKeys).toEqual(["iron"]);
+    expect(result.proposedKeys).toEqual([]);
+  });
+
+  it("keeps the keys it asked for on the proposal, answered or not", async () => {
+    allowResearch(["user-1"]);
+    userProfile.findUnique.mockResolvedValue({ autoApplyEnrichment: false });
+    nutrientDefinition.findMany.mockResolvedValue([{ key: "iron" }, { key: "iodine" }]);
+    food.findUnique.mockResolvedValue({
+      id: "food-1", name: "Käse", ownerId: null, basisUnit: "G", densityGPerMl: null,
+      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }, { nutrientKey: "iodine", value: null }], servings: [],
+    });
+
+    // The source answers only one of the two gaps.
+    await enrichFood("food-1", "user-1", sourceOffering({ iron: 0.4 }));
+
+    // Both are recorded as asked, so a later run can move on to the untried one
+    // instead of requesting the same window of the catalogue again.
+    expect(enrichmentProposal.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ requestedKeys: ["iron", "iodine"] }) }),
+    );
   });
 });

@@ -13,6 +13,8 @@ import { AI_JOB_OPERATIONS, AI_JOB_STATUSES, STUCK_RUNNING_MS, jobOutcome, type 
 import { AI_FAILURE_KINDS } from "@/server/ai-failures";
 import { AiJobsPanel, type JobLabels, type JobRow } from "./ai-jobs-panel";
 import { PrivacyAiPanel } from "@/components/privacy-ai-panel";
+import { EnrichmentReviewPanel } from "@/components/enrichment-review-panel";
+import { catalogueProposals, countCatalogueProposals } from "@/server/enrichment-review";
 import { getMailConfiguration } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
@@ -113,6 +115,18 @@ export default async function AdminPage({
     datasetStatus(),
   ]);
 
+  // The catalogue's review queue, and the nutrient names to render it in. Foods
+  // somebody owns are deliberately absent: their owner decides, on the food's
+  // own page, and an administrator cannot read them anywhere else in the app.
+  const [proposals, proposalTotal, nutrientDefinitions] = await Promise.all([
+    catalogueProposals(),
+    countCatalogueProposals(),
+    prisma.nutrientDefinition.findMany({ select: { key: true, nameDe: true, nameEn: true } }),
+  ]);
+  const nutrientNames = new Map(
+    nutrientDefinitions.map((row) => [row.key, (ownProfile?.language ?? "de") === "de" ? row.nameDe : row.nameEn]),
+  );
+
   // What the job was actually asked to do. It lives on a different record for
   // each entity type, and it is the single most useful thing to see next to a
   // failure, so it is fetched for the rows on this page rather than guessed at.
@@ -169,6 +183,7 @@ export default async function AdminPage({
     if (accepted?.logged?.length) facts.push({ label: t("resultLogged"), value: accepted.logged.join(", ") });
     if (accepted?.skipped?.length) facts.push({ label: t("resultSkipped"), value: accepted.skipped.join(", ") });
     if (outcome?.nutrientKeys?.length) facts.push({ label: t("resultNutrients"), value: outcome.nutrientKeys.join(", ") });
+    if (outcome?.proposedKeys?.length) facts.push({ label: t("resultProposed"), value: outcome.proposedKeys.join(", ") });
     if (outcome?.servingFilled) facts.push({ label: t("resultServing"), value: t("resultServingSet") });
     if (outcome?.recipeName)
       facts.push({
@@ -415,6 +430,19 @@ export default async function AdminPage({
           aiEnabled={ownProfile?.aiEnabled ?? true}
           researchEnabled={ownProfile?.researchEnabled ?? false}
           autoApproveAi={ownProfile?.autoApproveAi ?? true}
+          autoApplyEnrichment={ownProfile?.autoApplyEnrichment ?? false}
+        />
+      </div>
+
+      {/* The shared catalogue's queue. Foods somebody owns are reviewed by
+          their owner on the food's own page, never here. */}
+      <div style={{ marginTop: 20 }}>
+        <EnrichmentReviewPanel
+          proposals={proposals}
+          nutrientNames={nutrientNames}
+          locale={ownProfile?.language ?? "de"}
+          heading={t("enrichmentReviewTitle")}
+          total={proposalTotal}
         />
       </div>
 

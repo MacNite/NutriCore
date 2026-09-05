@@ -297,6 +297,17 @@ release actually publishes and leaves the backfilled ones in the gaps it still
 does not fill - a measured number always wins, and enrichment is no longer lost
 on every dataset upgrade.
 
+**And nothing it finds reaches a food unreviewed.** A run records what it read
+as a proposal and waits, which is the "human approves" clause the rest of the
+app already honours. Who approves follows who owns the food, exactly as reading
+it does: a food you created is reviewed by you, on its own page; the shared
+catalogue is reviewed by an administrator, on /admin. An administrator never
+sees a proposal for a food somebody owns - they cannot open that food anywhere
+else either. Approving writes the value only into a gap, so it can never
+overwrite a measured number; refusing one that is already in use takes it back
+off the food. Turn on "Apply backfilled nutrition without review" in the privacy
+settings to skip the queue and write straight through, as it worked before.
+
 #### How a quick meal becomes diary entries
 
 A quick meal accepts text, an image, a public recipe URL, or any combination.

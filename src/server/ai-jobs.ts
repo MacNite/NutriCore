@@ -261,6 +261,7 @@ export async function processNextAiJob(deps: { ai?: OllamaProvider; search?: Sea
       await completeJob(job, await describeOutcome(job.id, () => ({
         nutrientKeys: result.filledNutrientKeys,
         servingFilled: result.servingFilled,
+        proposedKeys: result.proposedKeys,
       })));
       return true;
     }

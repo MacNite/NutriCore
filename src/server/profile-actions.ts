@@ -165,6 +165,7 @@ const aiSettingsSchema = z.object({
   aiEnabled: z.boolean(),
   researchEnabled: z.boolean(),
   autoApproveAi: z.boolean(),
+  autoApplyEnrichment: z.boolean(),
 });
 
 export async function saveAiSettingsAction(_state: FormState, formData: FormData): Promise<FormState> {
@@ -173,6 +174,7 @@ export async function saveAiSettingsAction(_state: FormState, formData: FormData
     aiEnabled: asBool(formData.get("aiEnabled")),
     researchEnabled: asBool(formData.get("researchEnabled")),
     autoApproveAi: asBool(formData.get("autoApproveAi")),
+    autoApplyEnrichment: asBool(formData.get("autoApplyEnrichment")),
   });
   if (!parsed.success) return { error: "validation" };
 

@@ -16,10 +16,12 @@ export function PrivacyAiPanel({
   aiEnabled,
   researchEnabled,
   autoApproveAi,
+  autoApplyEnrichment,
 }: {
   aiEnabled: boolean;
   researchEnabled: boolean;
   autoApproveAi: boolean;
+  autoApplyEnrichment: boolean;
 }) {
   const t = useTranslations("settings");
   const errors = useTranslations("errors");
@@ -76,6 +78,20 @@ export function PrivacyAiPanel({
           <div>
             <label htmlFor="autoApproveAi">{t("autoApproveAi")}</label>
             <div className="hint" id="auto-approve-hint">{t("autoApproveAiHint")}</div>
+          </div>
+        </div>
+
+        <div className="checkbox">
+          <input
+            id="autoApplyEnrichment"
+            name="autoApplyEnrichment"
+            type="checkbox"
+            defaultChecked={autoApplyEnrichment}
+            aria-describedby="auto-apply-enrichment-hint"
+          />
+          <div>
+            <label htmlFor="autoApplyEnrichment">{t("autoApplyEnrichment")}</label>
+            <div className="hint" id="auto-apply-enrichment-hint">{t("autoApplyEnrichmentHint")}</div>
           </div>
         </div>
 

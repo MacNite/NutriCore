@@ -295,7 +295,8 @@
     "drafts": "Drafts",
     "draft": "Draft",
     "ingredientCount": "{count, plural, one {# ingredient} other {# ingredients}}",
-    "moreResults": "More results and actions"
+    "moreResults": "More results and actions",
+    "enrichmentReviewTitle": "Proposed nutrition"
   },
   "nutrients": {
     "energyKcal": "Energy",
@@ -738,7 +739,9 @@
       "failed": "The email could not be delivered. Please try again later.",
       "mailDisabled": "Invitations require an administrator to enable SMTP.",
       "rateLimited": "Too many invitations were requested. Please try again later."
-    }
+    },
+    "autoApplyEnrichment": "Apply backfilled nutrition without review",
+    "autoApplyEnrichmentHint": "Off by default: nutrition the AI reads off a source waits for you to approve it. Switch this on to have it written to the food straight away, the way it worked before."
   },
   "diagnostics": {
     "title": "Diagnostics",
@@ -1243,7 +1246,9 @@
       "empty": "No bundled databases found. Run `npm run datasets:convert`.",
       "result": "{imported} foods written, {skipped} database(s) unchanged.",
       "failed": "{failed} database(s) could not be imported. See the server log for details."
-    }
+    },
+    "enrichmentReviewTitle": "Proposed nutrition",
+    "resultProposed": "Proposed for review"
   },
   "account": {
     "changePasswordTitle": "Choose a new password",
@@ -1318,5 +1323,14 @@
       "ascending": "Ascending",
       "aerobic": "Aerobic"
     }
+  },
+  "enrichmentReview": {
+    "hint": "Values the AI read off a source. Untick anything that looks wrong before saving — unticked values are refused, and a refused value that is already in use is removed from the food.",
+    "empty": "Nothing is waiting for review.",
+    "noSource": "No source recorded",
+    "alreadyApplied": "Currently in use — approve to keep it, untick to remove it.",
+    "servingSize": "Serving weight: {grams} g",
+    "submit": "Save decisions",
+    "showing": "Showing {shown} of {total} waiting for review — decide these to see the rest."
   }
 }

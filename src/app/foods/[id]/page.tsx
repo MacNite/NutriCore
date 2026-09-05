@@ -4,6 +4,8 @@ import { getSessionUser } from "@/server/session";
 import { AppShell } from "@/components/app-shell";
 import { SourceBadges } from "@/components/source-badge";
 import { aiEnrichmentMetadata } from "@/server/food-enrichment";
+import { ownedProposals } from "@/server/enrichment-review";
+import { EnrichmentReviewPanel } from "@/components/enrichment-review-panel";
 import { getVisibleFood } from "@/server/foods";
 import { formatDateKey } from "@/server/diary";
 import { LogFoodForm } from "./log-food-form";
@@ -45,7 +47,18 @@ export default async function FoodDetailPage({
     servings: food.servings,
   };
   const portion = preferredInitialPortion(shape, await lastFoodPortion(user.id, food.id));
-  const enrichment = aiEnrichmentMetadata(sources).map((item) => ({ ...item, nutrientNames: item.nutrientKeys.map((key) => names.get(key) ?? key) }));
+  // `FoodResult` flattens nutrients to a name/number map, which loses the per
+  // nutrient `origin` the AI badge is now read from, and carries no owner. Both
+  // are read here rather than widened into the search-facing shape.
+  const stored = await prisma.food.findUnique({
+    where: { id: food.id },
+    select: { ownerId: true, nutrients: { select: { nutrientKey: true, value: true, origin: true } } },
+  });
+  const enrichment = aiEnrichmentMetadata(stored?.nutrients ?? [], sources).map((item) => ({ ...item, nutrientNames: item.nutrientKeys.map((key) => names.get(key) ?? key) }));
+  // Only the owner of a food ever sees its proposals, and only here: an
+  // administrator's queue covers the shared catalogue, which is the only part
+  // of it they can read anywhere else in the app.
+  const proposals = stored?.ownerId === user.id ? await ownedProposals(user.id, food.id) : [];
 
   return (
     <AppShell displayName={user.displayName}>
@@ -72,6 +85,15 @@ export default async function FoodDetailPage({
                 returnToMeal={(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"] as string[]).includes(query.editMeal ?? "") ? query.editMeal : undefined}
               />
             </section>
+
+            {proposals.length ? (
+              <EnrichmentReviewPanel
+                proposals={proposals}
+                nutrientNames={names}
+                locale={user.language}
+                heading={t("enrichmentReviewTitle")}
+              />
+            ) : null}
 
             <section className="card">
               <h2>{t("form.nutrients")}</h2>

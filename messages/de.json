@@ -295,7 +295,8 @@
     "drafts": "Entwürfe",
     "draft": "Entwurf",
     "ingredientCount": "{count, plural, one {# Zutat} other {# Zutaten}}",
-    "moreResults": "Mehr Ergebnisse und Aktionen"
+    "moreResults": "Mehr Ergebnisse und Aktionen",
+    "enrichmentReviewTitle": "Vorgeschlagene Nährwerte"
   },
   "nutrients": {
     "energyKcal": "Energie",
@@ -738,7 +739,9 @@
       "failed": "Die E-Mail konnte nicht zugestellt werden. Bitte versuche es später erneut.",
       "mailDisabled": "Ein Administrator muss SMTP aktivieren, um Einladungen zu versenden.",
       "rateLimited": "Zu viele Einladungen wurden angefordert. Bitte versuche es später erneut."
-    }
+    },
+    "autoApplyEnrichment": "Ergänzte Nährwerte ohne Prüfung übernehmen",
+    "autoApplyEnrichmentHint": "Standardmäßig aus: Nährwerte, die die KI aus einer Quelle liest, warten auf deine Freigabe. Einschalten, damit sie wie bisher sofort ins Lebensmittel geschrieben werden."
   },
   "diagnostics": {
     "title": "Diagnose",
@@ -1243,7 +1246,9 @@
       "empty": "Keine mitgelieferten Datenbanken gefunden. Führe `npm run datasets:convert` aus.",
       "result": "{imported} Lebensmittel geschrieben, {skipped} Datenbank(en) unverändert.",
       "failed": "{failed} Datenbank(en) konnten nicht importiert werden. Details siehe Server-Log."
-    }
+    },
+    "enrichmentReviewTitle": "Vorgeschlagene Nährwerte",
+    "resultProposed": "Zur Prüfung vorgeschlagen"
   },
   "account": {
     "changePasswordTitle": "Neues Passwort wählen",
@@ -1318,5 +1323,14 @@
       "ascending": "Aufstieg",
       "aerobic": "Aerobic"
     }
+  },
+  "enrichmentReview": {
+    "hint": "Werte, die die KI aus einer Quelle gelesen hat. Entferne vor dem Speichern den Haken bei allem, was nicht stimmt – nicht angehakte Werte werden abgelehnt, und ein abgelehnter Wert, der bereits verwendet wird, wird aus dem Lebensmittel entfernt.",
+    "empty": "Es wartet nichts auf eine Prüfung.",
+    "noSource": "Keine Quelle vermerkt",
+    "alreadyApplied": "Wird derzeit verwendet – zum Behalten freigeben, Haken entfernen zum Löschen.",
+    "servingSize": "Portionsgewicht: {grams} g",
+    "submit": "Entscheidungen speichern",
+    "showing": "{shown} von {total} zur Prüfung angezeigt – entscheide diese, um die übrigen zu sehen."
   }
 }
