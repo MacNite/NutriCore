@@ -10,6 +10,7 @@
  * Pure on purpose: no Prisma, no fetch, no environment. The worker records what
  * this returns, the admin page renders it, and both can be tested without either.
  */
+import { redactOptional, redactSecrets } from "@/lib/redact";
 
 export type AiFailureKind =
   | "MODEL_TIMEOUT"
@@ -149,8 +150,20 @@ export function describeFailure(error: unknown): FailureDescription {
   const top = chain[0];
   const message = (top?.message || "AI processing failed").slice(0, 500);
   const detail = chain.length > 1 || top?.code ? formatChain(chain) : undefined;
+  /* Classified on the original text, so redaction cannot change which kind a
+     failure is - a message ending up as "[redacted]" must not become UNKNOWN. */
   const kind = classify(error, chain, message);
-  return { kind, message, detail, permanent: isPermanentFailure(kind) };
+  /* Redacted here rather than at each sink. This is the one place every stored
+     and logged diagnostic comes from: the warn line, the AiJobAttempt row and
+     the AiJob columns all take what this returns, and those rows persist with
+     no expiry. An error naming the request it failed on can carry an API key in
+     a query string. */
+  return {
+    kind,
+    message: redactSecrets(message, 500),
+    detail: redactOptional(detail),
+    permanent: isPermanentFailure(kind),
+  };
 }
 
 function classify(
