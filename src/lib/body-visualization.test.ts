@@ -10,6 +10,7 @@ import {
   MEASURE_ROW_GAP,
   MEASURE_VIEW,
   bodyMeasureRows,
+  bodyLandmarkWidths,
   DEFAULT_APPEARANCE,
   DIAMOND,
   axisRatio,
@@ -143,6 +144,58 @@ describe("the silhouette", () => {
     }
   });
 
+  it("produces valid closed paths for all nine figures in both poses", () => {
+    for (const type of BODY_TYPES) {
+      for (const figure of BODY_FIGURES) {
+        const option: BodyAppearance = { type, figure };
+        for (const style of BODY_SHAPE_STYLES) {
+          const art = buildBodyFigure(baselineInput(option), option, style);
+          const paths = [
+            ...outlineShapes(art.outline),
+            ...clipShapes(art.outline, "body"),
+            ...clipShapes(art.outline, "arms"),
+            art.briefs,
+            art.waistband,
+            ...(art.bra ? [art.bra] : []),
+          ];
+          for (const path of paths) {
+            expect(path).not.toMatch(/NaN|Infinity|undefined/);
+            expect(path.trimEnd().endsWith("Z")).toBe(true);
+            for (const point of pointsOf(path)) {
+              expect(point.x).toBeGreaterThanOrEqual(0);
+              expect(point.x).toBeLessThanOrEqual(BODY_VIEW.width);
+              expect(point.y).toBeGreaterThanOrEqual(0);
+              expect(point.y).toBeLessThanOrEqual(BODY_VIEW.height);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("orders torso and limb breadth from ectomorph through endomorph", () => {
+    for (const figure of BODY_FIGURES) {
+      const breadths = BODY_TYPES.map((type) => {
+        const option: BodyAppearance = { type, figure };
+        return bodyLandmarkWidths(baselineInput(option), option);
+      });
+      for (const landmark of ["chest", "waist", "hip", "upperArm", "thigh", "calf"] as const) {
+        expect(breadths[0][landmark]).toBeLessThan(breadths[1][landmark]);
+        expect(breadths[1][landmark]).toBeLessThan(breadths[2][landmark]);
+      }
+    }
+  });
+
+  it("changes the intended shoulder-to-hip relationship by presentation", () => {
+    const ratio = (figure: (typeof BODY_FIGURES)[number]) => {
+      const option: BodyAppearance = { type: "MESOMORPH", figure };
+      const breadth = bodyLandmarkWidths(baselineInput(option), option);
+      return breadth.shoulder / breadth.hip;
+    };
+    expect(ratio("MASCULINE")).toBeGreaterThan(ratio("NEUTRAL"));
+    expect(ratio("NEUTRAL")).toBeGreaterThan(ratio("FEMININE"));
+  });
+
   it("is symmetric about the centre line", () => {
     const xs = pointsOf(outline.silhouette).map((point) => point.x);
     const span = Math.max(...xs) + Math.min(...xs);
@@ -187,6 +240,16 @@ describe("figure art", () => {
     for (const figure of BODY_FIGURES) {
       const option: BodyAppearance = { type: "MESOMORPH", figure };
       expect(buildBodyFigure(baselineInput(option), option).bra === null).toBe(figure !== "FEMININE");
+    }
+  });
+
+  it("assigns modest presentation-specific garments with a waistband", () => {
+    for (const figure of BODY_FIGURES) {
+      const option: BodyAppearance = { type: "MESOMORPH", figure };
+      const art = buildBodyFigure(baselineInput(option), option);
+      expect(art.garment).toBe(figure === "MASCULINE" ? "boxer-briefs" : "briefs");
+      expect(art.bra === null).toBe(figure !== "FEMININE");
+      expect(art.waistband).toMatch(/^M.+Z$/);
     }
   });
 
