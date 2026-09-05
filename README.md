@@ -107,8 +107,10 @@ docker compose up -d
 ```
 
 Open <http://localhost:3000> and create the first account. Health is at
-`/api/health`. The first registered account becomes the administrator; later
-accounts should normally be invited. Invitations can be delivered through the
+`/api/health`. The first registered account becomes the administrator, and the
+sign-up page closes itself as soon as that account exists - later accounts are
+created by invitation. See [Registration policy](#registration-policy) if you
+want different behaviour. Invitations can be delivered through the
 configurable SMTP mailer. No demo account is ever created
 automatically.
 
@@ -200,6 +202,8 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `AI_ENABLED` / `AI_BASE_URL` / `AI_MODEL` | no | Where the model lives and which one to use; defaults to `http://ollama:11434` and `qwen3.5:4b`. The superseded `OLLAMA_BASE_URL` / `OLLAMA_MODEL` are still read as a fallback |
 | `AI_FALLBACK_MODEL` / `AI_CONFIDENCE_THRESHOLD` | no | Future low-confidence fallback policy; fallback is not called for every job |
 | `SEARXNG_URL` / `SEARXNG_TIMEOUT_MS` | no | JSON source discovery used only after local foods miss |
+| `REGISTRATION_MODE` | no | `bootstrap` (default), `open` or `disabled`. See [Registration policy](#registration-policy) |
+| `TRUSTED_PROXY_HOPS` | no | Default `0`. How many reverse proxies sit in front of this deployment; `X-Forwarded-For` is ignored unless this is set |
 | `INVITATION_EXPIRY_HOURS` | no | Single-use invitation lifetime; default 48 hours |
 | `SMTP_ENABLED` / `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | no | SMTP delivery; setting `SMTP_HOST` makes environment configuration take precedence over the Administrator Panel |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | no | Optional SMTP authentication credentials |
@@ -910,12 +914,37 @@ Publishing is rate limited per account. Everything here is instance-local:
 there is no public access, no federation and no discovery beyond the members of
 this installation.
 
+## Registration policy
+
+`REGISTRATION_MODE` decides who may create an account without an invitation.
+
+| Mode | Behaviour |
+| --- | --- |
+| `bootstrap` (default) | The sign-up page works until the first account exists, and that account becomes the administrator. After that, registration is closed and new members are invited |
+| `open` | Anyone who can reach the sign-up page can create an account. Only for a deployment that genuinely wants public sign-up |
+| `disabled` | No self-registration at all, including the first account. For an instance whose administrator is provisioned by other means |
+
+The policy is enforced in the server action, not in the page: posting directly
+to the registration endpoint on a bootstrapped instance is refused with the same
+answer whether the instance is closed or already has an account.
+
+There is deliberately no separate "invite-only" mode, because `bootstrap`
+already becomes invitation-only the moment the first account exists, and a mode
+that closed registration before any administrator existed would lock the
+operator out of their own new instance.
+
+Note that any signed-in member - not only an administrator - can invite another
+user from Settings when SMTP is configured. If that is not the membership policy
+you want, an administrator can disable SMTP delivery so invitations are issued
+only from the Administrator Panel.
+
 ## Security considerations
 
 - Argon2id password hashing with OWASP-aligned parameters
 - Opaque session tokens; only SHA-256 hashes are stored
 - HTTP-only, SameSite=Lax cookies, `Secure` when `APP_URL` is HTTPS
 - Same-origin validation on state-changing route handlers
+- Registration closes after the first account unless `REGISTRATION_MODE` says otherwise; the first-administrator decision is taken under a PostgreSQL advisory lock so two simultaneous registrations cannot both become administrators
 - Rate limiting on sign-in, registration, search, export and research
 - Zod validation on every input, provider response and AI output
 - Ownership checks on every user-owned entity

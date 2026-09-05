@@ -9,7 +9,7 @@ import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth";
 import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { endSession, startSession } from "./session";
-import { DEFAULT_LOCALE } from "@/i18n/locales";
+import { RegistrationClosedError, createSelfRegisteredUser } from "./registration";
 
 export interface AuthState {
   error?: string;
@@ -78,26 +78,21 @@ export async function registerAction(_state: AuthState, formData: FormData): Pro
   if (problem === "too-common") return { error: "tooCommon" };
 
   const passwordHash = await hashPassword(parsed.data.password);
-  const firstAccount = (await prisma.user.count()) === 0;
 
   let userId: string;
   try {
-    const user = await prisma.user.create({
-      data: {
-        email: parsed.data.email,
-        username: parsed.data.username,
-        passwordHash,
-        role: firstAccount ? "ADMIN" : "USER",
-        profile: {
-          create: {
-            displayName: parsed.data.displayName,
-            language: DEFAULT_LOCALE,
-          },
-        },
-      },
+    const user = await createSelfRegisteredUser({
+      email: parsed.data.email,
+      username: parsed.data.username,
+      passwordHash,
+      displayName: parsed.data.displayName,
     });
     userId = user.id;
   } catch (error) {
+    // The policy refused. Deliberately the same answer whether the instance is
+    // already bootstrapped or registration is switched off outright: neither is
+    // a fact a stranger needs.
+    if (error instanceof RegistrationClosedError) return { error: "registrationClosed" };
     // Unique-constraint violations are the expected failure here.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const target = (error.meta?.target as string[] | undefined)?.join(",") ?? "";

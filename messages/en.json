@@ -60,8 +60,11 @@
       "tooShort": "Password must be at least 10 characters.",
       "tooCommon": "That password is too easy to guess.",
       "rateLimited": "Too many attempts. Please try again in {seconds} seconds.",
-      "invalid": "Please check the highlighted fields."
-    }
+      "invalid": "Please check the highlighted fields.",
+      "registrationClosed": "Registration is closed on this server. New accounts are created by invitation."
+    },
+    "signUpClosedTitle": "Registration is closed",
+    "signUpClosedSubtitle": "This server already has an account. New members join by invitation - ask an administrator to send you one."
   },
   "onboarding": {
     "title": "Set up your profile",

@@ -60,8 +60,11 @@
       "tooShort": "Das Passwort muss mindestens 10 Zeichen lang sein.",
       "tooCommon": "Dieses Passwort ist zu leicht zu erraten.",
       "rateLimited": "Zu viele Versuche. Bitte in {seconds} Sekunden erneut versuchen.",
-      "invalid": "Bitte prüfe die markierten Felder."
-    }
+      "invalid": "Bitte prüfe die markierten Felder.",
+      "registrationClosed": "Die Registrierung ist auf diesem Server geschlossen. Neue Konten werden per Einladung erstellt."
+    },
+    "signUpClosedTitle": "Registrierung geschlossen",
+    "signUpClosedSubtitle": "Auf diesem Server existiert bereits ein Konto. Neue Mitglieder kommen per Einladung dazu - bitte eine Administratorin oder einen Administrator um eine Einladung."
   },
   "onboarding": {
     "title": "Profil einrichten",
