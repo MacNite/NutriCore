@@ -18,12 +18,12 @@ const { prismaMock, food, nutrientDefinition, userProfile, foodNutrient, enrichm
     foodNutrient,
     enrichmentProposal,
     enrichmentProposalValue,
-    prismaMock: { ...tx, nutrientDefinition, userProfile, $transaction: vi.fn(async (run: (t: typeof tx) => unknown) => run(tx)) },
+    prismaMock: { ...tx, nutrientDefinition, userProfile, $transaction: vi.fn(async (arg: ((t: typeof tx) => unknown) | unknown[]) => (typeof arg === "function" ? arg(tx) : arg)) },
   };
 });
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
-import { aiEnrichmentMetadata, enrichFood, enrichmentBlock, nextNutritionKeys, referenceUrls, extractNutritionForName, isPlausibleNutrition, missingNutritionKeys, normalizeNutritionPer100g, permittedForEnrichment, rankNutritionSources } from "./food-enrichment";
+import { aiEnrichmentMetadata, enrichFood, enrichmentBlock, isTransientFetchFailure, nextNutritionKeys, referenceUrls, extractNutritionForName, isPlausibleNutrition, missingNutritionKeys, normalizeNutritionPer100g, permittedForEnrichment, rankNutritionSources } from "./food-enrichment";
 import { AIInvalidOutputError, AIUnavailableError } from "@/providers/ai";
 import type { OllamaProvider } from "@/providers/ollama";
 import type { SearxngClient } from "@/providers/searxng";
@@ -307,11 +307,21 @@ describe("enrichFood", () => {
     expect(food.update).not.toHaveBeenCalled();
   });
 
-  it("stamps a genuine attempt that found nothing, so the sweep moves on", async () => {
+  it("records an attempt that found nothing, so the next run asks about something else", async () => {
     allowResearch(["user-1"]);
+    enrichmentProposal.findMany.mockResolvedValue([]);
+    nutrientDefinition.findMany.mockResolvedValue([{ key: "iron", canonicalUnit: "mg" }]);
     const search = { search: vi.fn(async () => []) } as unknown as SearxngClient;
-    await expect(enrichFood("food-1", "user-1", { search })).resolves.toEqual({ filledNutrientKeys: [], servingFilled: false });
+
+    await expect(enrichFood("food-1", "user-1", { search })).resolves.toEqual({ filledNutrientKeys: [], servingFilled: false, proposedKeys: [] });
+
+    // The stamp withholds the food for the retry window...
     expect(food.update).toHaveBeenCalledWith({ where: { id: "food-1" }, data: { enrichedAt: expect.any(Date) } });
+    // ...and the attempt is what stops the next run asking the identical keys.
+    // Recording only the first is what made most of the catalogue unreachable.
+    expect(enrichmentProposal.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ requestedKeys: ["iron"] }) }),
+    );
   });
 });
 
@@ -534,5 +544,91 @@ describe("reading a food's own page before searching", () => {
 
     expect(search.search).toHaveBeenCalled();
     expect(result?.url).toBe("https://found.test");
+  });
+});
+
+describe("telling a page that cannot be read from a network that cannot", () => {
+  it("treats a failure about the page itself as permanent", () => {
+    // These read the same way on every attempt, so the candidate is skipped and
+    // the run is still entitled to say it found nothing.
+    for (const message of ["unsafe-source:private", "source-too-large", "source-redirect-limit", "source-unsupported-content", "source-http-404", "source-http-403"]) {
+      expect(isTransientFetchFailure(new Error(message)), message).toBe(false);
+    }
+  });
+
+  it("treats a failure about the moment as transient", () => {
+    for (const message of ["source-http-500", "source-http-503", "source-http-429", "source-http-408", "fetch failed"]) {
+      expect(isTransientFetchFailure(new Error(message)), message).toBe(true);
+    }
+  });
+});
+
+describe("a run that could not read anything at all", () => {
+  const ai = () => ({
+    capabilities: vi.fn(async () => ({ model: "qwen3.5:4b" })),
+    complete: vi.fn(async () => ({ nutrients: { iron: 0.4 }, basisAmount: 100, basisUnit: "g" })),
+  }) as unknown as OllamaProvider;
+
+  it("raises the network failure rather than reporting the food as empty", async () => {
+    const search = { search: vi.fn(async () => [{ title: "Käse", url: "https://a.test" }]) } as unknown as SearxngClient;
+    const fetchSource = vi.fn(async () => { throw new Error("source-http-503"); });
+
+    // Reported as an empty result, this would be recorded as a completed
+    // attempt and put the food out of the sweep's reach for a month, over an
+    // outage that says nothing about the food.
+    await expect(extractNutritionForName("Käse", ["iron"], { ai: ai(), search, fetchSource })).rejects.toThrow("source-http-503");
+  });
+
+  it("still reports nothing found when the pages were readable but unhelpful", async () => {
+    const search = { search: vi.fn(async () => [{ title: "Käse", url: "https://a.test" }, { title: "Käse", url: "https://b.test" }]) } as unknown as SearxngClient;
+    const fetchSource = vi.fn(async (url: string) => {
+      if (url === "https://a.test") throw new Error("source-http-500");
+      return { url, title: "Käse", excerpt: "Unser Käse wird traditionell hergestellt.", truncated: false };
+    });
+    const provider = {
+      capabilities: vi.fn(async () => ({ model: "qwen3.5:4b" })),
+      complete: vi.fn().mockRejectedValue(new AIInvalidOutputError("nothing to extract")),
+    } as unknown as OllamaProvider;
+
+    // One page was read, so the run did get an answer about this food - the
+    // transient failure of the other candidate does not override it.
+    await expect(extractNutritionForName("Käse", ["iron"], { ai: provider, search, fetchSource })).resolves.toBeNull();
+  });
+
+  it("does not raise when the page was refused for a reason that will not change", async () => {
+    const search = { search: vi.fn(async () => [{ title: "Käse", url: "https://a.test" }]) } as unknown as SearxngClient;
+    const fetchSource = vi.fn(async () => { throw new Error("unsafe-source:private"); });
+
+    await expect(extractNutritionForName("Käse", ["iron"], { ai: ai(), search, fetchSource })).resolves.toBeNull();
+  });
+});
+
+describe("enrichFood under a network failure", () => {
+  beforeEach(() => {
+    food.findUnique.mockResolvedValue({
+      id: "food-1", name: "Käse", ownerId: null, basisUnit: "G", densityGPerMl: null,
+      servingSize: 30, nutrients: [{ nutrientKey: "iron", value: null }], servings: [], sources: [],
+    });
+    nutrientDefinition.findMany.mockResolvedValue([{ key: "iron", canonicalUnit: "mg" }]);
+    enrichmentProposal.findMany.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    delete process.env.RESEARCH_ENABLED;
+    delete process.env.SEARXNG_URL;
+    vi.clearAllMocks();
+  });
+
+  it("neither stamps the food nor records an attempt", async () => {
+    allowResearch(["user-1"]);
+    const search = { search: vi.fn(async () => [{ title: "Käse", url: "https://a.test" }]) } as unknown as SearxngClient;
+    const fetchSource = vi.fn(async () => { throw new Error("source-http-503"); });
+    const provider = { capabilities: vi.fn(async () => ({ model: "q" })), complete: vi.fn() } as unknown as OllamaProvider;
+
+    await expect(enrichFood("food-1", "user-1", { ai: provider, search, fetchSource })).rejects.toThrow("source-http-503");
+
+    // Neither half of the attempt record is written: the retry budget owns this.
+    expect(food.update).not.toHaveBeenCalled();
+    expect(enrichmentProposal.create).not.toHaveBeenCalled();
   });
 });

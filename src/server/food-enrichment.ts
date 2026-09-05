@@ -143,6 +143,15 @@ export const ENRICHMENT_RETRY_MS = 30 * 24 * 60 * 60 * 1000;
 export const ENRICHMENT_SCAN_LIMIT = 2_000;
 
 /**
+ * How many past attempts are read to decide what to ask next.
+ *
+ * The catalogue is covered in four windows, so this is many cycles' worth. It
+ * exists so the query stays bounded on a food that has been swept for years,
+ * not to expire history.
+ */
+export const ATTEMPT_HISTORY_LIMIT = 50;
+
+/**
  * Which of a food's gaps to ask a source about next.
  *
  * One page is only ever asked for `MAX_KEYS_PER_REQUEST` keys - the model is
@@ -297,6 +306,34 @@ const MAX_FETCHED_SOURCES = 3;
 /** How many of a food's own recorded pages are tried before any search. */
 const MAX_SEED_SOURCES = 2;
 
+/**
+ * Whether a page could not be read because of something about *this* page, or
+ * because of something about the moment.
+ *
+ * The difference decides whether a run that read nothing is a statement about
+ * the food or about the network, and therefore whether it may stamp
+ * `enrichedAt` and put the food out of reach for a month. A blocked address, an
+ * oversized page, a redirect loop, a content type we do not parse and any 4xx
+ * short of 429 will all read the same way on the next attempt, so the candidate
+ * is simply skipped. A timeout, a DNS failure, a reset connection, a 429 or a
+ * 5xx will not, and reporting those as "nothing found for this food" is exactly
+ * the mistake the rest of this module is built to avoid.
+ */
+export function isTransientFetchFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (message.startsWith("unsafe-source:")) return false;
+  if (message === "source-too-large" || message === "source-redirect-limit") return false;
+  if (message === "source-unsupported-content" || message === "source-no-ingredients") return false;
+  const status = /^source-http-(\d{3})$/.exec(message);
+  if (status) {
+    const code = Number(status[1]);
+    return code === 408 || code === 429 || code >= 500;
+  }
+  // Anything else reaching here is a transport-level failure: `fetch` reports
+  // those as a bare TypeError with the real cause underneath.
+  return true;
+}
+
 export interface ExtractedNutrition {
   /** Only the keys that were asked for, and only values the source carried. */
   per100g: Record<string, number>;
@@ -340,11 +377,19 @@ export async function extractNutritionForName(
   const ai = deps.ai ?? new OllamaProvider();
   const considered: string[] = [];
 
+  // A transient failure that stopped us reading anything at all. Kept rather
+  // than swallowed: if no page anywhere could be read, this is what the job
+  // fails with, so its retry budget decides instead of the 30-day cooldown.
+  let transient: unknown;
+
   /** Reads the pages the model is allowed to see, dropping the ones that fail. */
   const fetchAll = async (candidates: (SearchSource & { pageText: string })[]) =>
     (await Promise.all(candidates.map(async (candidate) => {
       try { const page = await fetchSource(candidate.url); return { ...candidate, url: page.url, pageText: page.excerpt }; }
-      catch { return null; }
+      catch (error) {
+        if (isTransientFetchFailure(error)) transient ??= error;
+        return null;
+      }
     }))).filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null);
 
   /** Puts the best two of a set of read pages to the model, best first. */
@@ -379,10 +424,12 @@ export async function extractNutritionForName(
 
   // The food's own pages first. When one of them answers, nothing is disclosed
   // that the food did not already record.
+  let pagesRead = 0;
   const seeds = seedUrls.slice(0, MAX_SEED_SOURCES);
   if (seeds.length) {
     considered.push(...seeds);
     const seeded = await fetchAll(seeds.map((url) => ({ title: name, url, pageText: "" })));
+    pagesRead += seeded.length;
     const fromOwnPage = await extractFrom(seeded);
     if (fromOwnPage) return fromOwnPage;
     // Otherwise fall through. A page the food names is the best candidate, not
@@ -392,7 +439,12 @@ export async function extractNutritionForName(
   }
 
   const sources = await (deps.search ?? new SearxngClient()).search(`${name} nutrition per 100g serving size`);
-  if (!sources.length) return null;
+  // The search itself throws when it cannot be reached, so an empty result is
+  // the search's genuine answer: nothing was published about this name.
+  if (!sources.length) {
+    if (!pagesRead && transient) throw transient;
+    return null;
+  }
   considered.push(...sources.map((source) => source.url));
 
   // Ranked twice on purpose. The first pass sees only the title and the search
@@ -400,7 +452,16 @@ export async function extractNutritionForName(
   // which pages are worth retrieving at all: fetching five to read two spent
   // three requests on other people's servers for nothing.
   const shortlist = rankNutritionSources(name, requested, sources.map((source) => ({ ...source, pageText: "" })));
-  return extractFrom(await fetchAll(shortlist.slice(0, MAX_FETCHED_SOURCES)));
+  const fetched = await fetchAll(shortlist.slice(0, MAX_FETCHED_SOURCES));
+  pagesRead += fetched.length;
+
+  // Nothing anywhere could be read, and at least one of those failures was the
+  // network rather than the page. That is not an answer about this food, so it
+  // is raised instead of reported as an empty result: `enrichFood` would
+  // otherwise stamp the attempt and withhold the food for the retry window.
+  if (!pagesRead && transient) throw transient;
+
+  return extractFrom(fetched);
 }
 
 /**
@@ -462,9 +523,13 @@ export async function enrichFood(
 
   // Everything previous runs have already put to a source, so this one moves on
   // to gaps nothing has tried rather than repeating the head of the catalogue.
+  // Bounded: one attempt is recorded per run, and four of them cover the whole
+  // catalogue, so the most recent handful is always more than a full cycle.
   const previous = await prisma.enrichmentProposal.findMany({
     where: { foodId },
     select: { requestedKeys: true },
+    orderBy: { createdAt: "desc" },
+    take: ATTEMPT_HISTORY_LIMIT,
   });
   const requested = nextNutritionKeys(missing, previous.flatMap((proposal) => proposal.requestedKeys));
 
@@ -479,30 +544,52 @@ export async function enrichFood(
     referenceUrls(food.sources),
   );
 
-  // Stamped only once a request has actually been made and answered, whatever it
-  // answered. It records an attempt, not a success; a successful one
-  // additionally writes a FoodSource.
-  //
-  // It used to be stamped before any of this could fail, which meant an
-  // unreachable Ollama or a rate limit - neither of which is a statement about
-  // the food - kept it out of the sweep for the whole retry window, over what
-  // was an outage. Anything that throws above now leaves `enrichedAt` alone, so
+  // Reaching here means a request was made and answered, whatever it answered:
+  // anything that throws above - an unreachable Ollama, a rate limit, a network
+  // failure that stopped every page being read - leaves `enrichedAt` alone so
   // the job's own retry budget decides, as it does for every other job kind.
+  //
+  // Both halves of recording the attempt happen together, because they are the
+  // same fact. `enrichedAt` withholds the food for the retry window; the
+  // proposal's `requestedKeys` is what a later run reads to ask about different
+  // gaps. Recording only the first is how a run that found nothing came to
+  // suppress the food for a month and then ask the identical twelve nutrients
+  // again, which made most of the catalogue permanently unreachable.
+  const verified = extracted
+    ? chooseNutrition({ calculatedPer100g: null, modelPer100g: extracted.per100g, matchedIngredientRatio: 0 })
+    : null;
+  // What the source offered for the gaps this run asked about. Values outside
+  // `missing` are the source repeating something the food already has.
+  const offered = (verified && hasAnyNutrient(verified.per100g)
+    ? Object.entries(verified.per100g).filter(([nutrientKey, value]) => missing.includes(nutrientKey) && value != null)
+    : []) as [string, number][];
+  const offeredServing = needsServing && extracted?.servingSizeG ? extracted.servingSizeG : null;
+
+  if (!offered.length && !offeredServing) {
+    await prisma.$transaction([
+      prisma.food.update({ where: { id: foodId }, data: { enrichedAt: new Date() } }),
+      // An attempt that found nothing, which is the common case and the one the
+      // rotation exists for. It carries no values, so it never appears in a
+      // review queue - it is here only so the next run knows not to ask again.
+      prisma.enrichmentProposal.create({
+        data: {
+          foodId,
+          sourceUrl: extracted?.url ?? null,
+          model: extracted?.model ?? null,
+          retrievedAt: new Date(),
+          requestedKeys: [...requested],
+        },
+      }),
+    ]);
+    return { filledNutrientKeys: [], servingFilled: false, proposedKeys: [] };
+  }
+
+  // Both `offered` and `offeredServing` are empty without an extraction, so the
+  // branch above has already returned in that case. Stated rather than asserted
+  // away, so the invariant is checked rather than assumed.
+  if (!extracted) return { filledNutrientKeys: [], servingFilled: false, proposedKeys: [] };
+
   await prisma.food.update({ where: { id: foodId }, data: { enrichedAt: new Date() } });
-  if (!extracted) return { filledNutrientKeys: [], servingFilled: false };
-
-  // Use the established verification/selection gate; an empty extraction never writes.
-  const verified = chooseNutrition({ calculatedPer100g: null, modelPer100g: extracted.per100g, matchedIngredientRatio: 0 });
-  if (!hasAnyNutrient(verified.per100g) && !(needsServing && extracted.servingSizeG))
-    return { filledNutrientKeys: [], servingFilled: false };
-
-  // What the source actually offered for the gaps this run asked about. Values
-  // outside `missing` are the source repeating something the food already has.
-  const offered = Object.entries(verified.per100g).filter(
-    ([nutrientKey, value]) => missing.includes(nutrientKey) && value != null,
-  ) as [string, number][];
-  const offeredServing = needsServing && extracted.servingSizeG ? extracted.servingSizeG : null;
-  if (!offered.length && !offeredServing) return { filledNutrientKeys: [], servingFilled: false, proposedKeys: [] };
 
   // Whether this run may write, or only propose. Either way it records what it
   // found and what it asked for: the proposal is the audit trail as well as the
