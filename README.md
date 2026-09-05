@@ -715,9 +715,16 @@ force a re-import.
 
 ## Database migrations, upgrade, backup and restore
 
-The container runs `prisma migrate deploy` at start-up. It deliberately does
+A separate one-shot `migrate` service runs `prisma migrate deploy` and exits;
+the app and the worker both wait for it to succeed before starting, so neither
+ever runs against a database that is behind the code. It deliberately does
 **not** run `prisma db push`, which can drop columns to force the live database
 to match the schema.
+
+Migrations used to run from the entrypoint of both long-running containers,
+which meant they raced each other on every start and the Prisma CLI had to ship
+in the image that serves traffic. The `migrate` service is the only image
+carrying that CLI, and it is short-lived.
 
 Migrations also install the nutrient catalogue, which is reference data rather
 than demo data: every stored nutrient value has a foreign key onto it, so a
@@ -745,8 +752,8 @@ the server. A bind-mounted backup on the same pool is not a backup.
 ### A migration that failed
 
 Prisma records a migration that failed and then refuses to apply any later one,
-which shows up as `Error: P3009` in the app **and** the worker log, both of them
-restarting for ever:
+which shows up as `Error: P3009` in the `migrate` service log, leaving the app
+and the worker waiting on a dependency that never completes:
 
 ```
 migrate found failed migrations in the target database, new migrations will not
@@ -754,14 +761,14 @@ be applied. The <name> migration started at <time> failed
 ```
 
 Each migration is applied to PostgreSQL inside a transaction, so a failed one
-left nothing of itself behind. The start-up script therefore marks it rolled
+left nothing of itself behind. The migration service therefore marks it rolled
 back and applies it again, once, which recovers the stack by itself as soon as
 an image carrying the corrected migration is pulled. Should the second attempt
-fail too, start-up stops with the database error that caused it - fix the
-migration rather than the record of it. The same recovery by hand:
+fail too, it stops with the database error that caused it - fix the migration
+rather than the record of it. The same recovery by hand:
 
 ```sh
-docker compose run --rm --entrypoint sh app -c \
+docker compose run --rm --entrypoint sh migrate -c \
   'node ./node_modules/prisma/build/index.js migrate resolve --rolled-back <name>'
 ```
 

@@ -24,6 +24,29 @@ services:
     expose:
       - "5432"
 
+  # Applies pending migrations once, then exits. The app and the worker both
+  # wait for it to complete successfully, so neither starts against a database
+  # that is behind the code, and - unlike the old arrangement, where both ran
+  # `migrate deploy` from their own entrypoints - nothing races.
+  #
+  # This is the only image carrying the Prisma CLI. It is short-lived and serves
+  # no traffic.
+  migrate:
+    image: ${MIGRATE_IMAGE:-ghcr.io/macnite/nutricore-migrate:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+    restart: "no"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nutricore}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-nutricore}?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
   app:
     # Published by .github/workflows/publish.yml. Pin a version tag in .env for
     # a reproducible deployment; `latest` only ever points at a release.
@@ -51,6 +74,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
       interval: 30s
@@ -80,7 +105,8 @@ services:
     # The image healthcheck reads NUTRICORE_PROCESS and switches to the worker's
     # heartbeat file, so the worker reports healthy instead of sitting in
     # "starting" for ever. Repeated here only to give it a start period long
-    # enough for `prisma migrate deploy` on a slow disk.
+    # enough for a first poll on a slow disk; migrations have already finished
+    # in the `migrate` service by the time this starts.
     healthcheck:
       test: ["CMD", "./healthcheck.sh"]
       interval: 30s
@@ -90,6 +116,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    security_opt:
+      - no-new-privileges:true
 
 # networks:
 #   ollama:
