@@ -190,6 +190,7 @@ All variables are documented inline in [`.env.example`](.env.example).
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `APP_IMAGE` | no | Prebuilt image to run; ignored when building locally |
+| `MIGRATE_IMAGE` | no | The one-shot migration runner. Pin it to the same tag as `APP_IMAGE` |
 | `APP_URL` | yes | Drives the `Secure` cookie flag and origin checks |
 | `APP_SECRET` | yes | Minimum 32 characters; validated at start-up |
 | `POSTGRES_PASSWORD` | yes | Compose builds `DATABASE_URL` from it |
@@ -763,6 +764,32 @@ database without it cannot hold a single food. Adding a nutrient means adding it
 to `src/lib/nutrients.ts` **and** shipping a migration; a test fails if the two
 drift apart. The optional development seed is only ever about sample foods,
 diary entries and a demo account.
+
+### Upgrading to the release that added the migration service
+
+Three things changed that an existing deployment has to know about. The compose
+file itself needs no editing - the `migrate` service is already in it - but two
+of these will stop the app from starting if they are ignored.
+
+1. **`APP_URL` must be HTTPS for a public hostname.** The `Secure` flag on the
+   session cookie is derived from it, so a public deployment on a plain-HTTP
+   `APP_URL` was silently issuing session cookies without it. Start-up now
+   refuses that combination rather than continuing quietly. Loopback, `.local`
+   and private-range addresses still start over HTTP, since that is the
+   self-hosted LAN case the allowance exists for. If TLS is terminated somewhere
+   the application cannot see, set `ALLOW_INSECURE_APP_URL=true`.
+2. **Set `TRUSTED_PROXY_HOPS` if you run behind a reverse proxy** - almost
+   certainly `1`. `X-Forwarded-For` is no longer trusted by default, because a
+   client could otherwise write its own rate-limit key and never meet a limit.
+   Left at `0` behind a proxy, sign-in throttling still works but every client
+   shares one bucket. Make sure the outermost proxy strips inbound
+   `X-Forwarded-For`.
+3. **Pin `MIGRATE_IMAGE` alongside `APP_IMAGE`** if you pin versions at all.
+
+Registration also closes once the first account exists; on an instance that
+already has accounts, the sign-up page is now closed rather than open to anyone
+who knows the URL. `REGISTRATION_MODE=open` restores the old behaviour if that
+is genuinely wanted.
 
 ```sh
 # Upgrade
