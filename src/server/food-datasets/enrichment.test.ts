@@ -211,6 +211,23 @@ describe("importing a shipped enrichment artifact", () => {
     expect(foodSource.createMany).not.toHaveBeenCalled();
   });
 
+  it("reports the successful creates when another create loses a race", async () => {
+    // A batched `createMany` returns one total, so a single racing duplicate
+    // used to make every other create in the batch unattributable and the whole
+    // lot went uncounted. One statement per fill keeps each answer its own.
+    writeArtifact([record([{ key: "iodine", value: 12 }, { key: "calcium", value: 100 }])]);
+    food.findMany.mockResolvedValue([{ id: "f1", externalProvider: "BLS", externalId: "B105000", nutrients: [] }]);
+    prismaMock.$transaction.mockResolvedValue([{ count: 1 }, { count: 0 }]);
+
+    const outcome = await importEnrichmentDataset();
+
+    expect(outcome?.stats.filled).toBe(1);
+    expect(foodSource.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ metadata: expect.objectContaining({ nutrientKeys: ["iodine"] }) })],
+      skipDuplicates: true,
+    });
+  });
+
   it("costs one query when the checksum has not changed", async () => {
     const checksum = writeArtifact([record([{ key: "iodine", value: 12 }])]);
     datasetImport.findUnique.mockResolvedValue({ checksum, recordCount: 1 });

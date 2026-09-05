@@ -589,8 +589,6 @@ export async function enrichFood(
   // away, so the invariant is checked rather than assumed.
   if (!extracted) return { filledNutrientKeys: [], servingFilled: false, proposedKeys: [] };
 
-  await prisma.food.update({ where: { id: foodId }, data: { enrichedAt: new Date() } });
-
   // Whether this run may write, or only propose. Either way it records what it
   // found and what it asked for: the proposal is the audit trail as well as the
   // review queue, and a later run reads `requestedKeys` to avoid asking the
@@ -603,6 +601,12 @@ export async function enrichFood(
   const supersededKeys: string[] = [];
   let servingFilled = false;
   await prisma.$transaction(async (tx) => {
+    // The cooldown and the attempt record are one fact, so they are written
+    // together here as they already are on the empty-result path. Stamped
+    // outside, a failed profile lookup or a failed proposal write left the food
+    // suppressed for the retry window with no record of what was asked - the
+    // same inconsistency, on the branch that happened to find something.
+    await tx.food.update({ where: { id: foodId }, data: { enrichedAt: new Date() } });
     const proposal = await tx.enrichmentProposal.create({
       data: {
         foodId,

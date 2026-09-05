@@ -215,12 +215,18 @@ async function writeChunk(records: unknown[], knownKeys: ReadonlySet<string>, re
     ),
     // `skipDuplicates` rather than a pre-check: another importer may have
     // created the same row between the read above and this write.
-    ...(creates.length
-      ? [prisma.foodNutrient.createMany({
-          data: creates.map((fill) => ({ foodId: fill.foodId, nutrientKey: fill.nutrientKey, value: fill.value, origin: AI_ENRICHMENT_ORIGIN })),
-          skipDuplicates: true,
-        })]
-      : []),
+    //
+    // One statement per fill, matching the updates above, because a batched
+    // `createMany` reports only a total: a single racing duplicate then made it
+    // impossible to say which of the others had gone in, and the whole batch
+    // had to be left uncounted. Attribution is worth the extra statements, and
+    // the update path already pays them.
+    ...creates.map((fill) =>
+      prisma.foodNutrient.createMany({
+        data: [{ foodId: fill.foodId, nutrientKey: fill.nutrientKey, value: fill.value, origin: AI_ENRICHMENT_ORIGIN }],
+        skipDuplicates: true,
+      }),
+    ),
   ]);
 
   const written = new Map<string, { keys: string[]; url: string | null; model: string | null }>();
@@ -235,12 +241,9 @@ async function writeChunk(records: unknown[], knownKeys: ReadonlySet<string>, re
   updates.forEach((fill, index) => {
     if ((results[index] as { count: number }).count > 0) note(fill);
   });
-  // `createMany` reports one total rather than a result per row. When every row
-  // it was given went in, each is confirmed; when some collided there is no way
-  // to tell which, so none is claimed - an undercount in a rare race is better
-  // than provenance naming a value somebody else wrote.
-  const createdCount = creates.length ? (results[updates.length] as { count: number }).count : 0;
-  if (createdCount === creates.length) creates.forEach(note);
+  creates.forEach((fill, index) => {
+    if ((results[updates.length + index] as { count: number }).count > 0) note(fill);
+  });
 
   stats.filled += [...written.values()].reduce((total, entry) => total + entry.keys.length, 0);
 
