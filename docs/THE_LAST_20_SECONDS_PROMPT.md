@@ -56,8 +56,10 @@ The four intercut story scenes are:
 1. The last 20 seconds of a meal: quick meal logging from text and/or a meal
    image, then a visible queued/review state and provenance rather than magic.
 2. The last 20 seconds of a workout: log activity type, intensity, and duration;
-   show the estimated active calories as a separate activity record, never as a
-   promise that exercise “earns” food or changes the daily allowance.
+   show the estimated active calories as their own record. Whether they are
+   added to that day's calorie target is the person's setting (on by default),
+   so show it as a choice they made, never as a promise that exercise “earns”
+   food.
 3. The last 20 seconds of a manual body check-in: enter weight and selected body
    circumferences, then see progress in charts/table and the body visualisation.
 4. The last 20 seconds of a guided optical body scan: front and side capture,
@@ -94,12 +96,24 @@ Daily food and nutrition
 - Food search is local-first and includes barcode, exact matches, favourites,
   recent/frequent foods, custom foods, cached external foods, fuzzy matching,
   then remote results. Ranking is deterministic and source badges are visible.
+- Two generic food databases ship with the application and answer without any
+  network request: the Bundeslebensmittelschlüssel (BLS) 4.0 for German, and
+  USDA FoodData Central (Foundation and SR Legacy) for English. Which is asked
+  first follows the interface language. A USDA API key is optional and only
+  extends the search online.
 - Open Food Facts powers optional barcode and text lookup with caching,
   provenance, and graceful failure when unreachable.
+- A barcode can be scanned with the device camera from the search field and the
+  recipe form, and typed by hand as well. A live camera needs an HTTPS origin.
 - Users can create custom foods with serving/basis information and optional
   density; empty nutrient fields remain unknown.
 - Recipes can be created and edited from foods, show nutrition per serving and
   per 100 g with coverage, and log immutable recipe snapshots.
+- A recipe can be published to the other members of the same installation, and
+  another member can save it as their own independent copy. This is
+  instance-local only: no public access, no federation, no feed, no profiles, no
+  comments and no ranking. Do not present it as social networking or as sharing
+  beyond the private server.
 
 Optional local AI and research
 - AI features are optional and use a separately operated local Ollama service;
@@ -119,10 +133,16 @@ Optional local AI and research
   silently accepted as fact.
 
 Activity and progress
-- A daily activity log records activity, intensity, and duration. Active-calorie
-  estimates use a snapshotted MET value and the user’s effective weight. They
-  remain separate from the Mifflin–St Jeor/TDEE daily allowance to avoid double
-  counting.
+- A daily activity log records activity, intensity, and duration, from a curated
+  library of 21 activities with intensity variants. Active-calorie estimates use
+  a MET value from the 2024 Adult Compendium of Physical Activities, snapshotted
+  per entry with its compendium code and the body weight used, so an old entry
+  never silently changes.
+- Adding those calories to that day's calorie target is a per-user setting in
+  Settings, on by default. The stored Mifflin–St Jeor target is never rewritten:
+  the addition happens when the day is read, so turning the setting off restores
+  the plain target without touching any history. Always call the active-calorie
+  figure an estimate.
 - Weight tracking includes entries, notes, a chart, seven-day moving average,
   goal line, accessible text summary, and table.
 - Nutrition progress charts use diary history and the applicable target.
@@ -167,12 +187,15 @@ Privacy, ownership, administration, and portability
   a PWA manifest.
 
 NOT SHIPPED — NEVER PRESENT AS AVAILABLE
-- USDA FoodData Central adapter is designed/unit-tested but not wired into the
-  UI. Do not show it, name it as a source, or imply it ships.
+- AI research does not find its own sources. Source URLs for a research run are
+  supplied by hand; do not show automatic source discovery on that screen.
+- There is no fallback model. A low-confidence answer is reported as
+  low-confidence; it is not silently retried against a larger model.
+- Activity entries are not yet part of the JSON export. Do not show them in it.
 - Do not invent wearables, Apple Health, Google Fit, step tracking, coaching,
-  social sharing, streaks, push notifications, cloud sync, multi-device sync,
-  offline data entry, automatic food recognition without review, or medical
-  advice.
+  public or cross-instance social sharing, streaks, push notifications, cloud
+  sync, multi-device sync, offline data entry, automatic food recognition
+  without review, or medical advice.
 
 NON-NEGOTIABLE CLAIMS GUARDRAILS
 1. Never call the optical body scan a “measurement,” “3D scan,” “accurate,”

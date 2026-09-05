@@ -26,13 +26,23 @@ Implemented and covered by tests:
 - **Calorie target** — Mifflin-St Jeor. Every component (BMR, activity
   multiplier, TDEE, goal adjustment, calculated target, manual override) is
   stored and displayed, never just the final number.
-- **Daily diary** — breakfast/lunch/dinner/snacks, add, edit, remove, copy the
-  previous day, day navigation, per-meal and per-day totals.
+- **Today** — the day view, and the application's start page: breakfast, lunch,
+  dinner and snacks, add, edit, remove, copy the previous day, day navigation,
+  per-meal and per-day totals, an energy summary and a micronutrient panel with
+  coverage. Navigation is Today, Foods and Progress, with Settings behind the
+  account button; `/diary` remains only as a date-preserving redirect.
 - **Nutrition snapshots** — every entry freezes its nutrition at logging time,
   so a later provider update cannot rewrite history.
 - **Food search** — local-first pipeline (barcode → exact → favourites →
   recent/frequent → custom foods → cached external → fuzzy → remote), debounced,
   with deterministic ranking and visible source badges.
+- **Barcode scanning in the browser** — from the food search field and the
+  recipe form. The camera is decoded on the device (`@zxing/browser`, loaded
+  only when the scanner is opened) and the result is looked up exactly like a
+  typed barcode. Manual entry still works; a live camera needs an HTTPS origin.
+- **Bundled food databases** — BLS 4.0 and USDA FoodData Central (Foundation
+  and SR Legacy) ship with the application, are imported into PostgreSQL, and
+  answer without a network request. See [Food sources](#food-sources).
 - **Open Food Facts** — barcode lookup and free-text search, local caching,
   full provenance, graceful degradation when unreachable.
 - **Custom foods** — user-created foods with an explicit basis, servings and
@@ -43,49 +53,92 @@ Implemented and covered by tests:
   for the other members of this installation, browse what they have shared, and
   save a shared recipe as your own independent copy. See
   [Sharing recipes](#sharing-recipes).
-- **Weight tracking** — entries, chart with a 7-day moving average and goal
-  line, plus an accessible text summary and table.
-- **Settings** — profile, target override, language, AI and research toggles.
-  Secrets are never displayed.
+- **Sport and activity** — a per-day activity log with 21 activities and their
+  intensity variants. Active calories come from the MET value of the
+  [2024 Adult Compendium of Physical Activities](https://pacompendium.com/adult-compendium/),
+  snapshotted per entry together with its compendium code and the body weight
+  the estimate used, so an old entry never silently changes. Adding them to the
+  day's calorie target is a per-user switch (on by default) in Settings.
+- **Weight and body measurements** — one check-in records weight, notes, body
+  circumferences and, where a scale supplies them, body composition. The
+  measurement chart plots any of them together, with a 7-day moving average and
+  the goal line from the profile's target weight, plus an accessible text
+  summary and table.
+- **Body progress** — a four-axis composition diamond and a schematic body
+  figure drawn from the recorded circumferences, each with per-value provenance
+  distinguishing a typed number from an accepted optical estimate. Either
+  visualisation can be switched off on its own.
+- **Body scanning** — opt-in two-view photo capture that *estimates*
+  circumferences on CPU, reviewed by hand before anything is recorded. See
+  [Body scanning](#body-scanning).
+- **Progress charts** — daily achievement of the calorie, macro and
+  micronutrient targets over time, and recorded active calories by day.
+- **Settings** — profile, target override, language, theme, whether activity
+  calories count towards the target, the AI, web-research and AI-approval
+  switches, which body visualisations are drawn, exports, invitations where
+  SMTP is configured, and account deletion. Secrets are never displayed.
 - **Administration** — for the `ADMIN` role only: invite or batch-invite users with single-use
-  links, activate and deactivate accounts, watch the AI job queue with its
-  retries and errors, and check service reachability (diagnostics). Reachable
-  from Settings → Administration.
-- **Export** — versioned JSON of all personal records, including what you have
-  published, plus diary and weight CSV. Credentials are excluded.
+  links, activate and deactivate accounts, configure SMTP, watch the AI job
+  queue with its retries and errors, import the bundled food databases, run and
+  export the nutrition backfill, and check service reachability (diagnostics).
+  Reachable from Settings → Administration.
+- **Export** — versioned JSON (format version 3) of profile, targets, weights,
+  body measurements, body-scan estimates and decisions, favourites, foods,
+  recipes, what you have published, diary days and research runs, plus diary
+  and weight CSV. Credentials are excluded, and so are the captured scan
+  images, which are deleted minutes after a scan runs. Activity entries are the
+  one personal record the JSON envelope does not carry yet.
 - **German and English** throughout, with locale-correct number formatting
   (`1.234,5 kcal` / `1,234.5 kcal`).
 - **Light / dark / system themes**, responsive layout with bottom navigation on
   mobile, PWA manifest.
 
+AI, all of it asynchronous. `AI_ENABLED` and the per-user switch both default
+to on, but nothing is ever called until a worker picks the job up and reaches
+the configured Ollama; setting either to off means no request leaves the server
+for AI purposes. See
+[Asynchronous AI worker, Ollama, and SearXNG](#asynchronous-ai-worker-ollama-and-searxng):
+
+- **Quick meal** — free text, a photo, a public recipe URL, or any combination.
+  The model decomposes the sentence, each component is resolved against real
+  foods, and what is logged carries its provenance. See
+  [How a quick meal becomes diary entries](#how-a-quick-meal-becomes-diary-entries).
+- **Recipe creation from a link, an image or free text** — stored as a `DRAFT`
+  recipe that cannot be logged until it is confirmed.
 - **AI food search** — when a search finds nothing, a local Ollama model
   reconstructs the dish, ingredients are matched against the database, and the
   result is reviewed and confirmed before anything is stored. See
   [AI food search](#ai-food-search).
+- **Nutrition backfill** — fills gaps in the food catalogue from a source page,
+  marks every value it writes as `AI_ENRICHMENT`, waits for review by whoever
+  owns the food, and can export the approved values for contribution back.
 - **Web research** — optional, off by default: an AI run may be given source
   URLs, fetched through an SSRF guard and sanitised before the model sees them.
-
-Designed and unit-tested, but not yet wired into the UI — see
-[Deferred to Phase 2](#deferred-to-phase-2):
-
-- USDA FoodData Central adapter
 
 ## Architecture
 
 ```
-src/app/        App Router pages and route handlers
+src/app/        App Router pages, server actions and route handlers
 src/components/ Shared UI
 src/server/     Session, authorisation and domain services
 src/lib/        Pure domain logic (nutrition, calories, units, ranking, …)
 src/providers/  External adapters and the food source registry
-                (Open Food Facts, USDA FoodData Central, FatSecret, Ollama)
+                (Open Food Facts, USDA FoodData Central, FatSecret, Ollama,
+                 the body-scan estimator)
+src/middleware.ts The security headers and the password-change gate
+src/worker.ts   The second process: the AI queue, the sweepers, dataset import
 src/i18n/       Locale resolution
 messages/       de.json / en.json translation catalogues
 prisma/         Schema, migrations and the optional development seed
 datasets/raw/     Upstream food-database downloads (a build input, not shipped)
 datasets/bundled/ The converted, versioned artifacts that do ship
+scripts/        Dataset conversion and import, the enrichment export, the
+                standalone start-up wrapper
+docker/         Entrypoint, healthcheck and the migration runner
 e2e/            Playwright end-to-end specs
-tests/          Authorisation and i18n integration tests
+tests/          Authorisation, security, retention, migration-replay and i18n
+                integration tests
+website/        The zero-dependency generator for the public site
 ```
 
 Route handlers and server actions resolve the session and authorise the tenant
@@ -97,6 +150,9 @@ has a user relation. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 - Docker 25+ with Compose v2 (production), or
 - Node.js 22+ and PostgreSQL 16+ (development)
+
+The images are built on Node 22 (Alpine) and the compose stack runs
+PostgreSQL 17.6, which is what CI tests against.
 
 ## Quick start
 
@@ -116,12 +172,17 @@ automatically.
 
 **Administration** lives at `/admin`, reachable from Settings → Administration
 for accounts with the `ADMIN` role. It invites users, activates and deactivates
-accounts, and shows the AI job queue. NutriCore sends no email: creating an
-invitation shows the single-use link once, on that page, for the administrator
-as a fallback. With SMTP enabled, administrators can send individual or batch
-invitations, and every signed-in user can invite another user from Settings.
-to pass on themselves. If the link is lost, "Resend" issues a new one and
-revokes the old.
+accounts, configures the SMTP mailer, imports the bundled food databases, runs
+and exports the nutrition backfill, shows the AI job queue and reports service
+reachability.
+
+Invitations work with or without email. Creating one always shows the
+single-use link once, on that page, for the administrator to pass on
+themselves; with SMTP configured the same link is also delivered by mail, and
+administrators can send individual or batch invitations. Every signed-in
+member — not only an administrator — can invite another user from Settings once
+SMTP is configured. If a link is lost, "Resend" issues a new one and revokes the
+old.
 
 When upgrading an installation that already had exactly one account before
 roles were introduced, the database migration automatically promotes that
@@ -147,12 +208,15 @@ only rendered for administrators.
 docker compose up -d --build
 ```
 
-Images are published to the GitHub Container Registry by the
-[Publish image](.github/workflows/publish.yml) workflow:
+Two images are published to the GitHub Container Registry by the
+[Publish image](.github/workflows/publish.yml) workflow, from the same
+Dockerfile and with the same set of tags: `ghcr.io/macnite/nutricore`, which
+serves traffic and runs the worker, and `ghcr.io/macnite/nutricore-migrate`,
+the one-shot migration runner and the only one carrying the Prisma CLI.
 
 | Tag | Points at |
 | --- | --- |
-| `latest` | the most recent `v*.*.*` release |
+| `latest` | the tip of `main`, and the most recent `v*.*.*` release. Convenient, not reproducible |
 | `v1.2.3`, `1.2`, `1` | a specific release |
 | `main` | the tip of `main` — development, may be unstable |
 | `sha-abc1234` | one exact commit |
@@ -161,7 +225,12 @@ Pin a version tag in `.env` for a reproducible deployment:
 
 ```env
 APP_IMAGE=ghcr.io/macnite/nutricore:v0.1.0
+MIGRATE_IMAGE=ghcr.io/macnite/nutricore-migrate:v0.1.0
 ```
+
+Pin both, always to the same tag: leaving `MIGRATE_IMAGE` at `latest` while
+`APP_IMAGE` is pinned runs one release's migrations against another release's
+code, which is the mismatch the migration service exists to prevent.
 
 Releases build for `linux/amd64` and `linux/arm64`; pushes to `main` build
 `amd64` only. If the package is private, authenticate first with a personal
@@ -190,18 +259,26 @@ All variables are documented inline in [`.env.example`](.env.example).
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `APP_IMAGE` | no | Prebuilt image to run; ignored when building locally |
-| `MIGRATE_IMAGE` | no | The one-shot migration runner. Pin it to the same tag as `APP_IMAGE` |
+| `APP_PORT` | no | Host port the app is published on; default `3000` |
+| `MIGRATE_IMAGE` | no | The one-shot migration runner, a *separate* image (`ghcr.io/macnite/nutricore-migrate`) tagged in lockstep with the app image. Pin it to the same tag as `APP_IMAGE` |
 | `APP_URL` | yes | Drives the `Secure` cookie flag and origin checks |
 | `APP_SECRET` | yes | Minimum 32 characters; validated at start-up |
 | `POSTGRES_PASSWORD` | yes | Compose builds `DATABASE_URL` from it |
+| `POSTGRES_DB` / `POSTGRES_USER` | no | Default `nutricore` for both; compose builds `DATABASE_URL` from them too |
+| `POSTGRES_DATA_PATH` / `BACKUP_PATH` | no | Host paths bind-mounted into the database container; default `./data/postgres` and `./backups` |
 | `DATABASE_URL` | outside compose | Standard PostgreSQL URL |
 | `DEFAULT_LOCALE` | no | `de` (default) or `en` |
+| `IMAGE_UPLOAD_MAX_MB` | no | Largest meal, recipe or body-scan image, in whole MiB. Default 5, clamped to 15; anything else falls back to 5. Read at build time for the request ceilings — see below |
 | `OPENFOODFACTS_ENABLED` | no | Default `true` |
 | `OPENFOODFACTS_USER_AGENT` | recommended | App name plus a real contact address, e.g. `NutriCore/0.1 (you@example.com)`. OFF answers 403 to callers it cannot identify; `/admin` flags a placeholder value |
 | `OPENFOODFACTS_SEARCH_URL` | no | Search-a-licious service; default `https://search.openfoodfacts.org` |
 | `OPENFOODFACTS_SEARCH_BACKEND` | no | `search-a-licious` (default) or `legacy` to pin `/cgi/search.pl` |
+| `OPENFOODFACTS_BASE_URL` / `USDA_BASE_URL` | no | The REST endpoints those adapters call. Defaults are the public services; override only to point at a mirror |
 | `AI_ENABLED` / `AI_BASE_URL` / `AI_MODEL` | no | Where the model lives and which one to use; defaults to `http://ollama:11434` and `qwen3.5:4b`. The superseded `OLLAMA_BASE_URL` / `OLLAMA_MODEL` are still read as a fallback |
-| `AI_FALLBACK_MODEL` / `AI_CONFIDENCE_THRESHOLD` | no | Future low-confidence fallback policy; fallback is not called for every job |
+| `AI_PROVIDER` | no | Which adapter serves AI. `ollama` is the only implementation and the default |
+| `AI_FALLBACK_MODEL` / `AI_CONFIDENCE_THRESHOLD` | no | Reserved for a low-confidence fallback policy. Both are accepted and validated at start-up, and nothing reads them yet — no job ever calls a fallback model today |
+| `OLLAMA_MAX_OUTPUT_TOKENS` | no | Hard ceiling on generated tokens; default `2048`. An answer stopped by it is reported as *Answer cut off* |
+| `AI_WORKER_POLL_MS` | no | How often the worker polls the queue; default `2000` |
 | `SEARXNG_URL` / `SEARXNG_TIMEOUT_MS` | no | JSON source discovery used only after local foods miss |
 | `RETAIN_AI_INPUT_DAYS` | no | Days before ingestion text and source URLs are emptied; default 90, `0` disables |
 | `RETAIN_AI_JOB_DAYS` / `RETAIN_FAILED_AI_JOB_DAYS` | no | Days before finished AI jobs and their attempts are deleted; defaults 30 and 90, `0` disables |
@@ -210,7 +287,7 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `ALLOW_INSECURE_APP_URL` | no | Default `false`. Allows a production `APP_URL` that is neither HTTPS nor local, for TLS terminated where the application cannot see it |
 | `TRUSTED_PROXY_HOPS` | no | Default `0`. How many reverse proxies sit in front of this deployment; `X-Forwarded-For` is ignored unless this is set |
 | `INVITATION_EXPIRY_HOURS` | no | Single-use invitation lifetime; default 48 hours |
-| `SMTP_ENABLED` / `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | no | SMTP delivery; setting `SMTP_HOST` makes environment configuration take precedence over the Administrator Panel |
+| `SMTP_ENABLED` / `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | no | SMTP delivery. Setting `SMTP_HOST` makes the environment the source of truth and takes precedence over the Administrator Panel, where `SMTP_ENABLED` then defaults to `true`. Without `SMTP_HOST` the panel's stored settings are used, and the password it holds is encrypted with `APP_SECRET` |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | no | Optional SMTP authentication credentials |
 | `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | with environment SMTP | Sender address and display name for invitation email |
 | `OLLAMA_TIMEOUT_SECONDS` | no | Model generation timeout; default `600` seconds |
@@ -220,8 +297,8 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `FATSECRET_ENABLED` | no | Default `false`. Optional external fallback; nothing changes for an installation that leaves it off |
 | `FATSECRET_CLIENT_ID` / `FATSECRET_CLIENT_SECRET` | with FatSecret | OAuth 2.0 client credentials, exchanged server-side only. The Platform API also requires this deployment's outbound IP address to be registered with your FatSecret account |
 | `FATSECRET_REGION` / `FATSECRET_LANGUAGE` | no | Premier-plan localisation. Left empty on a basic plan, where the capability is skipped rather than substituted |
-| `RESEARCH_ENABLED` | no | Default `false`; only enables web sources for AI research |
-| `RESEARCH_PROVIDER` / `SEARCH_API_*` | no | Reserved for Phase 2; leave unset when using SearXNG |
+| `RESEARCH_ENABLED` | no | Default `false`. The deployment-wide switch for reaching the open web on a user's behalf: AI research source URLs, the component resolver's web tier, and the nutrition backfill, which is refused outright without it. Each also needs the per-user "Allow web research" switch |
+| `RESEARCH_PROVIDER` / `SEARCH_API_*` / `OLLAMA_WEB_API_KEY` | no | Reserved for a future search provider and unread today. Leave them unset: `SEARXNG_URL` alone selects SearXNG |
 | `LOG_LEVEL` | no | `debug`, `info` (default), `warn`, `error` |
 
 Start-up fails fast with a clear message if a required variable is missing or
@@ -836,12 +913,23 @@ docker compose run --rm --entrypoint sh migrate -c \
 npm install
 cp .env.example .env          # set APP_SECRET and POSTGRES_PASSWORD
 docker compose up -d db
+npx prisma generate
 npx prisma migrate deploy
 npm run db:seed               # nutrient catalogue only; safe anywhere
+npm run db:import:foods       # optional: the bundled BLS and USDA databases
 npm run db:seed:demo          # demo account and a month of fake data; needs
                               # SEED_PASSWORD, refuses to run in production
-npm run dev
+npm run dev                   # and, in a second terminal, npm run worker
 ```
+
+`npm run worker` is the same queue the `worker` container drains. Without it,
+every AI feature accepts work and nothing ever finishes it.
+
+Useful alongside those: `npm run db:studio` (Prisma Studio),
+`npm run datasets:convert` (regenerate `datasets/bundled` from
+`datasets/raw`), `npm run datasets:export:enrichment` (write the approved
+backfill artifact) and `npm run website` (build the public site with its link
+check).
 
 ## Testing
 
@@ -851,16 +939,22 @@ npm test           # Vitest only
 npm run test:e2e   # Playwright; starts the production server itself
 ```
 
-Unit tests cover the Mifflin-St Jeor equations and safety limits, TDEE,
-kcal/kJ, g/kg, sodium/salt, per-100 g and serving scaling, recipe totals and
-yields, unknown-value handling, coverage, rounding, locale formatting, the
-ranking function, moving averages, the OFF and Ollama adapters, the research
-schema and state machine, confidence scoring, the SSRF guard and CSV escaping.
+More than 80 Vitest files cover the Mifflin-St Jeor equations and safety limits,
+TDEE, kcal/kJ, g/kg, sodium/salt, per-100 g and serving scaling, recipe totals
+and yields, unknown-value handling, coverage, rounding, locale formatting, the
+ranking function, moving averages, MET-based active calories, the body-scan
+geometry and its capture checks, the body-progress visualisation geometry, the
+BLS and USDA readers against real fixture records, the OFF, USDA, FatSecret,
+SearXNG and Ollama adapters, AI answer repair and failure classification, the
+research schema and state machine, confidence scoring, the image-upload limit,
+the SSRF guard, credential redaction and CSV escaping.
 
 Integration tests run against a real PostgreSQL database and assert that one
 user cannot read or delete another user's foods, diary entries or weight
-history, and that account deletion removes every personal record. Set
-`TEST_DATABASE_URL` to enable them; they skip cleanly without it.
+history, that account deletion removes every personal record, that the durable
+rate limiter counts in the database, and that the retention sweeps delete what
+they claim to. Set `TEST_DATABASE_URL` to enable them; they skip cleanly
+without it.
 
 One of them replays the whole migration history into a scratch database seeded
 with the rows a running installation holds - including rows written by versions
@@ -868,13 +962,29 @@ that have since been replaced. Applying migrations to an empty database, which
 is all a plain `migrate deploy` in CI does, cannot catch a data migration that
 only fails on real data.
 
-End-to-end tests cover registration, onboarding, the transparent target,
-sign-in failure, creating and logging a food, editing a portion, unknown values
-rendering as a dash, day navigation, switching language, switching theme,
-export and diagnostics.
+Seven Playwright suites cover registration, onboarding, the transparent target,
+sign-in failure and sign-out, creating and logging a food, editing a portion,
+unknown values rendering as a dash, day navigation, the quick-action menu and
+its meal, recipe, activity and measurement forms, adding, editing and deleting
+activity entries, switching each body visualisation off on its own, switching
+language, switching theme, export, publishing and saving a shared recipe,
+withdrawing a publication, the admin panel and its diagnostics, and the AI runs
+- a queued quick meal, a finished recipe import, and a failed run that says why
+and can be re-run or thrown away from its row.
 
-`RATE_LIMIT_MULTIPLIER` exists only so the E2E suite can register many accounts
-from one address. Leave it unset in production.
+Two variables exist only for that suite and belong nowhere near production:
+`RATE_LIMIT_MULTIPLIER`, so many accounts can be registered from one address,
+and `REGISTRATION_MODE=open`, because the default `bootstrap` mode closes
+registration after the first account - which is exactly what
+`src/server/registration.test.ts` and `tests/registration-bootstrap.test.ts`
+assert.
+
+CI runs three jobs (`.github/workflows/ci.yml`): `test` for the checks above
+plus a production build and the Playwright suites, `datasets` for importing the
+committed artifacts into a real database and then re-importing them to prove it
+changed nothing, and `docker` for building both images - which also asserts
+that the migration runner carries the Prisma CLI and that the image serving
+traffic does not.
 
 ## Data sources and licensing
 
@@ -1042,9 +1152,20 @@ ever exposed (this invalidates existing sessions).
 ## Deferred to Phase 2
 
 These have interfaces, schemas and unit tests, but no user-facing flow yet:
-web research provider search (source URLs are supplied by hand today), browser
-barcode scanning (manual entry works), adaptive TDEE, photo/voice input, meal
-planning, household sharing and offline sync.
+adaptive TDEE, voice input, meal planning, household sharing and offline sync.
+
+**Source discovery in AI food search.** A research run is still given its
+source URLs by hand. SearXNG discovery itself is implemented and in use — the
+component resolver and the nutrition backfill both reach it — but the research
+screen does not call it, and `RESEARCH_PROVIDER` / `SEARCH_API_*` remain
+unread: `SEARXNG_URL` alone selects SearXNG.
+
+**A fallback model.** `AI_FALLBACK_MODEL` and `AI_CONFIDENCE_THRESHOLD` are
+validated at start-up and nothing reads them; a low-confidence answer is
+reported as low-confidence rather than retried against a second model.
+
+**Activity entries in the JSON export.** Everything else personal is in the
+envelope; the activity log is not there yet.
 
 The FatSecret adapter is complete and unit tested, but it has not been
 exercised against the live Platform API — no account was available — so treat

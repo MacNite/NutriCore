@@ -17,12 +17,16 @@ reading this repository.
 
 Three pages of HTML do not need a framework. What they do need is the one thing
 hand-written HTML cannot do: read the repository. Every figure on the site —
-the food counts, the nutrient total, the number of Prisma models, the Node and
-PostgreSQL versions — is derived at build time in
-[`src/data.mjs`](src/data.mjs) from `datasets/bundled/manifest.json`,
-`src/lib/nutrients.ts`, `prisma/schema.prisma`, `package.json`, the `Dockerfile`
-and `docker-compose.yml`. A number typed into a page is a number that goes
-stale silently; a number read out of the source tree cannot.
+the food counts and dataset versions, the nutrient total and its vitamin and
+mineral split, the number of Prisma models, the number of documented settings,
+the test and Playwright-suite counts, the Node and PostgreSQL versions — is
+derived at build time in [`src/data.mjs`](src/data.mjs) from
+`datasets/bundled/manifest.json`, `src/lib/nutrients.ts`,
+`prisma/schema.prisma`, `.env.example`, `package.json`, `src/`, `tests/`,
+`e2e/`, the `Dockerfile` and `docker-compose.yml`. Every read falls back rather
+than throwing, so the site still builds from a checkout without the dataset
+artifacts. A number typed into a page is a number that goes stale silently; a
+number read out of the source tree cannot.
 
 `--check` verifies the output before it is published: no internal link may
 point at a page that was not emitted, no referenced asset may be missing, and

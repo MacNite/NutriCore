@@ -32,15 +32,16 @@ const ENV_ROWS = [
   ["APP_URL", "http://localhost:3000", "Public URL. Cookies are marked <code>Secure</code> when this is https."],
   ["POSTGRES_PASSWORD", "required", "Compose builds <code>DATABASE_URL</code> from it, so the two cannot drift apart."],
   ["APP_IMAGE", `${facts.registry}:latest`, "Pin a version tag for a reproducible deployment."],
+  ["MIGRATE_IMAGE", `${facts.registry}-migrate:latest`, "The one-shot migration runner. Pin it to the <em>same</em> tag as <code>APP_IMAGE</code>."],
   ["DEFAULT_LOCALE", "de", "Default for new accounts and signed-out visitors: <code>de</code> or <code>en</code>."],
   ["BLS_ENABLED", "true", `The bundled German database — ${num(facts.foods.bls.records)} foods, answered locally.`],
   ["USDA_ENABLED", "true", `The bundled USDA releases — ${num(facts.foods.usda.records)} foods, answered locally.`],
   ["OPENFOODFACTS_ENABLED", "true", "Branded products over the network. Set a real <code>OPENFOODFACTS_USER_AGENT</code>."],
-  ["AI_ENABLED", "false", "Turns on the worker, the queue and the review screens. Nothing is called while it is off."],
+  ["AI_ENABLED", "true", "The queue and the review screens. Nothing is called unless <code>AI_BASE_URL</code> answers and the user leaves AI on."],
   ["AI_BASE_URL", "—", "Your Ollama instance. It is never started by this stack."],
   ["RESEARCH_ENABLED", "false", "Web research through SearXNG, behind the same review step."],
-  ["IMAGE_UPLOAD_MAX_MB", "5", "Whole MiB, 1–50. Enforced before anything is persisted."],
-  ["INVITATION_EXPIRY_HOURS", "72", "How long an invitation link stays valid."],
+  ["IMAGE_UPLOAD_MAX_MB", "5", "Whole MiB, 1–15. Enforced before anything is persisted, and read at build time for the request ceiling."],
+  ["INVITATION_EXPIRY_HOURS", "48", "How long a single-use invitation link stays valid."],
   ["SMTP_ENABLED", "false", "Invitations are shown in the interface when mail is off."],
 ];
 
@@ -84,7 +85,7 @@ const body = `
       <!-- ------------------------------------------------------------- -->
       <section class="doc-section" id="stack">
         <p class="eyebrow">01</p>
-        <h2 class="h2">One image, two processes</h2>
+        <h2 class="h2">Two images, three processes</h2>
         <div class="prose">
           <p>
             The build produces a Next.js standalone server: the application
@@ -94,17 +95,30 @@ const body = `
             <code>NUTRICORE_PROCESS</code>, decides which.
           </p>
           <p>
-            The entrypoint applies pending migrations before either process
-            answers, using <code>prisma migrate deploy</code> and never
+            Migrations run in a third process, from a second image built out of
+            the same Dockerfile. The <code>migrate</code> service applies
+            <code>prisma migrate deploy</code> once and exits, and the app and
+            the worker both wait for it to succeed, so neither ever answers
+            against a database that is behind the code. It never runs
             <code>db push</code>: a schema comparison can drop columns to make a
             live database match, which on an upgrade means losing data.
+          </p>
+          <p>
+            Running migrations from each long-running container's entrypoint,
+            as this used to, meant they raced on every start &mdash; and it
+            forced the Prisma CLI into the image that faces the network. The
+            migration image is now the only one carrying that CLI, and CI
+            asserts both halves of that split.
           </p>
         </div>
         ${code(
           "container",
-          `<span class="c"># The two processes, from one image</span>
+          `<span class="c"># Two processes from the application image</span>
 app     &rarr; node server.js                 <span class="c"># Next.js standalone</span>
-worker  &rarr; node --import tsx src/worker.ts <span class="c"># AI queue, dataset import</span>
+worker  &rarr; node --import tsx src/worker.ts <span class="c"># AI queue, sweeps, dataset import</span>
+
+<span class="c"># One process from the migration image, which then exits</span>
+migrate &rarr; prisma migrate deploy           <span class="c"># the only image with the CLI</span>
 
 <span class="c"># The health check knows which one it is inside</span>
 app     &rarr; wget http://127.0.0.1:3000/api/health
@@ -179,9 +193,9 @@ openssl rand -base64 48`,
             <h3>Bring the stack up</h3>
             <div class="prose">
               <p>
-                Compose starts PostgreSQL, waits for it to report healthy, then
-                starts the application and the worker. Both apply migrations on
-                the way up.
+                Compose starts PostgreSQL, waits for it to report healthy, runs
+                the one-shot <code>migrate</code> service, and only then starts
+                the application and the worker.
               </p>
             </div>
             ${code(
@@ -201,13 +215,22 @@ curl -s localhost:3000/api/health`,
             <h3>Import the bundled food databases</h3>
             <div class="prose">
               <p>
-                One command, safe to repeat: the manifest records a checksum per
-                artifact, so a second run costs one query per dataset and
-                changes nothing. The worker also runs this in the background on
-                startup, and <em>Admin &rarr; Food databases</em> has a button.
+                Nothing to run: the worker imports them in the background on
+                startup, and it is safe to repeat &mdash; the manifest records a
+                checksum per artifact, so a second pass costs one query per
+                dataset and changes nothing. <em>Admin &rarr; Food
+                databases</em> shows what is bundled against what is imported,
+                with a button to import or force a re-import. From a checkout,
+                the same work is one npm script.
               </p>
             </div>
-            ${code("bash", `docker compose exec app npm run db:import:foods`)}
+            ${code(
+              "bash",
+              `<span class="c"># from a checkout, not from inside the image</span>
+npm run db:import:foods
+npm run db:import:foods -- bls      <span class="c"># just one of them</span>
+npm run db:import:foods -- --force  <span class="c"># re-import an unchanged dataset</span>`,
+            )}
           </li>
 
           <li class="step">
@@ -383,12 +406,12 @@ SEARXNG_URL=http://searxng.lan:8080`,
             <div role="tabpanel">
               ${code(
                 "bash",
-                `<span class="c"># Pin a tag rather than tracking latest</span>
+                `<span class="c"># Pin both images, always to the same tag</span>
 echo 'APP_IMAGE=${facts.registry}:v${facts.version}' &gt;&gt; .env
+echo 'MIGRATE_IMAGE=${facts.registry}-migrate:v${facts.version}' &gt;&gt; .env
 
 docker compose pull
-docker compose up -d
-docker compose exec app npm run db:import:foods`,
+docker compose up -d`,
               )}
             </div>
             <div role="tabpanel" hidden>
@@ -416,7 +439,7 @@ npx prisma migrate deploy
 npm run db:seed          <span class="c"># nutrient catalogue</span>
 npm run db:import:foods  <span class="c"># ${num(facts.foods.total)} foods</span>
 npm run dev              <span class="c"># or: npm run build &amp;&amp; npm start</span>
-npm run worker           <span class="c"># second terminal, only with AI on</span>`,
+npm run worker           <span class="c"># second terminal: the queue and the sweeps</span>`,
               )}
             </div>
           </div>
@@ -429,10 +452,15 @@ npm run worker           <span class="c"># second terminal, only with AI on</spa
         <h2 class="h2">Upgrade, backup, restore</h2>
         <div class="prose">
           <p>
-            An upgrade is a pull and a recreate; migrations run on the way up.
-            A backup is a <code>pg_dump</code> into the mounted backup path, and
-            a restore goes into an <em>empty</em> database, because a dump
-            restored over live tables leaves rows that belong to neither.
+            An upgrade is a pull and a recreate: the <code>migrate</code>
+            service runs on the way up and the app and the worker wait for it.
+            If you pin versions, pin <code>APP_IMAGE</code> and
+            <code>MIGRATE_IMAGE</code> to the same tag &mdash; one release's
+            migrations against another release's code is the mismatch that
+            service exists to prevent. A backup is a <code>pg_dump</code> into
+            the mounted backup path, and a restore goes into an <em>empty</em>
+            database, because a dump restored over live tables leaves rows that
+            belong to neither.
           </p>
         </div>
         ${code(
@@ -454,11 +482,12 @@ docker compose start app worker`,
         )}
         <div class="callout warn" style="margin-top:1.4rem">
           <strong>If a migration is recorded as failed</strong> (Prisma
-          <code>P3009</code>), every later deploy is blocked and both containers
-          restart for ever. The entrypoint recognises this, marks the failed
-          migration rolled back and applies it again &mdash; once per start, and
-          loudly. Prisma runs each migration inside a transaction, so the failed
-          one left nothing of itself behind.
+          <code>P3009</code>), every later migration is blocked and the app and
+          the worker wait for ever on a dependency that never completes. The
+          migration service recognises this, marks the failed migration rolled
+          back and applies it again &mdash; once per start, and loudly. Prisma
+          runs each migration inside a transaction, so the failed one left
+          nothing of itself behind.
         </div>
       </section>
 
@@ -479,7 +508,7 @@ docker compose start app worker`,
         <div class="figure" style="margin-top:1.4rem">
           <p class="tree"><b>src/</b>
 ├── <b>app/</b>            <i>App Router pages, server actions, API routes</i>
-│   ├── diary/       <i>the day view</i>
+│   ├── page.tsx     <i>Today — the day view</i>
 │   ├── ai-review/   <i>proposals waiting for a person</i>
 │   └── api/         <i>health, food search, exports</i>
 ├── <b>lib/</b>            <i>pure rules — no database, no network</i>
@@ -525,8 +554,8 @@ npm run db:studio  <span class="c"># prisma studio</span>`,
             <tbody>
               <tr><td><code>ci.yml</code></td><td>test</td><td>Lint, typecheck, ${facts.tests} unit and integration test files, a production build, then ${facts.e2eSuites} Playwright suites against a real PostgreSQL ${facts.postgresVersion}.</td></tr>
               <tr><td><code>ci.yml</code></td><td>datasets</td><td>The committed artifacts still import into a database that has only seen migrations &mdash; then the import is repeated to prove it changed nothing.</td></tr>
-              <tr><td><code>ci.yml</code></td><td>docker</td><td>The production image builds, and its runtime Prisma CLI loads &mdash; the failure that once put the container in a restart loop.</td></tr>
-              <tr><td><code>publish.yml</code></td><td>verify &rarr; publish</td><td>Fast checks first, then a multi-architecture image with provenance and an SBOM, tagged by semver on a release.</td></tr>
+              <tr><td><code>ci.yml</code></td><td>docker</td><td>Both images build; the migration image's Prisma CLI loads, the image that serves traffic is asserted <em>not</em> to carry it, and <code>@prisma/client</code> still loads there.</td></tr>
+              <tr><td><code>publish.yml</code></td><td>verify &rarr; publish</td><td>Fast checks first, then the application image and the migration runner, multi-architecture with provenance and an SBOM, tagged by semver on a release.</td></tr>
               <tr><td><code>website.yml</code></td><td>build &rarr; deploy</td><td>This site is generated, checked for dead internal links and missing assets, and published to GitHub Pages from <code>main</code>.</td></tr>
             </tbody>
           </table>
