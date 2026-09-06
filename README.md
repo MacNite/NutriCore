@@ -162,8 +162,10 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Open <http://localhost:3000> and create the first account. Health is at
-`/api/health`. The first registered account becomes the administrator, and the
+Open <http://localhost:3000> and create the first account. The container
+healthcheck is at `/api/health` (not to be confused with `/api/health/samples`,
+which is the device sync endpoint described under
+[Health data](#health-data-from-apple-health-and-health-connect)). The first registered account becomes the administrator, and the
 sign-up page closes itself as soon as that account exists - later accounts are
 created by invitation. See [Registration policy](#registration-policy) if you
 want different behaviour. Invitations can be delivered through the
@@ -1045,6 +1047,39 @@ photo taken earlier can be used without the camera taking over. Live camera
 capture additionally needs an HTTPS origin; on a plain-HTTP LAN deployment both
 buttons open the file picker and everything else works the same.
 
+## Health data from Apple Health and Health Connect
+
+Weight, body fat, height and waist circumference come in from a phone, two ways.
+Nothing is written back: this instance reads and does not write.
+
+**From an export file.** Settings → *Import from Apple Health or Health
+Connect*. The file is parsed **in your browser**, so an Apple `export.xml` of
+several hundred megabytes works, and the heart rate, sleep, workouts and
+clinical documents it also holds never reach the server — only the four values
+NutriCore stores are sent. A preview says exactly what would change before
+anything is written.
+
+**Automatically, from the phone itself.** Settings → *Sync from a phone
+automatically* issues a device token, and the phone posts new readings to
+`/api/health/samples` on its own. On an iPhone this needs no app at all: a
+Shortcuts personal automation can read the Health store and post it daily. On
+Android it needs a small native app, because Health Connect has no web API and a
+wrapped PWA cannot reach it.
+
+Each phone gets its own token, shown once and stored only as a hash; revoking
+one leaves the others working. The endpoint runs the same validation, the same
+rules and the same writer as the file import, so both obey the one rule that
+matters: **a value you typed is never overwritten.** Re-sending readings that
+are already stored is recognised, not duplicated.
+
+[docs/HEALTH_SYNC.md](docs/HEALTH_SYNC.md) documents the endpoint in full, for
+anyone writing a client.
+
+Muscle mass is deliberately not imported. Both platforms offer *lean body mass*,
+which counts bone, organs and body water alongside muscle and reads several
+kilograms high; writing it into the muscle column would put a number there that
+no device ever measured.
+
 ## Sharing recipes
 
 Off by default in the only sense that matters: nothing is shared until you open
@@ -1119,13 +1154,16 @@ only from the Administrator Panel.
 
 - Argon2id password hashing with OWASP-aligned parameters
 - Opaque session tokens; only SHA-256 hashes are stored
+- Health sync tokens follow the same rule: 256 bits of entropy, only the SHA-256
+  is stored, shown to the user once, revocable per device, and fixed at issue
+  time to one platform so a token taken off one phone cannot write as the other
 - HTTP-only, SameSite=Lax cookies, `Secure` when `APP_URL` is HTTPS, from one
   shared options helper so no security cookie can drift out of the set
 - Start-up refuses a production deployment whose `APP_URL` is neither HTTPS nor a
   local address, since that is the configuration that silently drops `Secure`
 - Same-origin validation on state-changing route handlers
 - Registration closes after the first account unless `REGISTRATION_MODE` says otherwise; the first-administrator decision is taken under a PostgreSQL advisory lock so two simultaneous registrations cannot both become administrators
-- Rate limiting on sign-in, registration, invitation redemption, search, export and research; sign-in is limited per account as well as per address, so a limit does not depend on the proxy configuration being right
+- Rate limiting on sign-in, registration, invitation redemption, search, export, health sync and research; sign-in is limited per account as well as per address, so a limit does not depend on the proxy configuration being right
 - The security-sensitive limits are counted in PostgreSQL, so they survive a restart and are shared across processes rather than resetting with each container; the in-memory limiter remains as the fallback if the database cannot be reached
 - `X-Forwarded-For` is trusted only as far as `TRUSTED_PROXY_HOPS` says, counted from the right of the chain, so a client cannot choose its own rate-limit bucket
 - Zod validation on every input, provider response and AI output

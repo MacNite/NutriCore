@@ -802,6 +802,36 @@
       "empty": "Es gab nichts zu importieren."
     }
   },
+  "healthDevices": {
+    "title": "Automatisch vom Handy synchronisieren",
+    "hint": "Verbinde ein Handy, damit es neue Gewichts- und Körperwerte von selbst sendet – ohne Datei-Export. Jedes Handy bekommt ein eigenes Token; wird eines zurückgezogen, funktionieren die anderen weiter.",
+    "name": "Gerätename",
+    "namePlaceholder": "Mein iPhone",
+    "platform": "Woher die Werte kommen",
+    "platformHint": "Wird beim Erstellen festgelegt. Ein Token für eine Plattform kann keine Werte der anderen schreiben.",
+    "platformName": {
+      "APPLE_HEALTH": "Apple Health (iPhone)",
+      "HEALTH_CONNECT": "Health Connect (Android)"
+    },
+    "create": "Token erstellen",
+    "created": "Token für {name}:",
+    "createdOnce": "Jetzt kopieren – es wird nur als Hash gespeichert und kann nicht noch einmal angezeigt werden. Wenn es verloren geht, zieh das Gerät zurück und erstelle ein neues Token.",
+    "tokenLabel": "Sync-Token",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "serverUrl": "Werte senden an:",
+    "paired": "Verbundene Geräte",
+    "lastUsed": "zuletzt {when}",
+    "neverUsed": "noch nie synchronisiert",
+    "revoke": "Zurückziehen",
+    "revoked": "Dieses Gerät kann nicht mehr synchronisieren.",
+    "errors": {
+      "validation": "Gib dem Gerät einen Namen und wähle, woher seine Werte kommen.",
+      "tooMany": "Dieses Konto hat bereits die maximale Anzahl verbundener Geräte. Zieh eines zurück, das du nicht mehr nutzt.",
+      "rateLimited": "Zu viele Versuche. Bitte später erneut probieren.",
+      "notFound": "Dieses Gerät gibt es nicht mehr."
+    }
+  },
   "diagnostics": {
     "title": "Diagnose",
     "subtitle": "Verbindungsstatus der konfigurierten Dienste. Geheime Werte werden nie angezeigt.",

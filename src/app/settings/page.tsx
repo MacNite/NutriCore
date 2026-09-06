@@ -8,8 +8,11 @@ import { getCurrentTarget } from "@/server/targets";
 import { DEFAULT_PANELS } from "@/lib/body-visualization";
 import { SettingsForms } from "./settings-forms";
 import { HealthImport } from "./health-import";
+import { HealthDevices } from "./health-devices";
 import { TargetPanel } from "@/components/target-panel";
 import { inviteUserByUserAction } from "@/server/admin-actions";
+import { listDeviceTokens } from "@/server/health-device-tokens";
+import { env } from "@/lib/env";
 
 export async function generateMetadata() {
   const t = await getTranslations("settings");
@@ -21,9 +24,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   if (!user) redirect("/login");
 
   const t = await getTranslations("settings");
-  const [profile, target] = await Promise.all([
+  const [profile, target, devices] = await Promise.all([
     prisma.userProfile.findUnique({ where: { userId: user.id } }),
     getCurrentTarget(user.id),
+    listDeviceTokens(user.id),
   ]);
   const { invite } = await searchParams;
 
@@ -77,6 +81,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </section>
 
           <HealthImport />
+
+          <HealthDevices devices={devices} syncUrl={`${env().APP_URL.replace(/\/$/, "")}/api/health/samples`} />
 
           <section className="card">
             <h2>{t("dataExport")}</h2>
