@@ -210,7 +210,6 @@ function PlanTable({ plan }: { plan: ImportPlan }) {
           <th scope="col" style={{ textAlign: "right" }}>{t("columns.new")}</th>
           <th scope="col" style={{ textAlign: "right" }}>{t("columns.updated")}</th>
           <th scope="col" style={{ textAlign: "right" }}>{t("columns.kept")}</th>
-          <th scope="col" style={{ textAlign: "left" }}>{t("columns.range")}</th>
         </tr>
       </thead>
       <tbody>
@@ -218,11 +217,15 @@ function PlanTable({ plan }: { plan: ImportPlan }) {
           <tr key={metric.metric}>
             <th scope="row" style={{ textAlign: "left", fontWeight: 400 }}>
               {t(`metric.${metric.metric}` as `metric.${HealthMetric}`)}
+              {metric.firstDate ? (
+                <div className="muted" style={{ fontSize: 12 }}>
+                  {metric.firstDate === metric.lastDate ? metric.firstDate : `${metric.firstDate} – ${metric.lastDate}`}
+                </div>
+              ) : null}
             </th>
             <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{metric.create}</td>
             <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{metric.update}</td>
             <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{metric.skipManual + metric.unchanged}</td>
-            <td className="muted">{metric.firstDate ? `${metric.firstDate} – ${metric.lastDate}` : "—"}</td>
           </tr>
         ))}
       </tbody>

@@ -755,20 +755,19 @@
     "chooseFile": "Exportdatei",
     "chooseFileHint": "Eine Apple-Health-export.zip, eine Health Connect.zip oder die export.xml bzw. Datenbank daraus.",
     "reading": "{file} wird gelesen …",
-    "readingProgress": "{size} gelesen, bisher {found} Messwerte gefunden.",
-    "readFrom": "Aus {platform} gelesen: {read} Messwerte, {kept} behalten (jeweils der letzte des Tages).",
+    "readingProgress": "{size} gelesen, bisher {found, plural, one {# Messwert} other {# Messwerte}} gefunden.",
+    "readFrom": "Aus {platform} gelesen: {read, plural, one {# Messwert} other {# Messwerte}}, {kept} behalten (jeweils der letzte des Tages).",
     "planCaption": "Was dieser Import ändern würde",
-    "manualProtected": "{count} Messwerte fallen auf Tage, die du selbst erfasst hast. Diese Einträge bleiben unverändert.",
+    "manualProtected": "{count, plural, one {# Messwert fällt auf einen Tag, den du selbst erfasst hast. Dieser Eintrag bleibt unverändert.} other {# Messwerte fallen auf Tage, die du selbst erfasst hast. Diese Einträge bleiben unverändert.}}",
     "skippedTables": "Einige Tabellen dieses Exports konnten nicht gelesen werden und wurden ausgelassen: {tables}",
-    "confirm": "{count} Messwerte importieren",
-    "done": "{count} Messwerte importiert.",
+    "confirm": "{count, plural, one {# Messwert importieren} other {# Messwerte importieren}}",
+    "done": "{count, plural, one {# Messwert importiert.} other {# Messwerte importiert.}}",
     "importAnother": "Weitere Datei importieren",
     "columns": {
       "metric": "Wert",
       "new": "Neu",
       "updated": "Aktualisiert",
-      "kept": "Behalten",
-      "range": "Zeitraum"
+      "kept": "Behalten"
     },
     "metric": {
       "weightKg": "Gewicht",
