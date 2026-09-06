@@ -84,7 +84,7 @@ as the client is willing to.
 | --- | --- |
 | `metric` | One of `weightKg`, `bodyFatPct`, `heightCm`, `waistCm`. Anything else is rejected |
 | `date` | `YYYY-MM-DD`, the calendar day **as the device saw it** |
-| `recordedAt` | ISO 8601 instant. Used only to order samples within a day |
+| `recordedAt` | ISO 8601 instant, `Z` or an offset (`+02:00`) — both fine. Used only to order samples within a day |
 | `value` | Kilograms, percent or centimetres. Converted on the device, never guessed here |
 | `externalId` | Stable identity for this reading, ≤128 characters. Re-sending the same id updates rather than duplicates |
 | `source` | The app or scale that wrote it, ≤120 characters, or `null`. Shown to the user, never trusted |

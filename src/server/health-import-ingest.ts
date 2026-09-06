@@ -35,7 +35,14 @@ export const sampleSchema = z
   .object({
     metric: z.enum(HEALTH_METRICS),
     date: z.string().regex(DATE_KEY_PATTERN),
-    recordedAt: z.string().datetime(),
+    /* Offsets allowed, not just `Z`. The browser readers build this with
+       `toISOString()` and so always send UTC, but a device client formats
+       whatever its own ISO 8601 formatter produces - on an iPhone in Berlin
+       that is `2026-09-05T09:14:00+02:00`. Refusing it would fail the first
+       Shortcut anybody wrote, with a bare "validation" and no hint which field
+       was wrong. Nothing here reads the offset: `date` decides the day and this
+       only orders samples within it, so an offset costs nothing to accept. */
+    recordedAt: z.string().datetime({ offset: true }),
     value: z.number().finite(),
     externalId: z.string().min(1).max(128),
     source: z.string().max(120).nullable(),

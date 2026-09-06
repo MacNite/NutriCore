@@ -47,6 +47,15 @@ describe("sample payload validation", () => {
     expect(parseSamples([sample({ metric: "muscleKg" })]).ok).toBe(false);
   });
 
+  it("accepts an instant with an offset, which is what a phone client sends", () => {
+    // Shortcuts on an iPhone in Berlin formats ISO 8601 as local time + offset.
+    expect(parseSamples([sample({ recordedAt: "2026-09-05T09:14:00+02:00" })]).ok).toBe(true);
+    expect(parseSamples([sample({ recordedAt: "2026-09-05T09:14:00.000+02:00" })]).ok).toBe(true);
+    expect(parseSamples([sample({ recordedAt: "2026-09-05T07:14:00Z" })]).ok).toBe(true);
+    // An instant with no zone at all is still refused: it names no moment.
+    expect(parseSamples([sample({ recordedAt: "2026-09-05T09:14:00" })]).ok).toBe(false);
+  });
+
   it("refuses a date that is not a plain day key", () => {
     expect(parseSamples([sample({ date: "2026-9-5" })]).ok).toBe(false);
     expect(parseSamples([sample({ date: "2026-09-05T00:00:00Z" })]).ok).toBe(false);
