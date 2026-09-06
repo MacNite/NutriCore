@@ -755,20 +755,19 @@
     "chooseFile": "Export file",
     "chooseFileHint": "An Apple Health export.zip, a Health Connect.zip, or the export.xml or database from inside one.",
     "reading": "Reading {file}…",
-    "readingProgress": "{size} read, {found} readings found so far.",
-    "readFrom": "Read from {platform}: {read} readings, kept {kept} after taking the last of each day.",
+    "readingProgress": "{size} read, {found, plural, one {# reading} other {# readings}} found so far.",
+    "readFrom": "Read from {platform}: {read, plural, one {# reading} other {# readings}}, kept {kept} after taking the last of each day.",
     "planCaption": "What this import would change",
-    "manualProtected": "{count} readings match days you recorded by hand. Those entries are kept as they are.",
+    "manualProtected": "{count, plural, one {# reading falls on a day you recorded by hand. That entry is kept as it is.} other {# readings fall on days you recorded by hand. Those entries are kept as they are.}}",
     "skippedTables": "Some tables in this export could not be read and were left out: {tables}",
-    "confirm": "Import {count} readings",
-    "done": "Imported {count} readings.",
+    "confirm": "{count, plural, one {Import # reading} other {Import # readings}}",
+    "done": "{count, plural, one {Imported # reading.} other {Imported # readings.}}",
     "importAnother": "Import another file",
     "columns": {
       "metric": "Value",
       "new": "New",
       "updated": "Updated",
-      "kept": "Kept",
-      "range": "Range"
+      "kept": "Kept"
     },
     "metric": {
       "weightKg": "Weight",
