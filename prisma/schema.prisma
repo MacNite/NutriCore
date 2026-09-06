@@ -203,6 +203,7 @@ model User {
   publications      RecipePublication[]
   healthImports     HealthImportRecord[]
   healthDeviceTokens HealthDeviceToken[]
+  foodReports       FoodReport[]
 }
 
 model UserInvitation {
@@ -736,6 +737,7 @@ model Food {
   favorites           Favorite[]
   usage               FoodUsageStats[]
   enrichmentProposals EnrichmentProposal[]
+  reports             FoodReport[]
 
   @@unique([externalProvider, externalId])
   @@index([barcode])
@@ -1245,6 +1247,95 @@ model EnrichmentProposalValue {
   proposal EnrichmentProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
 
   @@unique([proposalId, nutrientKey])
+  @@index([status])
+}
+
+/// Whether a reported correction has been looked at, and what was decided.
+enum FoodReportStatus {
+  OPEN
+  ACCEPTED
+  REJECTED
+}
+
+/// A member saying the nutrition on a shared food is wrong, and what it should be.
+///
+/// The bundled databases and the barcode providers are not always right, and
+/// until now the only thing a member could do about a wrong value was to stop
+/// using the food. This is the other half of the enrichment review: there a
+/// machine proposes and a person decides, here a person proposes and an
+/// administrator decides. Both end in the same place - a value on the food with
+/// a source row saying where it came from.
+///
+/// Only foods nobody owns can be reported, which is the same rule the review
+/// queue is split on: a food somebody owns is theirs to fix, and an
+/// administrator cannot read it anywhere else in the app.
+model FoodReport {
+  id            String           @id @default(cuid())
+  foodId        String
+  /**
+   * Who reported it. `Cascade`, like `RecipePublication.authorId`: a report is
+   * the member's own words about a food, and deleting an account takes their
+   * words with it. What an administrator already accepted is unaffected - it is
+   * a value on the food and a `FoodSource` row naming the reviewer, neither of
+   * which mentions the reporter.
+   */
+  reporterId    String
+  /// What the reporter says is wrong, in their own words. Optional when they
+  /// only propose numbers, required when they propose nothing else.
+  comment       String?
+  /// Where they read the right values, when they have a page to cite.
+  sourceUrl     String?
+  /// A corrected serving weight, in the food's own basis unit.
+  servingSize   Decimal?         @db.Decimal(10, 3)
+  status        FoodReportStatus @default(OPEN)
+  /**
+   * Whether the serving weight was accepted. Only ever read alongside
+   * `servingSize`: a report that proposes no portion says nothing about one,
+   * exactly as `EnrichmentProposal.servingStatus` is read.
+   */
+  servingStatus FoodReportStatus @default(OPEN)
+  /**
+   * Who decided, for the audit line. Deliberately not a foreign key, for the
+   * same reason `EnrichmentProposalValue.reviewedById` is not one.
+   */
+  reviewedById  String?
+  reviewedAt    DateTime?
+  /// What the administrator wants the reporter to know about the decision.
+  reviewNote    String?
+  createdAt     DateTime         @default(now())
+
+  food     Food              @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  reporter User              @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  values   FoodReportValue[]
+
+  @@index([status, createdAt])
+  @@index([foodId])
+  @@index([reporterId])
+}
+
+/// One nutrient a report disputes, and what became of it.
+model FoodReportValue {
+  id            String           @id @default(cuid())
+  reportId      String
+  nutrientKey   String
+  /**
+   * What the food said when the report was filed. Kept so a reviewer sees what
+   * the reporter actually disagreed with, even when something has changed it in
+   * the meantime. Null means the nutrient was unknown.
+   */
+  currentValue  Decimal?         @db.Decimal(18, 6)
+  /// What the reporter says it should be.
+  proposedValue Decimal          @db.Decimal(18, 6)
+  /**
+   * What the administrator actually wrote. Usually the proposed value, but a
+   * reviewer may revise it - the point of the queue is a decision, not a vote.
+   */
+  decidedValue  Decimal?         @db.Decimal(18, 6)
+  status        FoodReportStatus @default(OPEN)
+
+  report FoodReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, nutrientKey])
   @@index([status])
 }
 
