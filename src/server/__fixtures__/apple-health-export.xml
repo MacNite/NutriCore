@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE HealthData [<!ELEMENT HealthData (Record)*>]>
+<HealthData locale="en_GB">
+ <ExportDate value="2026-03-01 10:00:00 +0100"/>
+ <Me HKCharacteristicTypeIdentifierBiologicalSex="HKBiologicalSexMale"/>
+ <Record type="HKQuantityTypeIdentifierBodyMass" sourceName="Withings" unit="kg" creationDate="2024-02-29 08:31:00 +0100" startDate="2024-02-29 08:30:00 +0100" endDate="2024-02-29 08:30:00 +0100" value="78.4"/>
+ <Record type="HKQuantityTypeIdentifierBodyMass" sourceName="Withings" unit="kg" creationDate="2024-02-29 21:00:00 +0100" startDate="2024-02-29 20:55:00 +0100" endDate="2024-02-29 20:55:00 +0100" value="79.1"/>
+ <Record type="HKQuantityTypeIdentifierBodyMass" sourceName="Health" unit="lb" startDate="2024-03-01 07:15:00 +0100" endDate="2024-03-01 07:15:00 +0100" value="172.5"/>
+ <Record type="HKQuantityTypeIdentifierBodyFatPercentage" sourceName="Withings" unit="%" startDate="2024-02-29 08:30:00 +0100" endDate="2024-02-29 08:30:00 +0100" value="0.223">
+  <MetadataEntry key="HKWasUserEntered" value="0"/>
+ </Record>
+ <Record type="HKQuantityTypeIdentifierHeight" sourceName="Health" unit="cm" startDate="2020-01-05 12:00:00 +0100" endDate="2020-01-05 12:00:00 +0100" value="183"/>
+ <Record type="HKQuantityTypeIdentifierWaistCircumference" sourceName="Tape &amp; Co" unit="in" startDate="2024-02-29 09:00:00 +0100" endDate="2024-02-29 09:00:00 +0100" value="33.5"/>
+ <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Watch" unit="count/min" startDate="2024-02-29 09:00:00 +0100" endDate="2024-02-29 09:00:00 +0100" value="61"/>
+ <Record type="HKQuantityTypeIdentifierLeanBodyMass" sourceName="Withings" unit="kg" startDate="2024-02-29 08:30:00 +0100" endDate="2024-02-29 08:30:00 +0100" value="60.9"/>
+ <Record type="HKQuantityTypeIdentifierBodyMass" sourceName="Broken" unit="kg" startDate="2024-03-02 07:15:00 +0100" endDate="2024-03-02 07:15:00 +0100" value="0"/>
+ <Record type="HKQuantityTypeIdentifierBodyMass" sourceName="Broken" unit="furlong" startDate="2024-03-03 07:15:00 +0100" endDate="2024-03-03 07:15:00 +0100" value="78"/>
+</HealthData>

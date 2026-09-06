@@ -749,6 +749,58 @@
     "autoApplyEnrichment": "Ergänzte Nährwerte ohne Prüfung übernehmen",
     "autoApplyEnrichmentHint": "Standardmäßig aus: Nährwerte, die die KI aus einer Quelle liest, warten auf deine Freigabe. Einschalten, damit sie wie bisher sofort ins Lebensmittel geschrieben werden."
   },
+  "healthImport": {
+    "title": "Aus Apple Health oder Health Connect importieren",
+    "hint": "Gewichts- und Körperverlauf aus einem Gesundheits-Export übernehmen. Die Datei wird in deinem Browser gelesen: An deinen Server gehen nur die Werte, die NutriCore speichert.",
+    "chooseFile": "Exportdatei",
+    "chooseFileHint": "Eine Apple-Health-export.zip, eine Health Connect.zip oder die export.xml bzw. Datenbank daraus.",
+    "reading": "{file} wird gelesen …",
+    "readingProgress": "{size} gelesen, bisher {found} Messwerte gefunden.",
+    "readFrom": "Aus {platform} gelesen: {read} Messwerte, {kept} behalten (jeweils der letzte des Tages).",
+    "planCaption": "Was dieser Import ändern würde",
+    "manualProtected": "{count} Messwerte fallen auf Tage, die du selbst erfasst hast. Diese Einträge bleiben unverändert.",
+    "skippedTables": "Einige Tabellen dieses Exports konnten nicht gelesen werden und wurden ausgelassen: {tables}",
+    "confirm": "{count} Messwerte importieren",
+    "done": "{count} Messwerte importiert.",
+    "importAnother": "Weitere Datei importieren",
+    "columns": {
+      "metric": "Wert",
+      "new": "Neu",
+      "updated": "Aktualisiert",
+      "kept": "Behalten",
+      "range": "Zeitraum"
+    },
+    "metric": {
+      "weightKg": "Gewicht",
+      "bodyFatPct": "Körperfett",
+      "heightCm": "Körpergröße",
+      "waistCm": "Taille"
+    },
+    "platform": {
+      "APPLE_HEALTH": "Apple Health",
+      "HEALTH_CONNECT": "Health Connect"
+    },
+    "howTo": {
+      "title": "So kommst du an eine Exportdatei",
+      "appleTitle": "iPhone:",
+      "apple": "Health-App → dein Bild (oben rechts) → Alle Gesundheitsdaten exportieren. Die ZIP-Datei sichern und hier auswählen.",
+      "androidTitle": "Android:",
+      "android": "Einstellungen → Health Connect → Sichern und Wiederherstellen → Daten exportieren. Die gesicherte ZIP-Datei hier auswählen. Google veröffentlicht das Format dieser Datei nicht; sie wird daher nach bestem Bemühen gelesen und die Vorschau lohnt einen Blick."
+    },
+    "errors": {
+      "unrecognised": "Diese Datei sieht nicht nach einem Gesundheits-Export aus. Wähle die ZIP-Datei deines Telefons oder die export.xml bzw. Datenbank daraus.",
+      "nothingFound": "In dieser Datei wurden keine Gewichts- oder Körperwerte gefunden.",
+      "zip64": "Dieses Archiv nutzt ein ZIP-Format, das dieser Import nicht lesen kann. Entpacke es und wähle die export.xml bzw. Datenbank darin.",
+      "compression": "Dieses Archiv nutzt ein Kompressionsverfahren, das dieser Import nicht lesen kann. Entpacke es und wähle die Datei darin.",
+      "corrupt": "Dieses Archiv konnte nicht gelesen werden und ist möglicherweise beschädigt. Exportiere es noch einmal.",
+      "databaseTooLarge": "Diese Datenbank ist zu groß, um im Browser gelesen zu werden.",
+      "unreadable": "Diese Datei konnte nicht gelesen werden.",
+      "validation": "Die Messwerte aus dieser Datei wurden als ungültig abgelehnt.",
+      "tooMany": "Dieser Export enthält mehr Messwerte, als auf einmal importiert werden können. Exportiere einen kürzeren Zeitraum.",
+      "rateLimited": "Zu viele Importe in kurzer Zeit. Versuche es später erneut.",
+      "empty": "Es gab nichts zu importieren."
+    }
+  },
   "diagnostics": {
     "title": "Diagnose",
     "subtitle": "Verbindungsstatus der konfigurierten Dienste. Geheime Werte werden nie angezeigt.",

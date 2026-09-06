@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentTarget } from "@/server/targets";
 import { DEFAULT_PANELS } from "@/lib/body-visualization";
 import { SettingsForms } from "./settings-forms";
+import { HealthImport } from "./health-import";
 import { TargetPanel } from "@/components/target-panel";
 import { inviteUserByUserAction } from "@/server/admin-actions";
 
@@ -74,6 +75,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <button className="btn btn-primary">{t("invite.send")}</button>
             </form>
           </section>
+
+          <HealthImport />
 
           <section className="card">
             <h2>{t("dataExport")}</h2>

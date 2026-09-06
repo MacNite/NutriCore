@@ -749,6 +749,58 @@
     "autoApplyEnrichment": "Apply backfilled nutrition without review",
     "autoApplyEnrichmentHint": "Off by default: nutrition the AI reads off a source waits for you to approve it. Switch this on to have it written to the food straight away, the way it worked before."
   },
+  "healthImport": {
+    "title": "Import from Apple Health or Health Connect",
+    "hint": "Bring weight and body history in from a health export. The file is read in your browser: only the values NutriCore stores are sent to your server.",
+    "chooseFile": "Export file",
+    "chooseFileHint": "An Apple Health export.zip, a Health Connect.zip, or the export.xml or database from inside one.",
+    "reading": "Reading {file}…",
+    "readingProgress": "{size} read, {found} readings found so far.",
+    "readFrom": "Read from {platform}: {read} readings, kept {kept} after taking the last of each day.",
+    "planCaption": "What this import would change",
+    "manualProtected": "{count} readings match days you recorded by hand. Those entries are kept as they are.",
+    "skippedTables": "Some tables in this export could not be read and were left out: {tables}",
+    "confirm": "Import {count} readings",
+    "done": "Imported {count} readings.",
+    "importAnother": "Import another file",
+    "columns": {
+      "metric": "Value",
+      "new": "New",
+      "updated": "Updated",
+      "kept": "Kept",
+      "range": "Range"
+    },
+    "metric": {
+      "weightKg": "Weight",
+      "bodyFatPct": "Body fat",
+      "heightCm": "Height",
+      "waistCm": "Waist"
+    },
+    "platform": {
+      "APPLE_HEALTH": "Apple Health",
+      "HEALTH_CONNECT": "Health Connect"
+    },
+    "howTo": {
+      "title": "How to get an export file",
+      "appleTitle": "iPhone:",
+      "apple": "Health app → your picture (top right) → Export All Health Data. Save the zip and choose it here.",
+      "androidTitle": "Android:",
+      "android": "Settings → Health Connect → Backup and restore → Export data. Choose the saved zip here. Health Connect does not publish the format of that file, so this is read on a best-effort basis and the preview is worth checking."
+    },
+    "errors": {
+      "unrecognised": "That file does not look like a health export. Choose the zip your phone produced, or the export.xml or database inside it.",
+      "nothingFound": "No weight or body readings were found in that file.",
+      "zip64": "That archive uses a zip format this importer cannot read. Unzip it and choose the export.xml or database inside instead.",
+      "compression": "That archive uses a compression method this importer cannot read. Unzip it and choose the file inside instead.",
+      "corrupt": "That archive could not be read and may be damaged. Try exporting again.",
+      "databaseTooLarge": "That database is too large to read in the browser.",
+      "unreadable": "That file could not be read.",
+      "validation": "The readings from that file were rejected as invalid.",
+      "tooMany": "That export holds more readings than can be imported at once. Export a shorter date range and try again.",
+      "rateLimited": "Too many imports in a short time. Try again later.",
+      "empty": "There was nothing to import."
+    }
+  },
   "diagnostics": {
     "title": "Diagnostics",
     "subtitle": "Connection status of the configured services. Secret values are never shown.",

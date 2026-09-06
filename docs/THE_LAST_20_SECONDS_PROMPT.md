@@ -192,10 +192,19 @@ NOT SHIPPED — NEVER PRESENT AS AVAILABLE
 - There is no fallback model. A low-confidence answer is reported as
   low-confidence; it is not silently retried against a larger model.
 - Activity entries are not yet part of the JSON export. Do not show them in it.
-- Do not invent wearables, Apple Health, Google Fit, step tracking, coaching,
-  public or cross-instance social sharing, streaks, push notifications, cloud
-  sync, multi-device sync, offline data entry, automatic food recognition
-  without review, or medical advice.
+- Health-export import is real but narrow, and may only be described as what it
+  is: a one-way, manual import of weight, body fat, height and waist history
+  from an Apple Health or Health Connect export file the user produces on their
+  phone. The file is read in the browser; only those values reach the server.
+  There is no companion app, no live or background sync, no wearable connection,
+  and nothing is written back to either platform. Health Connect exports are
+  read on a best-effort basis because Google publishes no schema for them.
+  Muscle mass is not imported. Do not call any of this "syncing" or "connecting"
+  to Apple Health or Health Connect.
+- Do not invent wearables, step tracking, coaching, public or cross-instance
+  social sharing, streaks, push notifications, cloud sync, multi-device sync,
+  offline data entry, automatic food recognition without review, or medical
+  advice.
 
 NON-NEGOTIABLE CLAIMS GUARDRAILS
 1. Never call the optical body scan a “measurement,” “3D scan,” “accurate,”
