@@ -784,7 +784,9 @@
       "appleTitle": "iPhone:",
       "apple": "Health-App → dein Bild (oben rechts) → Alle Gesundheitsdaten exportieren. Die ZIP-Datei sichern und hier auswählen.",
       "androidTitle": "Android:",
-      "android": "Einstellungen → Health Connect → Sichern und Wiederherstellen → Daten exportieren. Die gesicherte ZIP-Datei hier auswählen. Google veröffentlicht das Format dieser Datei nicht; sie wird daher nach bestem Bemühen gelesen und die Vorschau lohnt einen Blick."
+      "android": "Einstellungen → nach „Health Connect“ suchen → Daten verwalten → Sichern und Wiederherstellen → Geplanter Export. Einen einmaligen Export gibt es nicht: Zeitplan einschalten, Cloud-Speicher auswählen und den Export abwarten. Danach „Health Connect.zip“ aus diesem Cloud-Speicher herunterladen und hier auswählen.",
+      "androidNote": "Health Connect enthält nur das, was andere Apps hineingeschrieben haben — ein Export kann deshalb leer zurückkommen. Prüfe unter App-Berechtigungen, ob die App, die dein Gewicht erfasst, nach Health Connect schreiben darf. Google Takeout ist ein anderer Export: Er enthält Google-Fit-Daten, die hier nicht gelesen werden können.",
+      "androidFormat": "Google veröffentlicht kein Format für diese Datei; sie wird nach bestem Bemühen gelesen. Die Vorschau lohnt einen Blick, bevor du bestätigst."
     },
     "errors": {
       "unrecognised": "Diese Datei sieht nicht nach einem Gesundheits-Export aus. Wähle die ZIP-Datei deines Telefons oder die export.xml bzw. Datenbank daraus.",
