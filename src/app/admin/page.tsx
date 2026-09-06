@@ -15,6 +15,8 @@ import { AiJobsPanel, type JobLabels, type JobRow } from "./ai-jobs-panel";
 import { PrivacyAiPanel } from "@/components/privacy-ai-panel";
 import { EnrichmentReviewPanel } from "@/components/enrichment-review-panel";
 import { catalogueProposals, countCatalogueProposals } from "@/server/enrichment-review";
+import { FoodReportQueue } from "@/components/food-report-queue";
+import { countOpenReports, openReports } from "@/server/food-reports";
 import { getMailConfiguration } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
@@ -118,9 +120,13 @@ export default async function AdminPage({
   // The catalogue's review queue, and the nutrient names to render it in. Foods
   // somebody owns are deliberately absent: their owner decides, on the food's
   // own page, and an administrator cannot read them anywhere else in the app.
-  const [proposals, proposalTotal, nutrientDefinitions] = await Promise.all([
+  const [proposals, proposalTotal, reports, reportTotal, nutrientDefinitions] = await Promise.all([
     catalogueProposals(),
     countCatalogueProposals(),
+    // Reported foods are always catalogue foods - `submitFoodReport` refuses
+    // anything else - so this queue needs no split of its own.
+    openReports(),
+    countOpenReports(),
     prisma.nutrientDefinition.findMany({ select: { key: true, nameDe: true, nameEn: true } }),
   ]);
   const nutrientNames = new Map(
@@ -444,6 +450,16 @@ export default async function AdminPage({
           locale={ownProfile?.language ?? "de"}
           heading={t("enrichmentReviewTitle")}
           total={proposalTotal}
+        />
+      </div>
+
+      {/* What the members of this instance say is wrong with the catalogue. */}
+      <div style={{ marginTop: 20 }}>
+        <FoodReportQueue
+          reports={reports}
+          nutrientNames={nutrientNames}
+          locale={ownProfile?.language ?? "de"}
+          total={reportTotal}
         />
       </div>
 

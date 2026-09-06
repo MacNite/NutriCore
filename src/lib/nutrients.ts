@@ -82,6 +82,17 @@ export const PRIMARY_KEYS = ["energyKcal", "protein", "carbohydrate", "fat"] as 
  */
 export const AI_ENRICHMENT_ORIGIN = "AI_ENRICHMENT";
 
+/**
+ * `FoodNutrient.origin` for a value an administrator accepted from a member's
+ * report.
+ *
+ * A reported correction is the one path that deliberately writes *over* a value
+ * a source supplied, so the row has to say afterwards that it no longer holds
+ * what BLS, USDA or Open Food Facts published. Without the mark, a dataset
+ * re-import could not tell a corrected value from an untouched one.
+ */
+export const USER_REPORT_ORIGIN = "USER_REPORT";
+
 export const EDITABLE_KEYS = NUTRIENTS.filter((n) => n.key !== "energyKj").map((n) => n.key);
 
 export const nutrientUnit = (key: string) => NUTRIENT_BY_KEY.get(key)?.unit ?? "";

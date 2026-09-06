@@ -22,7 +22,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizeName } from "@/lib/units";
-import { AI_ENRICHMENT_ORIGIN } from "@/lib/nutrients";
+import { AI_ENRICHMENT_ORIGIN, USER_REPORT_ORIGIN } from "@/lib/nutrients";
 import { logger } from "@/lib/logger";
 import { readDatasetChunks, readJsonSidecar, readManifest, type DatasetManifestEntry } from "./artifacts";
 import { BLS_DATASET, assertBlsComponentUnits, mapBlsRecords, type BlsComponent, type BlsRecord } from "./bls";
@@ -234,13 +234,25 @@ async function writeChunk(foods: ImportableFood[], definition: DatasetDefinition
   // are read first and the ones the dataset does not itself supply are written
   // back afterwards. A real measured number always wins; the model only ever
   // keeps the gaps the database still does not fill.
+  //
+  // A value an administrator accepted from a member's report is kept as well,
+  // and unlike the backfill it is kept even where the dataset supplies the same
+  // nutrient. That is the one place where "the source always wins" is wrong: a
+  // correction exists precisely because the published figure was disputed and a
+  // person decided against it, and re-running the import must not quietly undo
+  // that decision. The dataset's own row for such a nutrient is dropped rather
+  // than written and then shadowed.
+  const kept = await prisma.foodNutrient.findMany({
+    where: { foodId: { in: touchedIds }, origin: { in: [AI_ENRICHMENT_ORIGIN, USER_REPORT_ORIGIN] } },
+    select: { foodId: true, nutrientKey: true, value: true, sourceValue: true, sourceUnit: true, qualifier: true, origin: true },
+  });
   const supplied = new Set(nutrientRows.map((row) => `${row.foodId}\u0000${row.nutrientKey}`));
-  const survivingAiRows = (
-    await prisma.foodNutrient.findMany({
-      where: { foodId: { in: touchedIds }, origin: AI_ENRICHMENT_ORIGIN },
-      select: { foodId: true, nutrientKey: true, value: true, sourceValue: true, sourceUnit: true, qualifier: true, origin: true },
-    })
-  ).filter((row) => !supplied.has(`${row.foodId}\u0000${row.nutrientKey}`));
+  const correctedRows = kept.filter((row) => row.origin === USER_REPORT_ORIGIN);
+  const corrected = new Set(correctedRows.map((row) => `${row.foodId}\u0000${row.nutrientKey}`));
+  const survivingAiRows = kept.filter(
+    (row) => row.origin === AI_ENRICHMENT_ORIGIN && !supplied.has(`${row.foodId}\u0000${row.nutrientKey}`),
+  );
+  const datasetRows = nutrientRows.filter((row) => !corrected.has(`${row.foodId}\u0000${row.nutrientKey}`));
 
   // One transaction per chunk: a food and its nutrients are never half-written,
   // and an interrupted import can simply be run again.
@@ -253,9 +265,12 @@ async function writeChunk(foods: ImportableFood[], definition: DatasetDefinition
     prisma.foodAlias.deleteMany({ where: { foodId: { in: touchedIds } } }),
     prisma.foodServing.deleteMany({ where: { foodId: { in: touchedIds } } }),
     prisma.foodSource.deleteMany({ where: { foodId: { in: touchedIds }, provider: definition.provider } }),
-    ...(nutrientRows.length > 0 ? [prisma.foodNutrient.createMany({ data: nutrientRows, skipDuplicates: true })] : []),
+    ...(datasetRows.length > 0 ? [prisma.foodNutrient.createMany({ data: datasetRows, skipDuplicates: true })] : []),
     ...(survivingAiRows.length > 0
       ? [prisma.foodNutrient.createMany({ data: survivingAiRows, skipDuplicates: true })]
+      : []),
+    ...(correctedRows.length > 0
+      ? [prisma.foodNutrient.createMany({ data: correctedRows, skipDuplicates: true })]
       : []),
     ...(translationRows.length > 0
       ? [prisma.foodTranslation.createMany({ data: translationRows, skipDuplicates: true })]

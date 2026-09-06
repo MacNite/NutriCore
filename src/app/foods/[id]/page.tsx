@@ -6,6 +6,10 @@ import { SourceBadges } from "@/components/source-badge";
 import { aiEnrichmentMetadata } from "@/server/food-enrichment";
 import { ownedProposals } from "@/server/enrichment-review";
 import { EnrichmentReviewPanel } from "@/components/enrichment-review-panel";
+import { USER_REPORT_PROVIDER, hasOpenReport, ownReportsForFood } from "@/server/food-reports";
+import { FoodReportDialog, type ReportableNutrient } from "@/components/food-report-dialog";
+import { FoodReportStatus } from "@/components/food-report-status";
+import { EDITABLE_KEYS, PRIMARY_KEYS, nutrientUnit } from "@/lib/nutrients";
 import { getVisibleFood } from "@/server/foods";
 import { formatDateKey } from "@/server/diary";
 import { LogFoodForm } from "./log-food-form";
@@ -35,7 +39,11 @@ export default async function FoodDetailPage({
   const t = await getTranslations("foods");
   const today = formatDateKey(new Date());
   const sources = await prisma.foodSource.findMany({ where: { foodId: food.id }, orderBy: { retrievedAt: "desc" } });
-  const source = sources.find((item) => item.provider !== "AI_ENRICHMENT");
+  // The database or provider this food came from. The two rows the app writes
+  // itself - an enrichment run and an accepted report - describe individual
+  // values, not where the food is from, and naming one of them here would say
+  // that a member's correction is the food's source.
+  const source = sources.find((item) => item.provider !== "AI_ENRICHMENT" && item.provider !== USER_REPORT_PROVIDER);
   const definitions = await prisma.nutrientDefinition.findMany({ select: { key: true, nameDe: true, nameEn: true } });
   const names = new Map(definitions.map((item) => [item.key, user.language === "de" ? item.nameDe : item.nameEn]));
   const shape: FoodShape = {
@@ -60,6 +68,22 @@ export default async function FoodDetailPage({
   // of it they can read anywhere else in the app.
   const proposals = stored?.ownerId === user.id ? await ownedProposals(user.id, food.id) : [];
 
+  // Only the shared catalogue can be reported: a food somebody owns is theirs
+  // to fix, and an administrator - who is the only reviewer a report has -
+  // cannot read it anywhere else in the app.
+  const reportable = stored?.ownerId === null;
+  const [ownReports, openReport] = reportable
+    ? await Promise.all([ownReportsForFood(user.id, food.id), hasOpenReport(food.id)])
+    : [[], false];
+  const stated = new Map((stored?.nutrients ?? []).map((item) => [item.nutrientKey, item.value === null ? null : Number(item.value)]));
+  const reportNutrients: ReportableNutrient[] = EDITABLE_KEYS.map((key) => ({
+    key,
+    name: names.get(key) ?? key,
+    unit: nutrientUnit(key),
+    current: stated.get(key) ?? null,
+    primary: (PRIMARY_KEYS as readonly string[]).includes(key),
+  }));
+
   return (
     <AppShell displayName={user.displayName}>
       <div className="page-head">
@@ -70,7 +94,18 @@ export default async function FoodDetailPage({
             {t("perBasis", { amount: String(food.basisAmount), unit: food.basisUnit === "ML" ? "ml" : "g" })}
           </p>
         </div>
-        <SourceBadges source={food.sourceType} enrichment={enrichment} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+          <SourceBadges source={food.sourceType} enrichment={enrichment} />
+          {reportable ? (
+            <FoodReportDialog
+              foodId={food.id}
+              locale={user.language}
+              nutrients={reportNutrients}
+              servingSize={food.servingSize}
+              basisUnit={food.basisUnit}
+            />
+          ) : null}
+        </div>
       </div>
 
       <div className="grid-main">
@@ -85,6 +120,8 @@ export default async function FoodDetailPage({
                 returnToMeal={(["BREAKFAST", "LUNCH", "DINNER", "SNACKS"] as string[]).includes(query.editMeal ?? "") ? query.editMeal : undefined}
               />
             </section>
+
+            <FoodReportStatus reports={ownReports} openByAnyone={openReport} locale={user.language} nutrientNames={names} />
 
             {proposals.length ? (
               <EnrichmentReviewPanel

@@ -152,6 +152,30 @@ describe("importing a dataset", () => {
     ]);
   });
 
+  it("keeps a corrected value even where the release supplies that nutrient", async () => {
+    writeArtifacts(records);
+    prismaMock.food.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(records.map((record, index) => ({ id: `food-${index}`, externalId: record.code })));
+    // An administrator accepted a member's report that BLS's energy figure for
+    // this food is wrong. BLS carries `energyKcal` itself, so the usual rule -
+    // the source always wins - would undo that decision on the next import.
+    prismaMock.foodNutrient.findMany.mockResolvedValue([
+      { foodId: "food-0", nutrientKey: "energyKcal", value: 535, sourceValue: null, sourceUnit: null, qualifier: null, origin: "USER_REPORT" },
+    ]);
+
+    await importDataset("bls");
+
+    const [datasetRows, restored] = prismaMock.foodNutrient.createMany.mock.calls.map((call) => call[0].data);
+    // The dataset's own row for the corrected nutrient is never written, so the
+    // correction is not merely shadowed - nothing competes with it.
+    expect(datasetRows).not.toContainEqual(expect.objectContaining({ foodId: "food-0", nutrientKey: "energyKcal" }));
+    expect(datasetRows).toContainEqual(expect.objectContaining({ foodId: "food-1", nutrientKey: "energyKcal" }));
+    expect(restored).toEqual([
+      expect.objectContaining({ foodId: "food-0", nutrientKey: "energyKcal", value: 535, origin: "USER_REPORT" }),
+    ]);
+  });
+
   it("records the version and checksum it imported", async () => {
     const checksum = writeArtifacts(records);
     prismaMock.food.findMany.mockResolvedValue([]);

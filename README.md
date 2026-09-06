@@ -53,6 +53,11 @@ Implemented and covered by tests:
   for the other members of this installation, browse what they have shared, and
   save a shared recipe as your own independent copy. See
   [Sharing recipes](#sharing-recipes).
+- **Reporting wrong nutrition** — any member can flag a food from the shared
+  catalogue and propose the values it should carry. An administrator sees what
+  the food says beside what was reported, applies the numbers, revises them, or
+  refuses the report with a note the reporter reads on the food. See
+  [Reporting wrong nutrition](#reporting-wrong-nutrition).
 - **Sport and activity** — a per-day activity log with 21 activities and their
   intensity variants. Active calories come from the MET value of the
   [2024 Adult Compendium of Physical Activities](https://pacompendium.com/adult-compendium/),
@@ -80,7 +85,8 @@ Implemented and covered by tests:
 - **Administration** — for the `ADMIN` role only: invite or batch-invite users with single-use
   links, activate and deactivate accounts, configure SMTP, watch the AI job
   queue with its retries and errors, import the bundled food databases, run and
-  export the nutrition backfill, and check service reachability (diagnostics).
+  export the nutrition backfill, decide the nutrition members have reported as
+  wrong, and check service reachability (diagnostics).
   Reachable from Settings → Administration.
 - **Export** — versioned JSON (format version 3) of profile, targets, weights,
   body measurements, body-scan estimates and decisions, favourites, foods,
@@ -1125,6 +1131,60 @@ changing their mind is not a reason to strip the credit off them.
 Publishing is rate limited per account. Everything here is instance-local:
 there is no public access, no federation and no discovery beyond the members of
 this installation.
+
+## Reporting wrong nutrition
+
+A bundled database can be wrong, a barcode product can be entered wrong by
+whoever scanned it first, and a manufacturer can change a recipe without
+changing the barcode. Until a member can say so, the only thing they can do
+about a wrong value is stop using the food - and the next member finds it just
+as wrong.
+
+Every food in the **shared catalogue** therefore carries a **⚑ Report** button
+next to its source badge. It opens the food's own nutrition table with an empty
+column beside it: type what a value should be, leave everything you are unsure
+about empty, and add a note, a serving weight or a source URL if you have one.
+An empty field means "no opinion" and never a proposed zero. A report can also
+be words alone - "this is the drained weight" is not a number.
+
+The button is deliberately absent on a food you created. Those are yours to
+fix, and an administrator - the only reviewer a report has - cannot read them
+anywhere in the app. That is the same rule the enrichment review queue is split
+on.
+
+While a report is undecided, everyone who opens that food is told its nutrition
+is disputed, without being told who said so. The reporter additionally sees
+their own report and, afterwards, what became of it.
+
+An administrator decides at **Administration → Reported foods**. Each report
+shows, per nutrient, what the food carries, what was reported, and an editable
+field holding the reported number:
+
+- **tick and apply** writes the value;
+- **change the number first** applies the administrator's own figure, because
+  "nearly right, but 148 not 152" is a decision the queue has to be able to
+  express;
+- **leave a row unticked** refuses that value; **Reject the report** refuses all
+  of them;
+- the note is what the reporter reads on the food.
+
+Applying is the one path in the application that deliberately **overwrites** a
+value a published source supplied. It is therefore recorded rather than
+silent: the nutrient is marked `USER_REPORT`, and a `FoodSource` row names the
+reviewer, the reported source URL, every key written and the value each one
+replaced. **Diary entries are untouched** - each froze its nutrition when it was
+logged - so a correction changes what will be logged from now on and never what
+somebody already ate.
+
+A corrected value also **outranks the dataset**: re-importing BLS or USDA keeps
+it, and the dataset's own figure for that nutrient is not written. A correction
+exists because a person decided against the published figure, and an import
+must not quietly undo that.
+
+Reporting is rate limited per account, one open report per member per food.
+Corrections are *not* part of the enrichment export - that artifact carries
+AI-backfilled values with the page and model behind them, which a human
+correction has neither of.
 
 ## Registration policy
 
