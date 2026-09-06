@@ -800,6 +800,36 @@
       "empty": "There was nothing to import."
     }
   },
+  "healthDevices": {
+    "title": "Sync from a phone automatically",
+    "hint": "Pair a phone so it sends new weight and body readings on its own, without exporting a file. Each phone gets its own token, and revoking one leaves the others working.",
+    "name": "Device name",
+    "namePlaceholder": "My iPhone",
+    "platform": "Where the readings come from",
+    "platformHint": "Fixed when the token is created. A token issued for one platform cannot write readings as the other.",
+    "platformName": {
+      "APPLE_HEALTH": "Apple Health (iPhone)",
+      "HEALTH_CONNECT": "Health Connect (Android)"
+    },
+    "create": "Create token",
+    "created": "Token for {name}:",
+    "createdOnce": "Copy it now — it is stored only as a hash and cannot be shown again. If you lose it, revoke the device and create a new token.",
+    "tokenLabel": "Sync token",
+    "copy": "Copy",
+    "copied": "Copied",
+    "serverUrl": "Send readings to:",
+    "paired": "Paired devices",
+    "lastUsed": "last sync {when}",
+    "neverUsed": "never synced",
+    "revoke": "Revoke",
+    "revoked": "That device can no longer sync.",
+    "errors": {
+      "validation": "Give the device a name and choose where its readings come from.",
+      "tooMany": "This account already has the maximum number of paired devices. Revoke one you no longer use.",
+      "rateLimited": "Too many attempts. Try again later.",
+      "notFound": "That device is already gone."
+    }
+  },
   "diagnostics": {
     "title": "Diagnostics",
     "subtitle": "Connection status of the configured services. Secret values are never shown.",

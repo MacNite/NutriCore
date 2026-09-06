@@ -202,6 +202,7 @@ model User {
   bodyScans         BodyScan[]
   publications      RecipePublication[]
   healthImports     HealthImportRecord[]
+  healthDeviceTokens HealthDeviceToken[]
 }
 
 model UserInvitation {
@@ -494,6 +495,42 @@ model HealthImportRecord {
 enum HealthImportPlatform {
   APPLE_HEALTH
   HEALTH_CONNECT
+}
+
+/**
+ * A credential one phone uses to push health samples on its own.
+ *
+ * The file import in the settings page runs as the signed-in user and needs no
+ * credential of its own. A phone syncing in the background has no session and
+ * no way to obtain one: it holds a long-lived secret instead, and this is that
+ * secret's record. Only the SHA-256 of the token is kept, exactly as for
+ * `Session`, so the table is not a list of live credentials.
+ *
+ * The platform is fixed when the token is issued rather than declared per
+ * request. Two things follow, both wanted: the payload a client sends is only
+ * its samples, and a token taken off one phone cannot be used to write records
+ * under the other platform's identity - which matters because `externalId` is
+ * only unique within a platform.
+ *
+ * There is no expiry column. A sync credential that stops working on a date
+ * nobody wrote down is worse than one the owner revokes when they replace the
+ * phone, and `lastUsedAt` is what makes an unused one visible.
+ */
+model HealthDeviceToken {
+  id         String               @id @default(cuid())
+  userId     String
+  /// What the owner called the phone. Shown back to them, never trusted.
+  name       String
+  tokenHash  String               @unique
+  platform   HealthImportPlatform
+  createdAt  DateTime             @default(now())
+  /// Null until the device syncs for the first time, which is also how the
+  /// settings page can say "never used" rather than implying it works.
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 /// One measuring-tape session. Weight is deliberately absent: it lives in

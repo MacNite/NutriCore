@@ -81,4 +81,15 @@ export const RATE_LIMITS = {
      confirm each spend one, so this is roughly a dozen real imports an hour -
      far more than anyone needs, and far less than a loop could do damage with. */
   healthImport: scaled(24, 60 * 60 * 1000),
+  /* A phone syncing on a schedule needs a handful of calls a day, and the two
+     that matter - read the cursor, post the new samples - come in pairs. This
+     is per token, so one misconfigured device cannot spend another's budget,
+     and it is loose enough that a client retrying a failed sync every few
+     minutes for an hour still gets through. */
+  healthSync: scaled(60, 60 * 60 * 1000),
+  /* Presenting a token that resolves to nothing. Per address, because there is
+     no account to attribute it to, and tight because a correct client never
+     does it twice: the token is 256 bits, so this is not guessing protection
+     so much as a stop on something looping against the endpoint. */
+  healthSyncUnknown: scaled(20, 60 * 60 * 1000),
 };

@@ -364,10 +364,14 @@ absent rather than deferred. See `docs/BODY_SCAN.md`.
 
 ## Importing from Apple Health and Health Connect
 
-A one-way, manual import of weight and body history from a health export. It is
-not a sync and there is no companion app: neither platform exposes its data to a
-web page or to a server, so a file the user exports by hand is the only path
-that exists without shipping native code.
+A one-way import of weight and body history. It arrives two ways, and never goes
+back out: neither platform exposes its data to a web page or to a server, so
+either a person exports a file by hand or something on the device sends the
+readings itself.
+
+The file path came first and is described below. The device path is the same
+import behind a different door - see [HEALTH_SYNC.md](HEALTH_SYNC.md) and
+"Syncing from a device" at the end of this section.
 
 Parsing happens **in the browser**, which is a deliberate inversion of how every
 other import here works. An Apple `export.xml` is regularly several hundred
@@ -386,6 +390,7 @@ reaches the server: what is posted is the handful of metrics NutriCore stores.
 | Dispatch | `src/lib/health-file.ts` | Decides which of the four shapes a picked file is |
 | Rules | `src/lib/health-import.ts` | Units, day bucketing, one-per-day, the import decision |
 | Writing | `src/server/health-import.ts` | Plans against the database, then applies the plan |
+| Shared entry | `src/server/health-import-ingest.ts` | The schema and the write both doors go through |
 
 No dependency was added for any of it. The zip is opened with
 `DecompressionStream`, which browsers have had for years. The database is read
@@ -449,6 +454,45 @@ identity in its export to what was written, so a second run recognises what the
 first one did and reports it as unchanged rather than duplicating it. Health
 Connect rows carry their own UUID; Apple's export carries none, so the reader
 derives one from the record's own fields.
+
+### Syncing from a device
+
+The file import needs a person for every step. A phone syncing on a schedule has
+no person and no session, so it carries a long-lived token instead and posts to
+`/api/health/samples`. `HealthDeviceToken` holds only the SHA-256 of that token,
+exactly as `Session` does, so the table is not a list of live credentials.
+
+What it is not is a second importer. `src/server/health-import-ingest.ts` holds
+the sample schema and the call into the planner, and both doors go through it: a
+rule enforced on one path and not the other is not a rule. The endpoint is left
+with nothing but its own question, which is who is calling.
+
+The platform is fixed when a token is issued rather than declared per request.
+Two things follow, both wanted: what a client sends is only its samples, and a
+token taken off one phone cannot write records under the other platform's
+identity - which matters because `externalId` is only unique within a platform.
+
+`GET` on the same path answers where to resume, per metric, as the last day
+already imported. It is inclusive: somebody who weighs themselves twice in a day
+produces two samples on it, and the second must not be missed because the first
+was stored. Re-reading that day costs nothing, because the import is idempotent
+on `externalId` - a client is free to ignore the cursor entirely and re-send its
+whole history, and will simply be told it is unchanged.
+
+Two rate limits, kept apart. Per token, loosely, for a device that is working;
+per address, tightly and counted in PostgreSQL, for a token that resolves to
+nothing. Sharing one bucket would let a broken client behind a shared address
+lock out a working device, and would make a valid token a way to spend the
+address budget. `lastUsedAt` is refreshed only by a real write, so a client
+stuck in `dryRun` does not look healthy.
+
+There is no expiry column. A sync credential that stops working on a date nobody
+wrote down is worse than one its owner revokes when they replace the phone, and
+`lastUsedAt` is what makes an unused one visible.
+
+Neither platform is reachable without native code on the device: HealthKit needs
+an app or a Shortcut, and Health Connect needs an Android app - a wrapped PWA
+cannot read it. What this repository ships is the door, not the clients.
 
 ## Authorisation
 
