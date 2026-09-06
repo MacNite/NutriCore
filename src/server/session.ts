@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { PASSWORD_CHANGE_COOKIE, SESSION_COOKIE, SESSION_TTL_MS, createSessionToken, hashSessionToken, securityCookieOptions } from "@/lib/auth";
 import type { Locale } from "@/i18n/locales";
 import { DEFAULT_LOCALE, isLocale } from "@/i18n/locales";
+import { DEFAULT_MEAL_SPLIT, type MealSplit } from "@/lib/meal-splits";
 
 export interface SessionUser {
   id: string;
@@ -16,6 +17,10 @@ export interface SessionUser {
   aiEnabled: boolean;
   researchEnabled: boolean;
   addActivityCalories: boolean;
+  /** Whether the diary shows each meal's share of the day's allowance. */
+  showMealTargets: boolean;
+  /** That share per meal, in whole percent. Read here because the profile is already loaded. */
+  mealSplit: MealSplit;
   role: "USER" | "ADMIN";
   mustChangePassword: boolean;
 }
@@ -47,6 +52,15 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     aiEnabled: user.profile?.aiEnabled ?? true,
     researchEnabled: user.profile?.researchEnabled ?? false,
     addActivityCalories: user.profile?.addActivityCalories ?? true,
+    showMealTargets: user.profile?.showMealTargets ?? false,
+    mealSplit: user.profile
+      ? {
+          BREAKFAST: user.profile.mealSplitBreakfast,
+          LUNCH: user.profile.mealSplitLunch,
+          DINNER: user.profile.mealSplitDinner,
+          SNACKS: user.profile.mealSplitSnacks,
+        }
+      : DEFAULT_MEAL_SPLIT,
     role: user.role,
     mustChangePassword: user.mustChangePassword,
   };

@@ -406,6 +406,28 @@ model UserProfile {
   showBodyShape       Boolean         @default(true)
   /// Add exercise calories recorded for a date to that date's energy allowance.
   addActivityCalories Boolean         @default(true)
+  /**
+   * Show each meal's share of the day's allowance beside what it holds.
+   *
+   * Off by default. No body of evidence establishes a correct division of the
+   * day - the DGE makes no recommendation on it - so a split is guidance the
+   * reader opts into, and switching it on must be their decision rather than
+   * something that appears one release and marks their breakfast as over.
+   */
+  showMealTargets     Boolean         @default(false)
+  /**
+   * The reader's split, as whole percent per meal. Stored as four columns
+   * rather than a blob because the diary has exactly these four meals and the
+   * database can then hold the defaults itself. The four are kept summing to
+   * 100 by the action that writes them; see `lib/meal-splits`.
+   *
+   * The defaults are the classic 25/30/25/20 distribution taught alongside the
+   * DGE's three-to-five-meal advice.
+   */
+  mealSplitBreakfast  Int             @default(25)
+  mealSplitLunch      Int             @default(30)
+  mealSplitDinner     Int             @default(25)
+  mealSplitSnacks     Int             @default(20)
   onboardedAt         DateTime?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt

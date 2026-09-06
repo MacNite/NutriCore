@@ -204,7 +204,8 @@
       "addToMealHint": "Trägt die erkannten Lebensmittel in dein Tagebuch ein. Ohne Häkchen wird nichts eingetragen; der Vorschlag bleibt zur Prüfung stehen.",
       "servingsUp": "Eine Portion mehr",
       "servingsDown": "Eine Portion weniger"
-    }
+    },
+    "mealOver": "{amount} kcal über dem Anteil dieser Mahlzeit"
   },
   "quickActions": {
     "open": "Eintrag hinzufügen",
@@ -748,6 +749,23 @@
     },
     "autoApplyEnrichment": "Ergänzte Nährwerte ohne Prüfung übernehmen",
     "autoApplyEnrichmentHint": "Standardmäßig aus: Nährwerte, die die KI aus einer Quelle liest, warten auf deine Freigabe. Einschalten, damit sie wie bisher sofort ins Lebensmittel geschrieben werden."
+  },
+  "mealSplit": {
+    "title": "Kalorien pro Mahlzeit",
+    "hint": "Teile dein Tagesziel auf die vier Mahlzeiten auf. Es gibt keine wissenschaftlich belegte „richtige“ Aufteilung – die DGE spricht dazu ausdrücklich keine Empfehlung aus, und Studien zu einem großen Frühstück widersprechen sich. Die Voreinstellung 25/30/25/20 ist die klassische Verteilung, nicht mehr.",
+    "enable": "Anteil je Mahlzeit im Tagebuch anzeigen",
+    "enableHint": "Zeigt hinter jeder Mahlzeit ihren Anteil am Tagesziel, z. B. „777 / 498 kcal“. Eine Orientierung, kein Limit: über die Bilanz des Tages entscheidet weiterhin das Tagesziel.",
+    "distribution": "Aufteilung",
+    "presets": "Vorlagen",
+    "presetNames": {
+      "classic": "Klassisch 25/30/25/20",
+      "noSnacks": "Ohne Snacks 30/40/30",
+      "frontLoaded": "Früh betont 35/35/20/10",
+      "eveningHeavy": "Abends betont 20/30/40/10"
+    },
+    "total": "Summe: {total} %",
+    "mustTotal": "Die vier Anteile müssen zusammen 100 % ergeben.",
+    "noTarget": "Noch kein Tagesziel"
   },
   "healthImport": {
     "title": "Aus Apple Health oder Health Connect importieren",
