@@ -78,8 +78,13 @@ Implemented and covered by tests:
   [Body scanning](#body-scanning).
 - **Progress charts** — daily achievement of the calorie, macro and
   micronutrient targets over time, and recorded active calories by day.
+- **Calories per meal** — optional, off by default: each meal's share of the
+  day's allowance shown beside what it holds (`777 / 498 kcal`), with the split
+  chosen per user from four presets or typed as four percentages with a live
+  kcal preview. See [Calories per meal](#calories-per-meal).
 - **Settings** — profile, target override, language, theme, whether activity
-  calories count towards the target, the AI, web-research and AI-approval
+  calories count towards the target, how the day's calories are divided over
+  the meals, the AI, web-research and AI-approval
   switches, which body visualisations are drawn, exports, invitations where
   SMTP is configured, and account deletion. Secrets are never displayed.
 - **Administration** — for the `ADMIN` role only: invite or batch-invite users with single-use
@@ -1185,6 +1190,59 @@ Reporting is rate limited per account, one open report per member per food.
 Corrections are *not* part of the enrichment export - that artifact carries
 AI-backfilled values with the page and model behind them, which a human
 correction has neither of.
+
+## Calories per meal
+
+Off by default. When switched on in Settings, every meal in the diary shows its
+share of the day beside what it holds — `777 / 498 kcal` — and a meal over its
+share is marked in the warning colour *and* says so in text, because colour
+alone is not information for everybody.
+
+### There is no established correct split
+
+The application does not assert one, and the wording in Settings says so. The
+[DGE](https://www.dge.de/wissenschaft/weitere-publikationen/fachinformationen/essenshaeufigkeit-und-gewichtsregulation-bei-erwachsenen/)
+states that the available evidence supports no recommendation on how often or
+how a healthy person should spread intake over the day. The trials on
+front-loading disagree with each other: the 2022 Aberdeen crossover found
+[no metabolic difference](https://www.sciencedaily.com/releases/2022/09/220909120808.htm)
+between a large breakfast and a large dinner, only less hunger, while other
+[chrononutrition work](https://pmc.ncbi.nlm.nih.gov/articles/PMC12252119/)
+reports better outcomes from eating earlier.
+
+So the split is guidance the reader chooses, never a rule. It is a display
+preference: nothing about the daily target, the macros or the diary changes,
+and switching it off leaves everything logged exactly as it was.
+
+### The presets
+
+| Preset | Breakfast | Lunch | Dinner | Snacks |
+| --- | --- | --- | --- | --- |
+| Classic (default) | 25 % | 30 % | 25 % | 20 % |
+| No snacks | 30 % | 40 % | 30 % | 0 % |
+| Front-loaded | 35 % | 35 % | 20 % | 10 % |
+| Evening-heavy | 20 % | 30 % | 40 % | 10 % |
+
+The default is the classic distribution taught alongside the DGE's
+three-to-five-meal advice. It is the default because it maps onto the four
+meals this diary already has and because it is the one figure a German reader
+is likely to have met before — not because it is better evidenced than the
+others. A preset fills the four fields rather than replacing them: any four
+whole percentages that total 100 can be typed instead, and each shows the kcal
+it works out to as it is typed.
+
+### How the numbers are derived
+
+The shares divide the same daily figure the energy ring shows, so where
+activity calories count towards the target the meal shares grow with the day's
+recorded exercise and the four still add up to the number on screen. The
+rounding remainder is handed out by largest fractional part, so a 1.990 kcal
+day split 25/30/25/20 reads 498 + 597 + 497 + 398 and not a total one kcal
+above the day. A meal given a 0 % share never collects a remainder.
+
+A split that does not total 100 % is refused rather than rescaled — a rescaled
+split is not the one that was typed — and the form shows the running total
+while it is being edited, so this is visible before saving.
 
 ## Registration policy
 

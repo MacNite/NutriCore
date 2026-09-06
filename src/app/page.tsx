@@ -16,6 +16,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { QuickActionsFab } from "@/components/quick-actions-fab";
 import { AppDialog } from "@/components/app-dialog";
 import { DiaryEntryRow } from "@/components/diary-entry-row";
+import { MealTotal } from "@/components/meal-total";
 import { CopyPreviousDay } from "@/components/copy-previous-day";
 import { QuickMealForm } from "@/components/quick-meal-form";
 import { getDiaryDay, formatDateKey, MEALS } from "@/server/diary";
@@ -23,6 +24,7 @@ import { recentFoods } from "@/server/recent-foods";
 import { getCurrentTarget, targetWithActivity } from "@/server/targets";
 import { formatKcal, formatNumber, formatWeekday } from "@/lib/format";
 import { shiftDateKey, validDateKey } from "@/lib/date";
+import { mealTargets } from "@/lib/meal-splits";
 import { ActivityEditor } from "@/components/activity-panel";
 import { getActivityEntries } from "@/server/activities";
 import { FoodSearchField } from "@/components/food-search-field";
@@ -94,6 +96,11 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const consumed = day.knownTotals.energyKcal ?? 0;
   const dailyTarget = targetWithActivity(target, activities.totalActiveKcal, user.addActivityCalories);
   const targetKcal = dailyTarget?.kcal ?? null;
+  // Divided from the same figure the ring shows, activity allowance included,
+  // so the four meal shares always add up to the day the reader is looking at.
+  // Null whenever the split is switched off or there is no target to divide.
+  const perMeal = user.showMealTargets ? mealTargets(targetKcal, user.mealSplit) : null;
+  const mealOverLabel = (amount: string) => diaryT("mealOver", { amount });
 
   return (
     <AppShell displayName={user.displayName} hasFab>
@@ -184,12 +191,12 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                     closeLabel={common("close")}
                     initialOpen={params.editMeal === meal}
                     triggerClassName="row-main-button"
-                    trigger={<><div className="row-body"><strong>{diaryT(`meals.${meal}`)}</strong><span>{preview.length === 0 ? diaryT("empty") : preview.slice(0, 3).join(" · ")}</span></div><span className="row-value">{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</span></>}
+                    trigger={<><div className="row-body"><strong>{diaryT(`meals.${meal}`)}</strong><span>{preview.length === 0 ? diaryT("empty") : preview.slice(0, 3).join(" · ")}</span></div><span className="row-value"><MealTotal kcal={kcal} target={perMeal?.[meal] ?? null} locale={locale} unit={common("kcal")} overLabel={mealOverLabel} /></span></>}
                     secondaryTrigger={<span aria-hidden="true">＋</span>}
                     secondaryTriggerLabel={diaryT("addTo", { meal: diaryT(`meals.${meal}`) })}
                     secondaryAutoFocusTarget=".meal-search-input"
                   >
-                    <div className="dialog-toolbar"><strong>{kcal === null ? "–" : `${formatKcal(kcal, locale)} ${common("kcal")}`}</strong><FoodSearchField variant="dropdown" meal={meal} date={selectedDate} editMeal={meal} locale={locale} researchAvailable={research.available} researchUnavailableReason={research.reason} /></div>
+                    <div className="dialog-toolbar"><strong><MealTotal kcal={kcal} target={perMeal?.[meal] ?? null} locale={locale} unit={common("kcal")} overLabel={mealOverLabel} /></strong><FoodSearchField variant="dropdown" meal={meal} date={selectedDate} editMeal={meal} locale={locale} researchAvailable={research.available} researchUnavailableReason={research.reason} /></div>
                     {mealPending.map((placeholder) => <AiPlaceholderRow key={placeholder.id} placeholder={placeholder} labels={placeholderLabels} returnTo="/" />)}
                     {mealPending.length ? <p className="muted" style={{ margin: "8px 0 0" }}>{mealPending.some((placeholder) => placeholder.status !== "FAILED") ? placeholderT("mealHint") : placeholderT("failedHint")}</p> : null}
                     {entries.length === 0 && mealPending.length === 0 ? <p className="empty">{diaryT("empty")}</p> : entries.map((entry) => <DiaryEntryRow key={entry.id} entry={{ id: entry.id, label: entry.label, brand: entry.brand, quantity: entry.quantity, unit: entry.unit, kcal: entry.nutrients.energyKcal ?? null, sourceType: entry.sourceType, href: entryHref(entry, meal, selectedDate) }} date={selectedDate} locale={locale} badge={<SourceBadge source={entry.sourceType} />} />)}

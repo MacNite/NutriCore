@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentTarget } from "@/server/targets";
 import { DEFAULT_PANELS } from "@/lib/body-visualization";
 import { SettingsForms } from "./settings-forms";
+import { MealSplitForm } from "./meal-split-form";
 import { HealthImport } from "./health-import";
 import { HealthDevices } from "./health-devices";
 import { TargetPanel } from "@/components/target-panel";
@@ -63,6 +64,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               shape: profile?.showBodyShape ?? DEFAULT_PANELS.shape,
             }}
             addActivityCalories={profile?.addActivityCalories ?? true}
+          />
+
+          {/* Below the target it divides, and above the body panels: it is a
+              display preference over the same number the target panel derives. */}
+          <MealSplitForm
+            enabled={user.showMealTargets}
+            split={user.mealSplit}
+            targetKcal={target?.kcal ?? null}
+            locale={user.language}
           />
         </div>
 

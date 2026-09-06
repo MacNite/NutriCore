@@ -204,7 +204,8 @@
       "addToMealHint": "Writes the recognised foods into your diary. Without it nothing is logged and the proposal stays waiting for review.",
       "servingsUp": "One serving more",
       "servingsDown": "One serving fewer"
-    }
+    },
+    "mealOver": "{amount} kcal over this meal's share"
   },
   "quickActions": {
     "open": "Add an entry",
@@ -748,6 +749,23 @@
     },
     "autoApplyEnrichment": "Apply backfilled nutrition without review",
     "autoApplyEnrichmentHint": "Off by default: nutrition the AI reads off a source waits for you to approve it. Switch this on to have it written to the food straight away, the way it worked before."
+  },
+  "mealSplit": {
+    "title": "Calories per meal",
+    "hint": "Divide your daily target over the four meals. There is no scientifically established “correct” split — the DGE explicitly makes no recommendation on it, and the trials on a large breakfast disagree with each other. The 25/30/25/20 default is the classic distribution, nothing more.",
+    "enable": "Show each meal's share in the diary",
+    "enableHint": "Shows each meal's share of the daily target beside what it holds, such as “777 / 498 kcal”. Guidance, not a limit: the daily target still decides the day.",
+    "distribution": "Distribution",
+    "presets": "Presets",
+    "presetNames": {
+      "classic": "Classic 25/30/25/20",
+      "noSnacks": "No snacks 30/40/30",
+      "frontLoaded": "Front-loaded 35/35/20/10",
+      "eveningHeavy": "Evening-heavy 20/30/40/10"
+    },
+    "total": "Total: {total} %",
+    "mustTotal": "The four shares have to add up to 100 %.",
+    "noTarget": "No daily target yet"
   },
   "healthImport": {
     "title": "Import from Apple Health or Health Connect",

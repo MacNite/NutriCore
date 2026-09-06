@@ -2580,3 +2580,10 @@ legend {
     font-size: 11px;
   }
 }
+
+/* Presets sit above the four percentage fields as chips: picking one fills the
+   fields rather than replacing them, so a preset stays a starting point. */
+.meal-split-presets { display: flex; flex-wrap: wrap; gap: 7px; }
+/* A meal beside the share of the day it was given. The warning colour is a
+   second cue only: `MealTotal` also states the overage in text. */
+.meal-total.over { color: var(--warn-text); }

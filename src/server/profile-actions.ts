@@ -11,6 +11,7 @@ import { LOCALES } from "@/i18n/locales";
 import { logger } from "@/lib/logger";
 import { PASSWORD_CHANGE_COOKIE, SESSION_COOKIE } from "@/lib/auth";
 import { NUTRIENTS } from "@/lib/nutrients";
+import { MEAL_SPLIT_TOTAL, isValidMealSplit, type MealSplit } from "@/lib/meal-splits";
 
 export interface FormState {
   ok?: boolean;
@@ -159,6 +160,57 @@ export async function savePersonalizationAction(_state: FormState, formData: For
   (await cookies()).set("NEXT_LOCALE", parsed.data, { path: "/", maxAge: 31_536_000, sameSite: "lax" });
   revalidatePath("/", "layout");
   revalidatePath("/progress");
+  return { ok: true };
+}
+
+const share = z
+  .string()
+  .trim()
+  .transform((value) => (value === "" ? 0 : Number(value.replace(",", "."))))
+  .refine((value) => Number.isInteger(value) && value >= 0 && value <= MEAL_SPLIT_TOTAL, { message: "out-of-range" });
+
+/**
+ * The reader's per-meal share of the day.
+ *
+ * Its own action, like the body panels and for the same reason: an unchecked
+ * box submits nothing, so a switch sharing a form with other switches would
+ * read as "off" whenever the other form was the one submitted.
+ *
+ * A split that does not total 100 is refused rather than rescaled. Rescaling
+ * would store a division the reader did not type, and the form already shows
+ * the running total while they type, so reaching this branch means they asked
+ * for something the day cannot hold.
+ */
+export async function saveMealSplitAction(_state: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+
+  const shares = (["BREAKFAST", "LUNCH", "DINNER", "SNACKS"] as const).map((meal) => share.safeParse(formData.get(`mealSplit-${meal}`) ?? ""));
+  if (shares.some((value) => !value.success)) return { error: "validation" };
+
+  const [BREAKFAST, LUNCH, DINNER, SNACKS] = shares.map((value) => (value.success ? value.data : 0));
+  const split: MealSplit = { BREAKFAST, LUNCH, DINNER, SNACKS };
+  const enabled = asBool(formData.get("showMealTargets"));
+  // A split is only asserted to add up when it is going to be shown. Switching
+  // the feature off must not be blocked by numbers left half-edited above it.
+  if (enabled && !isValidMealSplit(split)) return { error: "validation" };
+
+  await prisma.userProfile.update({
+    where: { userId: user.id },
+    data: {
+      showMealTargets: enabled,
+      ...(isValidMealSplit(split)
+        ? {
+            mealSplitBreakfast: split.BREAKFAST,
+            mealSplitLunch: split.LUNCH,
+            mealSplitDinner: split.DINNER,
+            mealSplitSnacks: split.SNACKS,
+          }
+        : {}),
+    },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/settings");
   return { ok: true };
 }
 
