@@ -198,7 +198,10 @@ NOT SHIPPED — NEVER PRESENT AS AVAILABLE
   phone. The file is read in the browser; only those values reach the server.
   There is no companion app, no live or background sync, no wearable connection,
   and nothing is written back to either platform. Health Connect exports are
-  read on a best-effort basis because Google publishes no schema for them.
+  read on a best-effort basis because Google publishes no schema for them,
+  and Health Connect offers only a scheduled export to cloud storage - there
+  is no one-off export button, and Google Takeout is a different export
+  holding Google Fit data, which is not readable here.
   Muscle mass is not imported. Do not call any of this "syncing" or "connecting"
   to Apple Health or Health Connect.
 - Do not invent wearables, step tracking, coaching, public or cross-instance

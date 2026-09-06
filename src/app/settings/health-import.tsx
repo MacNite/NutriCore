@@ -114,9 +114,14 @@ export function HealthImport() {
               <p style={{ margin: "0 0 8px" }}>
                 <strong>{t("howTo.appleTitle")}</strong> {t("howTo.apple")}
               </p>
-              <p style={{ margin: 0 }}>
+              <p style={{ margin: "0 0 8px" }}>
                 <strong>{t("howTo.androidTitle")}</strong> {t("howTo.android")}
               </p>
+              {/* The two things people actually get stuck on: an export that
+                  comes back empty because no app writes to Health Connect, and
+                  reaching for Takeout, which holds Google Fit data instead. */}
+              <p style={{ margin: "0 0 8px" }}>{t("howTo.androidNote")}</p>
+              <p style={{ margin: 0 }}>{t("howTo.androidFormat")}</p>
             </div>
           </details>
         </>
