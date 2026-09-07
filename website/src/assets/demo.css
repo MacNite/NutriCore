@@ -1,0 +1,126 @@
+/* ---------------------------------------------------------------------------
+   The demo, on top of the application's own stylesheet.
+
+   assets/app.css is src/app/globals.css copied verbatim; this file adds only
+   what a page without a server needs and redefines nothing the application
+   defines. It uses the application's tokens, so the banner is themed by the
+   same three states the product is: an explicit choice, or the operating
+   system.
+   --------------------------------------------------------------------------- */
+
+/* The banner. Amber rather than jade: it is a caveat about the page, not a
+   part of the product's own interface, and it says both things a visitor needs
+   - that the data is a fixture, and how to get back. */
+.demo-banner {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-bottom: 1px solid color-mix(in srgb, var(--warn-text) 22%, transparent);
+  font-size: 13.5px;
+  font-weight: 650;
+  text-align: center;
+  text-decoration: none;
+}
+
+.demo-banner:hover {
+  text-decoration: none;
+  filter: brightness(1.03);
+}
+
+.demo-banner:hover .demo-banner-arrow {
+  transform: translateX(3px);
+}
+
+.demo-banner:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.demo-banner-mark {
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.demo-banner-arrow {
+  transition: transform 0.15s ease;
+}
+
+/* On a narrow screen the sentence wraps and the dot would take a line of its
+   own, which is a line spent on decoration. */
+@media (max-width: 560px) {
+  .demo-banner-mark { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-banner-arrow { transition: none; }
+}
+
+/* The application never hides a row, a day or the quick-action menu, so its
+   own rules - .row, .stack, .fab-menu - never had to beat the browser's
+   [hidden]. The demo hides all three, and says so once here rather than
+   repeating a display rule per element. */
+[hidden] {
+  display: none !important;
+}
+
+/* Anything the fixture cannot actually do still looks like the control it
+   stands for, and says so when it is pressed. */
+[data-demo-inert] {
+  cursor: pointer;
+}
+
+.demo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 20;
+  transform: translateX(-50%);
+  margin: 0;
+  max-width: min(460px, calc(100vw - 32px));
+  padding: 11px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow), 0 10px 30px rgba(8, 18, 12, 0.18);
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  /* Clear of the bottom navigation and the floating button. */
+  .demo-toast { bottom: 150px; }
+}
+
+.demo-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px 24px;
+  flex-wrap: wrap;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px 20px 40px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+@media (max-width: 720px) {
+  .demo-foot { padding-bottom: 110px; }
+}
+
+/* Only ever visible with the script switched off, where the two days are
+   printed one after the other and need telling apart. */
+.demo-day-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}

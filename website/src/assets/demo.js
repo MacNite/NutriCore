@@ -1,99 +1,233 @@
 /**
- * Demo page interaction.
+ * What the demo needs a script for.
  *
- * The markup already contains every panel, every day and every search result,
- * so this file only ever hides, shows and filters what is already there. That
- * is why the page still works with scripting disabled - and why nothing here
- * has to know how a nutrient is formatted.
+ * The page is complete before this file runs: every screen, every day, every
+ * dialog and every food is already in the HTML, and with the script switched
+ * off the noscript rules in the page shell simply stop hiding them. So this is
+ * only ever switching, filtering and opening - never rendering.
+ *
+ * Where the application would save something, there is nothing to save. Those
+ * controls are marked in the markup and answered with one line of text rather
+ * than with silence.
  */
 (function () {
   "use strict";
 
-  var shell = document.querySelector(".demo-shell");
-  if (!shell) return;
+  var root = document.documentElement;
+  var $ = function (selector, scope) { return (scope || document).querySelector(selector); };
+  var $$ = function (selector, scope) { return Array.prototype.slice.call((scope || document).querySelectorAll(selector)); };
 
-  /* --- Panels ------------------------------------------------------------ */
-  var tabs = Array.prototype.slice.call(shell.querySelectorAll("[role='tab']"));
-  var panels = Array.prototype.slice.call(shell.querySelectorAll(".demo-panel"));
-  var heading = shell.querySelector("[data-demo-heading]");
-  var daySwitch = shell.querySelector("[data-day-switch]");
+  /* --- Screens ---------------------------------------------------------- */
 
-  var selectTab = function (index) {
-    tabs.forEach(function (tab, position) {
-      var selected = position === index;
-      tab.setAttribute("aria-selected", selected ? "true" : "false");
-      tab.tabIndex = selected ? 0 : -1;
-      panels[position].hidden = !selected;
-      if (selected && heading) heading.textContent = tab.textContent.trim();
-    });
-    // The day chips only mean something on the diary panel.
-    if (daySwitch) daySwitch.style.visibility = index === 0 ? "visible" : "hidden";
-  };
+  var panels = $$("[data-screen-panel]");
+  // Only the two navigations mark the current screen; the wordmark leads to
+  // Today the way it does in the application, without claiming to be a tab.
+  var screenLinks = $$(".nav a[data-screen], .bottom-nav a[data-screen]");
 
-  tabs.forEach(function (tab, index) {
-    tab.addEventListener("click", function () {
-      selectTab(index);
+  function showScreen(id) {
+    if (!panels.some(function (panel) { return panel.dataset.screenPanel === id; })) return;
+    panels.forEach(function (panel) { panel.hidden = panel.dataset.screenPanel !== id; });
+    screenLinks.forEach(function (link) {
+      if (link.dataset.screen === id) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
     });
-    tab.addEventListener("keydown", function (event) {
-      var offset = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : event.key === "ArrowUp" || event.key === "ArrowLeft" ? -1 : 0;
-      if (!offset) return;
-      event.preventDefault();
-      var next = (index + offset + tabs.length) % tabs.length;
-      tabs[next].focus();
-      selectTab(next);
-    });
+    // Only Today carries the floating action button in the application, and
+    // only Today reserves the space under the last card for it.
+    var fabStack = $(".fab-stack");
+    if (fabStack) fabStack.hidden = id !== "today";
+    var shell = $(".shell");
+    if (shell) shell.classList.toggle("shell--with-fab", id === "today");
+    if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
+  document.addEventListener("click", function (event) {
+    var link = event.target.closest("[data-screen], [data-goto]");
+    if (!link) return;
+    event.preventDefault();
+    closeDialogs();
+    showScreen(link.dataset.screen || link.dataset.goto);
   });
 
-  /* --- Day switch -------------------------------------------------------- */
-  var dayButtons = Array.prototype.slice.call(shell.querySelectorAll("[data-day-button]"));
-  var dayPanels = Array.prototype.slice.call(shell.querySelectorAll("[data-day]"));
-  var dateLabel = shell.querySelector("[data-demo-date]");
+  if (location.hash) showScreen(location.hash.slice(1));
+  window.addEventListener("hashchange", function () { showScreen(location.hash.slice(1)); });
 
-  dayButtons.forEach(function (button) {
+  /* --- Theme ------------------------------------------------------------
+     The application's three states: an explicit light or dark, or the
+     operating system's answer. Stored under the key the product uses, so a
+     visitor who later self-hosts arrives on the theme they chose here. */
+
+  var themeButtons = $$("[data-theme-set]");
+
+  function applyTheme(theme) {
+    root.setAttribute("data-theme", theme);
+    themeButtons.forEach(function (button) {
+      var pressed = button.dataset.themeSet === theme;
+      button.setAttribute("aria-pressed", String(pressed));
+      button.style.background = pressed ? "var(--accent-soft)" : "";
+      button.style.color = pressed ? "var(--accent-soft-text)" : "";
+      button.style.fontWeight = pressed ? "650" : "";
+    });
+    try { localStorage.setItem("nutricore-theme", theme); } catch { /* Not persisted; still applied. */ }
+  }
+
+  themeButtons.forEach(function (button) {
+    button.addEventListener("click", function () { applyTheme(button.dataset.themeSet); });
+  });
+
+  var storedTheme = "system";
+  try { storedTheme = localStorage.getItem("nutricore-theme") || "system"; } catch { /* Private mode. */ }
+  applyTheme(storedTheme);
+
+  /* --- The day ----------------------------------------------------------
+     Today's date navigation, over the two days the fixture holds. */
+
+  var dayPanels = $$("[data-day]");
+  var dayLabel = $("[data-day-label]");
+  var dayIndex = 0;
+
+  function showDay(next) {
+    if (next < 0 || next >= dayPanels.length) return;
+    dayIndex = next;
+    dayPanels.forEach(function (panel, index) { panel.hidden = index !== dayIndex; });
+    if (dayLabel) dayLabel.textContent = dayPanels[dayIndex].dataset.dayWeekday || dayLabel.textContent;
+  }
+
+  $$("[data-day-step]").forEach(function (button) {
     button.addEventListener("click", function () {
-      var id = button.getAttribute("data-day-button");
-      dayButtons.forEach(function (other) {
-        other.classList.toggle("chip-accent", other === button);
-      });
-      dayPanels.forEach(function (panel) {
-        panel.hidden = panel.getAttribute("data-day") !== id;
-      });
-      if (dateLabel) dateLabel.textContent = button.getAttribute("data-long");
-
-      // A bar animates from its rendered width, so replaying the transition is
-      // what makes switching days feel like the real screen rather than a swap.
-      Array.prototype.forEach.call(shell.querySelectorAll("[data-day='" + id + "'] .bar i"), function (fill) {
-        var width = fill.style.width;
-        fill.style.width = "0%";
-        window.requestAnimationFrame(function () {
-          window.requestAnimationFrame(function () {
-            fill.style.width = width;
-          });
-        });
-      });
+      // The fixture's days run newest first, so "previous day" moves forward
+      // through the array and "next day" moves back, the way the dates read.
+      var step = Number(button.dataset.dayStep) === -1 ? 1 : -1;
+      var next = dayIndex + step;
+      if (next < 0 || next >= dayPanels.length) {
+        toast("The fixture holds two days. The real diary has every day you have logged.");
+        return;
+      }
+      showDay(next);
     });
   });
 
-  /* --- Search ------------------------------------------------------------ */
-  var input = shell.querySelector("[data-search-input]");
-  var results = Array.prototype.slice.call(shell.querySelectorAll("[data-search-list] .result"));
-  var count = shell.querySelector("[data-search-count]");
-  var empty = shell.querySelector("[data-search-empty]");
+  /* --- Dialogs ----------------------------------------------------------
+     The application's meals, activities and full micronutrient table are
+     native dialogs, so they are native dialogs here too. */
 
-  if (input) {
+  function closeDialogs() {
+    $$("dialog[open]").forEach(function (dialog) { dialog.close(); });
+  }
+
+  document.addEventListener("click", function (event) {
+    var opener = event.target.closest("[data-dialog]");
+    if (opener) {
+      var dialog = document.getElementById(opener.dataset.dialog);
+      if (dialog && !dialog.open) dialog.showModal();
+      return;
+    }
+    if (event.target.closest("[data-dialog-close]")) {
+      var open = event.target.closest("dialog");
+      if (open) open.close();
+    }
+  });
+
+  /* --- The search field inside a meal ------------------------------------ */
+
+  $$("[data-meal-search]").forEach(function (input) {
+    var panel = $("[data-meal-search-panel]", input.closest(".food-search-dropdown"));
     input.addEventListener("input", function () {
-      var query = input.value.trim().toLowerCase();
-      var visible = 0;
+      if (panel) panel.hidden = input.value.trim().length === 0;
+    });
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && panel && !panel.hidden) {
+        event.preventDefault();
+        event.stopPropagation();
+        panel.hidden = true;
+      }
+    });
+  });
 
-      results.forEach(function (result) {
-        var match = !query || result.getAttribute("data-name").indexOf(query) !== -1;
-        result.hidden = !match;
-        if (match) visible += 1;
+  /* --- The food search ---------------------------------------------------
+     The real screen searches the local database first and asks a remote
+     source only when told to. Here the local database is the fixture, and the
+     filtering is the same list narrowing in place. */
+
+  var searchInput = $("[data-food-search]");
+  var foodRows = $$("[data-food]");
+  var foodList = $("[data-food-list]");
+  var foodEmpty = $("[data-food-empty]");
+  var foodStatus = $("[data-food-status]");
+  var recentHeading = $("[data-food-recent-heading]");
+
+  if (searchInput) {
+    searchInput.addEventListener("input", function () {
+      var query = searchInput.value.trim().toLowerCase();
+      var matches = 0;
+
+      foodRows.forEach(function (row) {
+        var hit = query.length === 0 ? row.dataset.recent === "1" : row.dataset.food.indexOf(query) !== -1;
+        row.hidden = !hit;
+        if (hit) matches += 1;
       });
 
-      // "Treffer" is its own plural, so no branch is needed here.
-      if (count) count.textContent = visible + " Treffer";
-      if (empty) empty.hidden = visible !== 0;
+      if (foodList) foodList.classList.toggle("recent-food-list", query.length === 0);
+      if (recentHeading) recentHeading.hidden = query.length > 0;
+      if (foodEmpty) foodEmpty.hidden = matches > 0;
+      if (foodStatus) foodStatus.textContent = query.length === 0 ? "" : String(matches);
     });
   }
+
+  // The rows the screen opens on are the recently used ones; the rest are in
+  // the HTML already and appear as soon as something is typed.
+  foodRows.forEach(function (row) { row.dataset.recent = row.hidden ? "0" : "1"; });
+
+  /* --- Progress chart ---------------------------------------------------- */
+
+  $$("[data-series]").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      var on = chip.getAttribute("aria-pressed") !== "true";
+      chip.setAttribute("aria-pressed", String(on));
+      var group = $('[data-series-mark="' + chip.dataset.series + '"]');
+      if (group) group.style.display = on ? "" : "none";
+    });
+  });
+
+  /* --- The floating action button ---------------------------------------- */
+
+  var fabToggle = $("[data-fab-toggle]");
+  var fabMenu = $("[data-fab-menu]");
+
+  function setFab(open) {
+    if (!fabToggle || !fabMenu) return;
+    fabMenu.hidden = !open;
+    fabToggle.setAttribute("aria-expanded", String(open));
+    fabToggle.querySelector("span").textContent = open ? "×" : "＋";
+  }
+
+  if (fabToggle) {
+    fabToggle.addEventListener("click", function () { setFab(fabMenu.hidden); });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") setFab(false);
+    });
+    document.addEventListener("pointerdown", function (event) {
+      if (!event.target.closest(".fab-stack")) setFab(false);
+    });
+  }
+
+  /* --- What a fixture cannot do ------------------------------------------ */
+
+  var toastElement = $("[data-demo-toast]");
+  var toastTimer = null;
+
+  function toast(message) {
+    if (!toastElement) return;
+    if (message) toastElement.firstChild.textContent = message + " ";
+    toastElement.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastElement.hidden = true; }, 3200);
+  }
+
+  document.addEventListener("click", function (event) {
+    if (event.target.closest("[data-demo-inert]")) {
+      setFab(false);
+      toast("Static demo — nothing here is saved.");
+    }
+  });
 })();

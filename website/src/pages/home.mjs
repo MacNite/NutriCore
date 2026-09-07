@@ -640,9 +640,10 @@ curl -s localhost:3000/api/health
       <p class="eyebrow plain" style="justify-content:center">Have a look around</p>
       <h2 class="h2" style="max-width:20ch;margin:0 auto 1.4rem">The interface, with the data standing still.</h2>
       <p class="lede" style="margin:0 auto 2rem;text-align:center">
-        A working reconstruction of the day view, the search, the micronutrient
-        breakdown and the AI review queue &mdash; running on a static fixture, so
-        it needs no server and stores nothing.
+        Not a picture of the application &mdash; the application itself: its own
+        stylesheet, its diary, its food search, its progress chart, with a
+        fixture where the database would be. Nothing is stored and nothing is
+        sent.
       </p>
       <a class="btn btn-primary" href="demo.html">
         Open the demo

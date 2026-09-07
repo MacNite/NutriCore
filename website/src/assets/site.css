@@ -902,117 +902,14 @@ td .num, th .num { font-family: var(--mono); }
 }
 
 /* ===========================================================================
-   Demo page
+   Screen vocabulary
 
-   A faithful reconstruction of the application's day view, driven entirely by
-   the static fixture in assets/demo.js. It borrows the real component
-   vocabulary - energy ring, macro bars, source badges, nutrient table - so
-   what the page shows is the shape of the actual screen rather than an
-   illustration of one.
+   The overview and the build page quote the application's screens: an energy
+   summary, meal groups, entry rows with their source badge, the nutrient
+   table. The demo itself no longer uses any of this - it loads the
+   application's own stylesheet instead (see website/src/app-frame.mjs) - so
+   what is left here is only what the two written pages illustrate with.
    =========================================================================== */
-
-.demo-shell {
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 0;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
-  min-height: 640px;
-}
-
-.demo-rail {
-  border-right: 1px solid var(--rule);
-  background: var(--surface-2);
-  padding: 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.4rem;
-}
-.demo-user {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding-bottom: 1.1rem;
-  border-bottom: 1px solid var(--rule);
-}
-.avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--jade-soft);
-  color: var(--jade-text);
-  display: grid;
-  place-items: center;
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  flex: none;
-}
-.demo-user b { display: block; font-size: 0.88rem; font-weight: 600; }
-.demo-user span { font-size: 0.74rem; color: var(--ink-3); }
-
-.demo-tabs { display: flex; flex-direction: column; gap: 2px; }
-.demo-tab {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.55rem 0.7rem;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--ink-2);
-  font: inherit;
-  font-size: 0.885rem;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.16s ease, color 0.16s ease;
-}
-.demo-tab:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
-.demo-tab[aria-selected="true"] { background: var(--jade-soft); color: var(--jade-text); font-weight: 550; }
-.demo-tab i {
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
-  background: currentColor;
-  opacity: 0.45;
-  flex: none;
-}
-.demo-tab[aria-selected="true"] i { opacity: 1; }
-
-.demo-rail-note {
-  margin-top: auto;
-  font-size: 0.735rem;
-  line-height: 1.5;
-  color: var(--ink-3);
-  border-top: 1px solid var(--rule);
-  padding-top: 0.9rem;
-}
-
-.demo-main { padding: clamp(1.1rem, 2.4vw, 1.7rem); min-width: 0; }
-
-.demo-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding-bottom: 1.1rem;
-  border-bottom: 1px solid var(--rule);
-  margin-bottom: 1.4rem;
-}
-.demo-topbar h2 { font-size: 1.3rem; }
-.demo-date {
-  font-family: var(--mono);
-  font-size: 0.74rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  margin-bottom: 0.35rem;
-}
-
-.demo-panel[hidden] { display: none; }
 
 .summary {
   display: grid;
@@ -1025,17 +922,6 @@ td .num, th .num { font-family: var(--mono); }
   background: var(--surface-2);
 }
 .summary-macros { min-width: 0; }
-.summary-foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.2rem;
-  margin-top: 1rem;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--rule);
-  font-size: 0.79rem;
-  color: var(--ink-3);
-}
-.summary-foot b { font-family: var(--mono); color: var(--ink); font-weight: 500; }
 
 @media (max-width: 620px) {
   .summary { grid-template-columns: 1fr; justify-items: center; text-align: center; }
@@ -1093,55 +979,7 @@ td .num, th .num { font-family: var(--mono); }
 .badge-recipe { color: var(--fat); background: var(--fat-soft); border-color: transparent; }
 .badge-est { color: var(--carb); border-color: color-mix(in srgb, var(--carb) 40%, transparent); }
 
-/* Search */
-.search-field { position: relative; margin-bottom: 0.9rem; }
-.search-field input {
-  width: 100%;
-  padding: 0.72rem 0.9rem 0.72rem 2.3rem;
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.92rem;
-}
-.search-field input::placeholder { color: var(--ink-3); }
-.search-field svg {
-  position: absolute;
-  left: 0.78rem;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: var(--ink-3);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-}
-.search-meta {
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  color: var(--ink-3);
-  margin-bottom: 0.7rem;
-  display: flex;
-  gap: 0.9rem;
-  flex-wrap: wrap;
-}
-.result-list { list-style: none; margin: 0; padding: 0; }
-.result {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.8rem;
-  align-items: center;
-  padding: 0.66rem 0.7rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-}
-.result + .result { border-top: 1px solid var(--rule); border-radius: 0; }
-.result:hover { background: var(--surface-2); }
-.result-empty { padding: 1.4rem 0.7rem; color: var(--ink-3); font-size: 0.9rem; }
-
-/* Nutrient table on the demo */
+/* The nutrient table both written pages quote */
 .nutrient-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -1166,21 +1004,6 @@ td .num, th .num { font-family: var(--mono); }
   text-align: right;
 }
 
-/* Progress panel */
-.chart-card {
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  padding: clamp(1rem, 2.2vw, 1.4rem);
-  background: var(--surface-2);
-}
-.spark { display: block; width: 100%; height: auto; }
-.spark .grid-line { stroke: var(--rule); stroke-width: 0.6; }
-.spark .axis { fill: var(--ink-3); font-family: var(--mono); font-size: 7px; }
-.spark .trend { fill: none; stroke: var(--jade); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
-.spark .trend-soft { fill: color-mix(in srgb, var(--jade) 12%, transparent); stroke: none; }
-.spark .point { fill: var(--jade); }
-.spark .bar-mark { fill: color-mix(in srgb, var(--jade) 55%, transparent); }
-
 .stat-row {
   display: grid;
   /* 190px keeps a four-item row from wrapping to three-plus-one, which would
@@ -1200,49 +1023,6 @@ td .num, th .num { font-family: var(--mono); }
 .stat b { display: block; font-family: var(--mono); font-size: 1.22rem; letter-spacing: -0.03em; font-weight: 500; font-variant-numeric: tabular-nums; }
 .stat span { font-size: 0.735rem; color: var(--ink-3); letter-spacing: 0.04em; }
 .stat .delta { color: var(--jade); }
-
-/* Review queue */
-.review-item {
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  padding: 1rem 1.1rem;
-  margin-bottom: 0.8rem;
-  background: var(--surface);
-}
-.review-item header { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; margin-bottom: 0.7rem; flex-wrap: wrap; }
-.review-item h4 { font-family: var(--sans); font-size: 0.95rem; font-weight: 600; letter-spacing: 0; }
-.review-components { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
-.review-components li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 0.7rem;
-  align-items: center;
-  font-size: 0.85rem;
-  padding: 0.35rem 0;
-  border-bottom: 1px solid var(--rule);
-  color: var(--ink-2);
-}
-.review-components li:last-child { border-bottom: 0; }
-.review-actions { display: flex; gap: 0.5rem; margin-top: 0.9rem; }
-.mini-btn {
-  font: inherit;
-  font-size: 0.79rem;
-  padding: 0.36rem 0.85rem;
-  border-radius: 999px;
-  border: 1px solid var(--rule-strong);
-  background: var(--surface);
-  color: var(--ink-2);
-  cursor: default;
-}
-.mini-btn.primary { background: var(--jade); border-color: transparent; color: var(--on-jade); }
-
-@media (max-width: 860px) {
-  .demo-shell { grid-template-columns: 1fr; min-height: 0; }
-  .demo-rail { border-right: 0; border-bottom: 1px solid var(--rule); }
-  .demo-tabs { flex-direction: row; overflow-x: auto; gap: 0.35rem; }
-  .demo-tab { white-space: nowrap; }
-  .demo-rail-note, .demo-user { display: none; }
-}
 
 /* ===========================================================================
    Build & deploy page
