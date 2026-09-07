@@ -20,7 +20,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { facts, num } from "./src/data.mjs";
 import { home } from "./src/pages/home.mjs";
-import { demo } from "./src/pages/demo.mjs";
+import { demo, demoScreens } from "./src/pages/demo.mjs";
 import { build as buildPage } from "./src/pages/build.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +46,17 @@ cpSync(join(HERE, "src", "assets"), ASSETS, { recursive: true });
 
 // The application's own icon, so the site and the app share one mark.
 cpSync(join(ROOT, "public", "icon.svg"), join(ASSETS, "icon.svg"));
+
+/**
+ * The application's stylesheet, verbatim.
+ *
+ * The demo is not a drawing of the product's screens, it is the product's
+ * screens: same classes, same tokens, same dark theme. Copying the file rather
+ * than re-expressing it means a change to the design reaches the demo without
+ * anybody remembering to mirror it - and that the demo can never drift into
+ * showing an interface the application does not have.
+ */
+cpSync(join(ROOT, "src", "app", "globals.css"), join(ASSETS, "app.css"));
 
 /**
  * GitHub Pages runs Jekyll over an artifact unless told not to, and Jekyll
@@ -80,6 +91,17 @@ function checkOutput() {
   for (const [name, html] of Object.entries(PAGES)) {
     if (html.length < 4000) problems.push(`${name} is suspiciously short (${html.length} bytes)`);
     if (!html.includes("<title>")) problems.push(`${name} has no title`);
+
+    // The demo is the application's interface, which it can only be while it
+    // carries the application's stylesheet, every screen the navigation names,
+    // and the banner saying what the data is and how to get back to the site.
+    if (name === "demo.html") {
+      if (!html.includes('href="assets/app.css"')) problems.push("demo.html does not load the application stylesheet");
+      if (!html.includes('class="demo-banner"')) problems.push("demo.html has no banner back to the website");
+      for (const screen of demoScreens) {
+        if (!html.includes(`data-screen-panel="${screen}"`)) problems.push(`demo.html is missing the ${screen} screen`);
+      }
+    }
 
     // Every href and src that is neither absolute nor a fragment.
     const references = html.matchAll(/(?:href|src)="(?!https?:|mailto:|#|data:)([^"#?]+)/g);

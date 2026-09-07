@@ -17,9 +17,11 @@ on:
     paths:
       - "website/**"
       - ".github/workflows/website.yml"
-      # The sources the site quotes its own numbers from.
+      # The sources the site quotes its own numbers, words and styles from.
       - "datasets/bundled/manifest.json"
       - "src/lib/nutrients.ts"
+      - "src/app/globals.css"
+      - "messages/en.json"
       - "prisma/schema.prisma"
       - "package.json"
       - "public/icon.svg"
@@ -29,6 +31,8 @@ on:
       - ".github/workflows/website.yml"
       - "datasets/bundled/manifest.json"
       - "src/lib/nutrients.ts"
+      - "src/app/globals.css"
+      - "messages/en.json"
       - "prisma/schema.prisma"
       - "package.json"
       - "public/icon.svg"
