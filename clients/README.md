@@ -39,8 +39,10 @@ The parts that shape a client:
   iPhone recipe a rolling month, the Android app from the cursor.
 - **A value you typed is never overwritten.** Readings landing on a day you
   recorded by hand are reported as `skipManual` and left alone.
-- **Waist circumference is not synced by either.** Apple Health has no such
-  sample and Health Connect removed the record type. It stays a typed-in value.
+- **Waist circumference only comes from an iPhone.** Apple Health holds one;
+  Health Connect removed the record type, so the Android app syncs three
+  metrics rather than four. On Android it stays a typed-in value, which the
+  import will not overwrite.
 
 ## Writing a third one
 

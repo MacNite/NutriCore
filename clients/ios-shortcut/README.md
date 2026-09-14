@@ -194,8 +194,20 @@ decidable rather than a guess.
 
 Height changes about never, so the 30-day window costs one sample or none.
 
-**Waist** is not in this list because Apple Health does not hold one. Type those
-into NutriCore directly; anything entered by hand is never overwritten.
+**Waist circumference** — height's block again, same `LengthToCm` dictionary:
+
+- Action 7 → Sample Type: **Waist Circumference**
+- In the dictionary: `metric` → `waistCm`
+- In action 26: `ios-waistCm-`
+
+Worth adding only if something writes it: waist is typed in by hand, in Health
+under Browse → Body Measurements or in NutriCore itself. If you type it into
+NutriCore, leave this block out — not because it would break anything, but
+because an import never overwrites a value you entered, so every reading would
+come back as `skipManual` forever.
+
+That is all four metrics NutriCore stores. The Android app manages three: Health
+Connect has no waist circumference record type.
 
 ## Why the recipe is shaped this way
 
