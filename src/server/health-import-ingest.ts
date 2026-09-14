@@ -35,7 +35,22 @@ export const sampleSchema = z
   .object({
     metric: z.enum(HEALTH_METRICS),
     date: z.string().regex(DATE_KEY_PATTERN),
-    recordedAt: z.string().datetime(),
+    /* Accepted with an offset, then normalised to UTC.
+     *
+     * Both readers in `src/lib/` produce `Z`, so this looked like a rule about
+     * nothing until a client had to be written against it: Apple's Shortcuts
+     * formats a date in the phone's own zone and offers no way to ask for UTC,
+     * so `2026-09-05T09:14:00+02:00` is the best an iPhone can honestly say. A
+     * schema that refused it would be a schema that asked its clients to
+     * mislabel local time as UTC, which is worse than parsing the offset.
+     *
+     * Normalising matters as much as accepting: `lastPerDay` picks the last
+     * reading of a day by comparing these as strings, which is only the same as
+     * comparing instants while they are all written the same way. */
+    recordedAt: z
+      .string()
+      .datetime({ offset: true })
+      .transform((value) => new Date(value).toISOString()),
     value: z.number().finite(),
     externalId: z.string().min(1).max(128),
     source: z.string().max(120).nullable(),

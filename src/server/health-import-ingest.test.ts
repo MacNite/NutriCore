@@ -68,4 +68,28 @@ describe("sample payload validation", () => {
     const many = Array.from({ length: MAX_IMPORT_SAMPLES + 1 }, (_, index) => sample({ externalId: `id-${index}` }));
     expect(parseSamples(many)).toEqual({ ok: false, error: "tooMany" });
   });
+
+  /* An iPhone Shortcut cannot format a date in UTC - it writes the phone's own
+     offset - so refusing an offset would mean asking that client to lie. */
+  it("accepts an instant written with an offset, and stores it as UTC", () => {
+    const parsed = parseSamples([sample({ recordedAt: "2026-09-05T09:14:00+02:00" })]);
+    expect(parsed.ok && parsed.samples[0].recordedAt).toBe("2026-09-05T07:14:00.000Z");
+  });
+
+  it("still refuses an instant with no zone at all, which could mean anything", () => {
+    expect(parseSamples([sample({ recordedAt: "2026-09-05T07:14:00" })]).ok).toBe(false);
+  });
+
+  /* `lastPerDay` compares these as strings, so two spellings of the same day
+     have to come out of validation comparable. */
+  it("normalises so that two spellings of one instant sort against each other", () => {
+    const parsed = parseSamples([
+      sample({ recordedAt: "2026-09-05T07:14:00Z", externalId: "utc" }),
+      sample({ recordedAt: "2026-09-05T09:15:00+02:00", externalId: "offset" }),
+    ]);
+    expect(parsed.ok && parsed.samples.map((entry) => entry.recordedAt)).toEqual([
+      "2026-09-05T07:14:00.000Z",
+      "2026-09-05T07:15:00.000Z",
+    ]);
+  });
 });

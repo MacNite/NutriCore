@@ -84,11 +84,16 @@ as the client is willing to.
 | --- | --- |
 | `metric` | One of `weightKg`, `bodyFatPct`, `heightCm`, `waistCm`. Anything else is rejected |
 | `date` | `YYYY-MM-DD`, the calendar day **as the device saw it** |
-| `recordedAt` | ISO 8601 instant. Used only to order samples within a day |
+| `recordedAt` | ISO 8601 instant, `Z` or with an offset (`+02:00`). Stored as UTC and used only to order samples within a day |
 | `value` | Kilograms, percent or centimetres. Converted on the device, never guessed here |
 | `externalId` | Stable identity for this reading, ≤128 characters. Re-sending the same id updates rather than duplicates |
 | `source` | The app or scale that wrote it, ≤120 characters, or `null`. Shown to the user, never trusted |
 | `dryRun` | Optional. `true` reports what would happen and writes nothing |
+
+An offset is accepted on `recordedAt` because a client cannot always avoid one:
+Apple's Shortcuts formats a date in the phone's own zone and offers no way to
+ask for UTC. Refusing it would only mean asking that client to label local time
+as UTC, which is worse. It is normalised to UTC on arrival.
 
 `date` is decided by the client because the server has no idea what timezone
 anyone is in — there is no such field on a profile, and a date is treated
@@ -176,6 +181,12 @@ Shortcuts can do all of the above: **Find Health Samples** reads the store,
 personal automation runs it daily. No Apple Developer Program, no Xcode, and no
 App Store review — the phone is doing something it can already do.
 
+[`clients/ios-shortcut/`](../clients/ios-shortcut/) is that shortcut, action by
+action, with the unit conversion and the day derivation spelled out. It sends a
+rolling thirty days rather than reading the cursor: in Shortcuts that costs more
+actions than it saves, and re-sending a month is recognised rather than
+duplicated.
+
 ### Android
 
 Health Connect is reachable only from a native app: there is no web API and no
@@ -183,6 +194,18 @@ scriptable surface, so a wrapped PWA cannot read it. A small Kotlin app using
 `androidx.health.connect.client` with a `WorkManager` periodic job is the whole
 requirement. It needs no Play Store listing — an APK served from the instance
 itself is enough, and suits a self-hosted application better.
+
+[`clients/android/`](../clients/android/) is that app. Two things about the
+platform are worth knowing before writing another one: a scheduled read is a
+background read, which Health Connect refuses without
+`READ_HEALTH_DATA_IN_BACKGROUND`, and it hands out only the last 30 days without
+`READ_HEALTH_DATA_HISTORY`. Neither is in the first permission sheet.
+
+It syncs three metrics rather than four. Health Connect has no waist
+circumference record type — `WaistCircumferenceRecord` was removed from the API
+in 1.0.0-alpha08 — so there is nothing to read; the database reader in
+`src/lib/health-connect-export.ts` still looks for one because an older export
+may carry it.
 
 ## Curl
 

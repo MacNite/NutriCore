@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Compose draws everything, so this only has to be a no-action-bar host with
+      the right window background behind it. Light here, dark in values-night:
+      a `-night` qualifier works on every version this app runs on, where
+      `Theme.DeviceDefault.DayNight` would resolve at build time against a
+      platform style that does not exist before Android 10.
+    -->
+    <style name="Theme.NutriCoreSync" parent="@android:style/Theme.Material.Light.NoActionBar" />
+</resources>

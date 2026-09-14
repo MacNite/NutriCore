@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The token is a live credential for somebody's health record. It stays on the
+  phone it was pasted into: not in a cloud backup, not in a device-to-device
+  transfer. Losing it costs one visit to the settings page; leaking it does not
+  have a comparable fix.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="." />
+    </device-transfer>
+</data-extraction-rules>

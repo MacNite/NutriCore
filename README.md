@@ -1083,8 +1083,12 @@ rules and the same writer as the file import, so both obey the one rule that
 matters: **a value you typed is never overwritten.** Re-sending readings that
 are already stored is recognised, not duplicated.
 
+Both clients are in [clients/](clients/): a Shortcuts recipe you build by hand
+in about fifteen minutes for the iPhone, and a small Kotlin app for Android.
+Neither is part of the deployment - the phone is somebody else's computer, and
+what runs there is theirs to build and install.
 [docs/HEALTH_SYNC.md](docs/HEALTH_SYNC.md) documents the endpoint in full, for
-anyone writing a client.
+anyone writing a third.
 
 Muscle mass is deliberately not imported. Both platforms offer *lean body mass*,
 which counts bone, organs and body water alongside muscle and reads several

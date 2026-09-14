@@ -492,7 +492,11 @@ wrote down is worse than one its owner revokes when they replace the phone, and
 
 Neither platform is reachable without native code on the device: HealthKit needs
 an app or a Shortcut, and Health Connect needs an Android app - a wrapped PWA
-cannot read it. What this repository ships is the door, not the clients.
+cannot read it. Both live in `clients/`, on the far side of the same door: a
+Shortcuts recipe for the iPhone, because Apple leaves that opening and a recipe
+somebody builds by hand is a recipe they have read, and a small Kotlin app for
+Android, because Health Connect leaves none. Neither is part of the deployment,
+and the endpoint does not know or care which of them is calling.
 
 ## Authorisation
 
