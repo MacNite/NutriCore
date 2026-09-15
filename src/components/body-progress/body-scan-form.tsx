@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useId, useRef, useState } from "react";
+import { useActionState, useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AppDialog } from "@/components/app-dialog";
+import { useImageShrink } from "@/components/image-field";
 import { startBodyScanAction } from "@/server/body-scan-actions";
 import type { FormState } from "@/server/profile-actions";
 
@@ -25,16 +26,28 @@ function ScanImageField({
   id,
   name,
   label,
+  maxBytes,
   onSelect,
 }: {
   id: string;
   name: string;
   label: string;
+  maxBytes: number;
   onSelect: (selected: boolean) => void;
 }) {
   const t = useTranslations("bodyScan");
-  const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  /* A scan posts two captures in one request, so it reaches the request-body
+     ceiling with two photographs that each pass validation on their own. Each
+     one is brought under the per-image limit here, which keeps the pair under
+     it as well. */
+  const { ref: inputRef, onChange, status } = useImageShrink({
+    maxBytes,
+    onSelect: (file) => {
+      setFileName(file?.name ?? null);
+      onSelect(file !== null);
+    },
+  });
 
   const open = (fromCamera: boolean) => {
     const input = inputRef.current;
@@ -68,15 +81,14 @@ function ScanImageField({
         className="sr-only"
         tabIndex={-1}
         aria-labelledby={`${id}-label`}
-        onChange={(event) => {
-          const file = event.target.files?.[0] ?? null;
-          setFileName(file?.name ?? null);
-          onSelect(file !== null);
-        }}
+        onChange={onChange}
       />
       <span className="hint scan-source-file" aria-live="polite">
-        {fileName ?? t("capture.noFile")}
+        {status === "shrinking" ? t("capture.shrinking") : fileName ?? t("capture.noFile")}
       </span>
+      {status === "tooLarge" ? (
+        <span className="hint scan-source-file" role="alert">{t("errors.imageTooLarge")}</span>
+      ) : null}
     </div>
   );
 }
@@ -89,7 +101,7 @@ function ScanImageField({
  * check rather than producing a quietly wrong number - so the conditions are
  * stated before the file inputs rather than hidden in a help page.
  */
-export function BodyScanForm({ today, heightCm }: { today: string; heightCm: number | null }) {
+export function BodyScanForm({ today, heightCm, imageMaxBytes }: { today: string; heightCm: number | null; imageMaxBytes: number }) {
   const t = useTranslations("bodyScan");
   const common = useTranslations("common");
   const errors = useTranslations("errors");
@@ -184,12 +196,14 @@ export function BodyScanForm({ today, heightCm }: { today: string; heightCm: num
                 id={`${id}-front`}
                 name="front"
                 label={t("capture.front")}
+                maxBytes={imageMaxBytes}
                 onSelect={(selected) => setViews((current) => ({ ...current, front: selected }))}
               />
               <ScanImageField
                 id={`${id}-side`}
                 name="side"
                 label={t("capture.side")}
+                maxBytes={imageMaxBytes}
                 onSelect={(selected) => setViews((current) => ({ ...current, side: selected }))}
               />
             </fieldset>

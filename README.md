@@ -367,6 +367,16 @@ Both ceilings are read at build time, so changing `IMAGE_UPLOAD_MAX_MB` at
 runtime lowers per-file validation but does not widen the request ceiling the
 image was built with.
 
+A photograph over the limit is shrunk in the browser before the form posts it,
+to a long edge of 2048 px - more detail than any vision model reads - so a
+recent phone camera, which clears the request ceiling with a single picture,
+just works. This is not decoration: the request ceiling *truncates* rather than
+rejects, so an oversized body never reaches the per-file validation that would
+have explained itself, and used to surface as the generic error page instead.
+Shrinking keeps the ceiling low, which matters because whatever it allows is
+what an unauthenticated stranger may post at `/login`. A picture that already
+fits is posted untouched.
+
 The two containers have separate environments and nothing makes them agree, so
 the worker logs the settings it resolved on startup - AI host, model, timeout,
 token cap, whether web research and SearXNG are configured. Compare that line
