@@ -9,6 +9,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { NUTRIENTS } from "@/lib/nutrients";
+import de from "../messages/de.json";
+import en from "../messages/en.json";
 
 const MIGRATIONS = join(process.cwd(), "prisma", "migrations");
 
@@ -80,6 +82,28 @@ describe("nutrient catalogue migration", () => {
     // NutrientDefinition.id defaults to cuid(), which Prisma generates in the
     // client and is therefore unavailable to raw migration SQL.
     for (const row of rows) expect(row.id).toBe(row.key);
+  });
+});
+
+/**
+ * The catalogue exists a third time: as the labels the tables are drawn with.
+ *
+ * Every screen that shows nutrition maps over `NUTRIENTS` and asks for
+ * `nutrients.<key>`, so a nutrient added to the catalogue without a label lands
+ * in the UI as the raw key - "nutrients.biotin" beside a number - and logs a
+ * MISSING_MESSAGE for each render. Nothing else notices: next-intl reports a
+ * missing message and carries on, which is the right behaviour at runtime and
+ * the reason the gap survived six nutrients.
+ */
+describe("nutrient labels", () => {
+  it.each([["de", de.nutrients], ["en", en.nutrients]] as const)("names every catalogue nutrient in %s", (_locale, labels) => {
+    const named = Object.keys(labels);
+    expect(NUTRIENTS.map((n) => n.key).filter((key) => !named.includes(key))).toEqual([]);
+  });
+
+  it("names nothing the catalogue does not define", () => {
+    const keys = NUTRIENTS.map((n) => n.key);
+    expect(Object.keys(de.nutrients).filter((key) => !keys.includes(key))).toEqual([]);
   });
 });
 

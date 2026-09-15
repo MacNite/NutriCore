@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { CompletionRedirect } from "@/components/completion-redirect";
+import { ImageField } from "@/components/image-field";
 import { ServingsInput } from "@/components/servings-input";
 import { queueRecipeImportAction, type RecipeImportDraft, type RecipeImportError } from "@/server/ai-ingestion-actions";
 import { RecipeForm } from "../recipe-form";
@@ -52,10 +53,23 @@ export function NewRecipeWorkspace({
           </div>
           <span className="ai-badge">AI</span>
         </div>
-        <form action={queueRecipeImportAction}>
+        {/* Spelled out because the form carries a file: without it the browser
+            posts the photo's name instead of the photo on the submit that
+            happens before hydration. */}
+        <form action={queueRecipeImportAction} encType="multipart/form-data">
           <div className="field"><label htmlFor="recipe-import-text">{t("text")}</label><textarea id="recipe-import-text" name="text" maxLength={5000} placeholder={t("textPlaceholder")} /></div>
           <div className="field"><label htmlFor="recipe-import-url">{t("url")}</label><input id="recipe-import-url" name="sourceUrl" type="url" placeholder="https://…" /></div>
-          <div className="field"><label htmlFor="recipe-import-image">{t("image")}</label><input id="recipe-import-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" /><span className="hint">{t("imageHint", { maxMb: imageMaxMb })}</span></div>
+          <ImageField
+            id="recipe-import-image"
+            name="image"
+            label={t("image")}
+            hint={t("imageHint", { maxMb: imageMaxMb })}
+            // Exactly what `imageUploadMaxBytes()` reads on the server: the
+            // limit is a whole number of MiB precisely so both sides can say it.
+            maxBytes={imageMaxMb * 1024 * 1024}
+            shrinkingLabel={t("imageShrinking")}
+            tooLargeLabel={t("errors.imageTooLarge")}
+          />
           {/* Last, and with its explanation folded into the marker beside the
               label: it is the one field that is usually left at 1, so it should
               not push the three inputs that carry the recipe down the panel. */}

@@ -9,6 +9,7 @@ import type { EntrySnapshot } from "@/server/diary";
 import { aggregateNutritionDay, type ProgressTarget } from "@/lib/nutrition-progress";
 import { BodyCheckinForm } from "@/components/body-progress/body-checkin-form";
 import { BodyScanForm } from "@/components/body-progress/body-scan-form";
+import { imageUploadMaxBytes } from "@/lib/image-upload-limit";
 import { BodyProgressEmpty } from "@/components/body-progress/body-progress-empty";
 import { BodyProgressSection } from "@/components/body-progress/body-progress-section";
 import { BodyMeasurementChart } from "@/components/body-progress/body-measurement-chart";
@@ -83,6 +84,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
       <BodyScanForm
         today={formatDateKey(new Date())}
         heightCm={profile?.heightCm ? Number(profile.heightCm) : null}
+        imageMaxBytes={imageUploadMaxBytes()}
       />
       {/* The way back to a scan already in flight. Starting one redirects to
           its page, and without this that page was the only route to it: leaving

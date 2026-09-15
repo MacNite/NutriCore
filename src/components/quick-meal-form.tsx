@@ -1,7 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { MEALS } from "@/server/diary";
 import { queueMealInputAction } from "@/server/meal-ai-actions";
-import { imageUploadMaxMb } from "@/lib/image-upload-limit";
+import { imageUploadMaxBytes, imageUploadMaxMb } from "@/lib/image-upload-limit";
+import { ImageField } from "./image-field";
 import { ServingsInput } from "./servings-input";
 
 export async function QuickMealForm({ date, returnTo }: { date: string; returnTo: "/" }) {
@@ -28,17 +29,15 @@ export async function QuickMealForm({ date, returnTo }: { date: string; returnTo
         decrementLabel={t("ai.servingsDown")}
         incrementLabel={t("ai.servingsUp")}
       />
-      <div className="field">
-        <label htmlFor="mealImage-today">{t("ai.image")}</label>
-        <input
-          id="mealImage-today"
-          name="image"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          aria-describedby="mealImageHint-today"
-        />
-        <span className="hint" id="mealImageHint-today">{t("ai.imageHint", { maxMb: imageUploadMaxMb() })}</span>
-      </div>
+      <ImageField
+        id="mealImage-today"
+        name="image"
+        label={t("ai.image")}
+        hint={t("ai.imageHint", { maxMb: imageUploadMaxMb() })}
+        maxBytes={imageUploadMaxBytes()}
+        shrinkingLabel={t("ai.imageShrinking")}
+        tooLargeLabel={t("ai.errors.imageTooLarge")}
+      />
       <div className="field">
         <label htmlFor={"sourceUrl-today"}>{t("ai.sourceUrl")}</label>
         <input
