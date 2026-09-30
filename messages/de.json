@@ -910,6 +910,7 @@
   "errors": {
     "title": "Etwas ist schiefgelaufen",
     "generic": "Die Aktion konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
+    "detail": "Technische Details",
     "notFound": "Nicht gefunden",
     "notFoundBody": "Diese Seite existiert nicht.",
     "unauthorized": "Bitte melde dich an, um fortzufahren.",
