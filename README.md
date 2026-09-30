@@ -281,7 +281,7 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `POSTGRES_DATA_PATH` / `BACKUP_PATH` | no | Host paths bind-mounted into the database container; default `./data/postgres` and `./backups` |
 | `DATABASE_URL` | outside compose | Standard PostgreSQL URL |
 | `DEFAULT_LOCALE` | no | `de` (default) or `en` |
-| `IMAGE_UPLOAD_MAX_MB` | no | Largest meal, recipe or body-scan image, in whole MiB. Default 5, clamped to 15; anything else falls back to 5. Read at build time for the request ceilings — see below |
+| `IMAGE_UPLOAD_MAX_MB` | no | Largest meal, recipe or body-scan image, in whole MiB. Default 5, clamped to 15; anything else falls back to 5. At runtime it can only lower the value the image was built with (5 for the published image) — see below |
 | `OPENFOODFACTS_ENABLED` | no | Default `true` |
 | `OPENFOODFACTS_USER_AGENT` | recommended | App name plus a real contact address, e.g. `NutriCore/0.1 (you@example.com)`. OFF answers 403 to callers it cannot identify; `/admin` flags a placeholder value |
 | `OPENFOODFACTS_SEARCH_URL` | no | Search-a-licious service; default `https://search.openfoodfacts.org` |
@@ -364,8 +364,11 @@ makes. Application validation still rejects any single file above the configured
 limit.
 
 Both ceilings are read at build time, so changing `IMAGE_UPLOAD_MAX_MB` at
-runtime lowers per-file validation but does not widen the request ceiling the
-image was built with.
+runtime can lower the per-file limit but never raise it past the value the image
+was built with - 5 for the published image. A larger runtime value is capped at
+that, because a form that let a photograph through unshrunk would post a body
+the ceiling then truncates. Build the image yourself with the larger value to
+raise it.
 
 A photograph over the limit is shrunk in the browser before the form posts it,
 to a long edge of 2048 px - more detail than any vision model reads - so a
