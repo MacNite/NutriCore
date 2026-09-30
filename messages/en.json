@@ -910,6 +910,7 @@
   "errors": {
     "title": "Something went wrong",
     "generic": "The action could not be completed. Please try again.",
+    "detail": "Technical details",
     "notFound": "Not found",
     "notFoundBody": "This page does not exist.",
     "unauthorized": "Please sign in to continue.",
