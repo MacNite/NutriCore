@@ -20,7 +20,31 @@ export const MAX_IMAGES_PER_REQUEST = 2;
  * megabytes of image, so one MiB covers them with room to spare.
  */
 export const requestBodyLimitMb = (value = process.env.IMAGE_UPLOAD_MAX_MB) =>
-  imageUploadMaxMb(value) * MAX_IMAGES_PER_REQUEST + 1;
+  configuredImageUploadMaxMb(value) * MAX_IMAGES_PER_REQUEST + 1;
+
+/**
+ * The limit this build's request ceilings were sized for, inlined by
+ * `next.config.ts`.
+ *
+ * The ceilings are fixed when the image is built, but `IMAGE_UPLOAD_MAX_MB` is
+ * also read at runtime - and the published image is built with the default. A
+ * deployment that raised the limit in its `.env` therefore got a form that
+ * posted a 13 MB photograph unshrunk, because it fit the runtime limit, into a
+ * request ceiling of 11 MB that truncated it: "Unexpected end of form", and the
+ * generic error page. Capping the runtime value at this one keeps the browser's
+ * shrink threshold, the per-file validation and the ceilings in agreement.
+ *
+ * Unset outside a Next build (the config itself, the worker, the tests), where
+ * there is no ceiling to stay under.
+ */
+const builtImageUploadMaxMb = () => process.env.NUTRICORE_BUILT_IMAGE_UPLOAD_MAX_MB;
+
+/** A whole positive number of MiB, or null when the value says nothing usable. */
+function parseMb(value: string | undefined) {
+  if (value === undefined || value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
 
 /**
  * Shared file-size policy for every image upload.
@@ -28,7 +52,14 @@ export const requestBodyLimitMb = (value = process.env.IMAGE_UPLOAD_MAX_MB) =>
  * The value is deliberately an integer number of MiB: it keeps UI text, file
  * validation, and Next's request-body ceiling based on the same setting.
  */
-export function imageUploadMaxMb(value = process.env.IMAGE_UPLOAD_MAX_MB): number {
+export function imageUploadMaxMb(value = process.env.IMAGE_UPLOAD_MAX_MB, built = builtImageUploadMaxMb()): number {
+  const configured = configuredImageUploadMaxMb(value);
+  const ceiling = parseMb(built);
+  return ceiling === null ? configured : Math.min(configured, ceiling);
+}
+
+/** `IMAGE_UPLOAD_MAX_MB` as the policy reads it, before the build caps it. */
+export function configuredImageUploadMaxMb(value = process.env.IMAGE_UPLOAD_MAX_MB): number {
   if (value === undefined || value.trim() === "") return DEFAULT_IMAGE_UPLOAD_MAX_MB;
   const parsed = Number(value);
   // Not a whole positive number of MiB: the value says nothing usable, so the

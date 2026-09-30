@@ -1,6 +1,6 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
-import { requestBodyLimitMb } from "./src/lib/image-upload-limit";
+import { configuredImageUploadMaxMb, requestBodyLimitMb } from "./src/lib/image-upload-limit";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -10,6 +10,10 @@ const config: NextConfig = {
   reactStrictMode: true,
   // argon2 is a native module and must not be bundled into the server chunk.
   serverExternalPackages: ["argon2"],
+  /* The limit the ceilings below were sized for, so a runtime
+     IMAGE_UPLOAD_MAX_MB above it is capped instead of letting the form post a
+     photograph the ceiling then truncates (see `image-upload-limit.ts`). */
+  env: { NUTRICORE_BUILT_IMAGE_UPLOAD_MAX_MB: String(configuredImageUploadMaxMb()) },
   experimental: {
     /* Server Actions default to 1 MB, and this raises it for the one request
        that needs more: a body scan carrying a front and a side capture.
