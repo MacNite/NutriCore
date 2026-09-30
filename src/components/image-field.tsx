@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
-import { shrinkImage } from "@/lib/shrink-image";
+import { inMemoryCopy, shrinkImage } from "@/lib/shrink-image";
 
 export type ImageFieldStatus = "idle" | "shrinking" | "tooLarge";
 
@@ -41,8 +41,8 @@ export function useImageShrink({
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<ImageFieldStatus>("idle");
-  const shrinking = useRef(false);
-  /** A submit that arrived mid-shrink, to be made good once it finishes. */
+  const holding = useRef(false);
+  /** A submit that arrived mid-copy or mid-shrink, to be made good once it finishes. */
   const deferred = useRef(false);
   /** Guards against an older shrink finishing after a newer pick replaced it. */
   const picks = useRef(0);
@@ -59,7 +59,7 @@ export function useImageShrink({
        is the fraction right after the photo picker closes, and a button that
        swallows the tap that lands in it reads as a broken button. */
     const hold = (event: Event) => {
-      if (!shrinking.current) return;
+      if (!holding.current) return;
       event.preventDefault();
       event.stopPropagation();
       deferred.current = true;
@@ -74,26 +74,47 @@ export function useImageShrink({
       const file = input.files?.[0] ?? null;
       const pick = ++picks.current;
 
-      if (!file || file.size <= maxBytes) {
-        shrinking.current = false;
+      if (!file) {
+        holding.current = false;
         setStatus("idle");
-        onSelect?.(file);
+        onSelect?.(null);
         return;
       }
 
-      shrinking.current = true;
+      /* Every pick is replaced by an in-memory copy, not only an oversized one:
+         a file posted straight from disk is refused by Chrome if it changed
+         after it was picked (see `inMemoryCopy`). Submission is held for the
+         copy as it is for the shrink, but only a shrink is announced - the copy
+         takes milliseconds and has nothing to tell the reader. */
+      const tooLarge = file.size > maxBytes;
+      holding.current = true;
       deferred.current = false;
-      setStatus("shrinking");
-      onSelect?.(null);
-
-      const smaller = await shrinkImage(file, maxBytes);
-      if (pick !== picks.current) return;
-      shrinking.current = false;
-
-      if (smaller && replaceFile(input, smaller)) {
+      if (tooLarge) {
+        setStatus("shrinking");
+        onSelect?.(null);
+      } else {
         setStatus("idle");
-        onSelect?.(smaller);
+        onSelect?.(file);
+      }
+
+      const ready = tooLarge ? await shrinkImage(file, maxBytes) : ((await inMemoryCopy(file)) ?? file);
+      if (pick !== picks.current) return;
+      holding.current = false;
+
+      if (ready && (ready === file || replaceFile(input, ready))) {
+        setStatus("idle");
+        if (ready !== file || tooLarge) onSelect?.(ready);
         // The submit that was held above, now that there is something to send.
+        if (deferred.current) {
+          deferred.current = false;
+          input.form?.requestSubmit();
+        }
+        return;
+      }
+
+      if (!tooLarge) {
+        // The copy could not be put in place; the original is still selected
+        // and is what gets sent, as it always was.
         if (deferred.current) {
           deferred.current = false;
           input.form?.requestSubmit();

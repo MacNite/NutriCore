@@ -124,6 +124,29 @@ function encode(image: Decoded, width: number, height: number, quality: number):
 }
 
 /**
+ * The same picture, held in memory rather than read from disk at submit time.
+ *
+ * A picked file is a reference, not a copy: the browser reads it only when the
+ * form is sent, and Chrome refuses to send one whose file changed since it was
+ * picked (`ERR_UPLOAD_FILE_CHANGED`). On Android that is an ordinary gallery or
+ * camera photo - the file is still being written, or rewritten, after the
+ * picker hands it over - and the request then dies in the browser before it
+ * reaches the server, which leaves nothing in any log and shows the reader the
+ * generic "something went wrong" screen. A copy taken when it is picked cannot
+ * change underneath the form.
+ *
+ * `null` when the file cannot be read even now; the caller keeps the original
+ * then, since there is nothing better to send.
+ */
+export async function inMemoryCopy(file: File): Promise<File | null> {
+  try {
+    return new File([await file.arrayBuffer()], file.name, { type: file.type, lastModified: file.lastModified });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The file to post: the original when it already fits, a smaller JPEG when it
  * does not, and `null` when this browser cannot produce one.
  *
