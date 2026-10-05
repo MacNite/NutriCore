@@ -85,29 +85,45 @@ export class UnauthorizedError extends Error {
   }
 }
 
-export async function startSession(userId: string) {
+/**
+ * `oidcIdToken` marks a single sign-on session. It is kept for the logout hint,
+ * and such a session skips the password-change gate: the person did not sign
+ * in with the temporary password that gate exists to retire.
+ */
+export async function startSession(userId: string, { oidcIdToken }: { oidcIdToken?: string } = {}) {
   const { token, tokenHash } = createSessionToken();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  await prisma.session.create({ data: { userId, tokenHash, expiresAt } });
+  await prisma.session.create({ data: { userId, tokenHash, expiresAt, oidcIdToken: oidcIdToken ?? null } });
 
   (await cookies()).set(SESSION_COOKIE, token, securityCookieOptions(expiresAt));
   const account = await prisma.user.findUnique({ where: { id: userId }, select: { mustChangePassword: true } });
   // Same options as the session cookie. This one used to be written without
   // `secure`, which on an HTTPS deployment made it the one security cookie that
   // could travel in the clear.
-  if (account?.mustChangePassword) (await cookies()).set(PASSWORD_CHANGE_COOKIE, "1", securityCookieOptions(expiresAt));
+  if (account?.mustChangePassword && !oidcIdToken) (await cookies()).set(PASSWORD_CHANGE_COOKIE, "1", securityCookieOptions(expiresAt));
 
   // Opportunistic cleanup keeps the session table from growing unbounded.
   await prisma.session.deleteMany({ where: { userId, expiresAt: { lte: new Date() } } });
   return token;
 }
 
-export async function endSession() {
+/**
+ * Ends the current session. Returns its single sign-on ID token, if it was a
+ * single sign-on session, so the caller can end the provider's session too.
+ */
+export async function endSession(): Promise<{ oidcIdToken: string | null }> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  if (token) await prisma.session.deleteMany({ where: { tokenHash: hashSessionToken(token) } });
+  let oidcIdToken: string | null = null;
+  if (token) {
+    const tokenHash = hashSessionToken(token);
+    const session = await prisma.session.findUnique({ where: { tokenHash }, select: { oidcIdToken: true } });
+    oidcIdToken = session?.oidcIdToken ?? null;
+    await prisma.session.deleteMany({ where: { tokenHash } });
+  }
   store.delete(SESSION_COOKIE);
   store.delete(PASSWORD_CHANGE_COOKIE);
+  return { oidcIdToken };
 }
 
 /**

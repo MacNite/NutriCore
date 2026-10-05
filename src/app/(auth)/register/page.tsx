@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSessionUser } from "@/server/session";
 import { registrationAvailable } from "@/server/registration";
+import { passwordLoginEnabled } from "@/lib/oidc";
 import { RegisterForm } from "./register-form";
 
 export async function generateMetadata() {
@@ -15,7 +16,8 @@ export default async function RegisterPage() {
   const t = await getTranslations("auth");
   // UX only. `registerAction` enforces the same policy for itself, so posting
   // to it directly gets nowhere even though this page never rendered a form.
-  const open = await registrationAvailable();
+  // With password sign-in off, accounts come from the single sign-on provider.
+  const open = passwordLoginEnabled() && (await registrationAvailable());
 
   return (
     <div className="auth-shell">

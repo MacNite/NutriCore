@@ -61,10 +61,19 @@
       "tooCommon": "Dieses Passwort ist zu leicht zu erraten.",
       "rateLimited": "Zu viele Versuche. Bitte in {seconds} Sekunden erneut versuchen.",
       "invalid": "Bitte prüfe die markierten Felder.",
-      "registrationClosed": "Die Registrierung ist auf diesem Server geschlossen. Neue Konten werden per Einladung erstellt."
+      "registrationClosed": "Die Registrierung ist auf diesem Server geschlossen. Neue Konten werden per Einladung erstellt.",
+      "ssoFailed": "Die Single-Sign-on-Anmeldung wurde nicht abgeschlossen. Bitte versuche es erneut.",
+      "ssoUnavailable": "Der Anmeldedienst ist gerade nicht erreichbar.",
+      "ssoNoAccount": "Für deine E-Mail-Adresse gibt es auf diesem Server kein Konto. Bitte eine Administratorin oder einen Administrator um eine Einladung.",
+      "ssoUnverified": "Dein Anmeldedienst hat deine E-Mail-Adresse nicht bestätigt, daher kann sie keinem Konto zugeordnet werden.",
+      "ssoInactive": "Dieses Konto wurde deaktiviert.",
+      "ssoConflict": "Ein Konto mit dieser E-Mail-Adresse ist bereits mit einer anderen Identität verknüpft. Bitte wende dich an die Administration."
     },
     "signUpClosedTitle": "Registrierung geschlossen",
-    "signUpClosedSubtitle": "Auf diesem Server existiert bereits ein Konto. Neue Mitglieder kommen per Einladung dazu - bitte eine Administratorin oder einen Administrator um eine Einladung."
+    "signUpClosedSubtitle": "Auf diesem Server existiert bereits ein Konto. Neue Mitglieder kommen per Einladung dazu - bitte eine Administratorin oder einen Administrator um eine Einladung.",
+    "signInWith": "Mit {provider} anmelden",
+    "orPassword": "oder mit deinem Passwort",
+    "ssoOnlySubtitle": "Auf diesem Server meldest du dich über {provider} an."
   },
   "onboarding": {
     "title": "Profil einrichten",
@@ -1390,7 +1399,8 @@
     "inviteError": "Die Angaben konnten nicht übernommen werden. Der Benutzername ist möglicherweise schon vergeben.",
     "username": "Benutzername",
     "password": "Passwort",
-    "createAccount": "Konto erstellen"
+    "createAccount": "Konto erstellen",
+    "inviteSso": "Melde dich mit {provider} als {email} an, um diese Einladung anzunehmen."
   },
   "activity": {
     "title": "Sport & Aktivität",

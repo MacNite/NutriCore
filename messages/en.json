@@ -61,10 +61,19 @@
       "tooCommon": "That password is too easy to guess.",
       "rateLimited": "Too many attempts. Please try again in {seconds} seconds.",
       "invalid": "Please check the highlighted fields.",
-      "registrationClosed": "Registration is closed on this server. New accounts are created by invitation."
+      "registrationClosed": "Registration is closed on this server. New accounts are created by invitation.",
+      "ssoFailed": "Single sign-on did not complete. Please try again.",
+      "ssoUnavailable": "The sign-in provider cannot be reached right now.",
+      "ssoNoAccount": "There is no account for your email address on this server. Ask an administrator for an invitation.",
+      "ssoUnverified": "Your sign-in provider has not confirmed your email address, so it cannot be matched to an account.",
+      "ssoInactive": "This account has been deactivated.",
+      "ssoConflict": "An account with this email address is already linked to a different identity. Ask an administrator."
     },
     "signUpClosedTitle": "Registration is closed",
-    "signUpClosedSubtitle": "This server already has an account. New members join by invitation - ask an administrator to send you one."
+    "signUpClosedSubtitle": "This server already has an account. New members join by invitation - ask an administrator to send you one.",
+    "signInWith": "Sign in with {provider}",
+    "orPassword": "or with your password",
+    "ssoOnlySubtitle": "This server signs you in through {provider}."
   },
   "onboarding": {
     "title": "Set up your profile",
@@ -1390,7 +1399,8 @@
     "inviteError": "Those details could not be accepted. The username may already be taken.",
     "username": "Username",
     "password": "Password",
-    "createAccount": "Create account"
+    "createAccount": "Create account",
+    "inviteSso": "Sign in with {provider} as {email} to accept this invitation."
   },
   "activity": {
     "title": "Sport & Activity",

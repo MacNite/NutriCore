@@ -38,6 +38,12 @@ describe("content security policy", () => {
     expect(csp).toContain("base-uri 'self'");
     expect(csp).toContain("object-src 'none'");
   });
+
+  it("lets sign-out redirect to the single sign-on provider, and only to it", () => {
+    expect(contentSecurityPolicy({ ...options, ssoOrigin: "https://auth.example.com" })).toContain(
+      "form-action 'self' https://auth.example.com;",
+    );
+  });
 });
 
 describe("security headers", () => {

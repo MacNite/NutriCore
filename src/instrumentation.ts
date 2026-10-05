@@ -26,4 +26,10 @@ export async function register() {
     console.error(`\n${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
+
+  /* Sign-in settings that would silently not do what was asked. These warn
+     rather than exit: each one already falls back to a configuration that
+     still lets people sign in. */
+  const { authConfigurationProblems } = await import("@/lib/oidc-config");
+  for (const problem of authConfigurationProblems()) console.warn(`[auth] ${problem}`);
 }
