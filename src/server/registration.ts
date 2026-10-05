@@ -27,7 +27,7 @@ import { DEFAULT_LOCALE } from "@/i18n/locales";
  * it ends by rolling back, so a failed registration can never leave the next
  * one waiting for ever.
  */
-const BOOTSTRAP_LOCK_KEY = 4711001n;
+export const BOOTSTRAP_LOCK_KEY = 4711001n;
 
 export class RegistrationClosedError extends Error {
   constructor() {

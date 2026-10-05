@@ -20,7 +20,8 @@ Implemented and covered by tests:
 
 - **Accounts** — local email + password, Argon2id hashing, opaque session
   tokens stored only as SHA-256 hashes, HTTP-only cookies, logout, account
-  deletion. No external identity provider.
+  deletion. Optional single sign-on through OpenID Connect (e.g. authentik),
+  with password sign-in switchable off. See [Single sign-on](#single-sign-on-openid-connect--authentik).
 - **Onboarding and profile** — display name, language, date of birth, height,
   weight, biological sex, activity level and goal.
 - **Calorie target** — Mifflin-St Jeor. Every component (BMR, activity
@@ -297,6 +298,10 @@ All variables are documented inline in [`.env.example`](.env.example).
 | `RETAIN_AI_JOB_DAYS` / `RETAIN_FAILED_AI_JOB_DAYS` | no | Days before finished AI jobs and their attempts are deleted; defaults 30 and 90, `0` disables |
 | `RETAIN_INVITATION_DAYS` | no | Days before accepted, revoked or expired invitations are deleted; default 30, `0` disables |
 | `REGISTRATION_MODE` | no | `bootstrap` (default), `open` or `disabled`. See [Registration policy](#registration-policy) |
+| `OIDC_ENABLED` / `OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | no | Optional single sign-on. See [Single sign-on](#single-sign-on-openid-connect--authentik) |
+| `OIDC_AUTO_CREATE` / `OIDC_REQUIRE_VERIFIED_EMAIL` / `OIDC_SINGLE_LOGOUT` | no | Defaults `false`, `true`, `true` |
+| `OIDC_SCOPES` / `OIDC_PROVIDER_NAME` | no | Defaults `openid email profile` and `authentik` (the button label) |
+| `AUTH_PASSWORD_LOGIN` | no | Default `true`. `false` makes single sign-on the only way in, apart from the administrators' break-glass at `/login?local=1` |
 | `ALLOW_INSECURE_APP_URL` | no | Default `false`. Allows a production `APP_URL` that is neither HTTPS nor local, for TLS terminated where the application cannot see it |
 | `TRUSTED_PROXY_HOPS` | no | Default `0`. How many reverse proxies sit in front of this deployment; `X-Forwarded-For` is ignored unless this is set |
 | `INVITATION_EXPIRY_HOURS` | no | Single-use invitation lifetime; default 48 hours |
@@ -1281,10 +1286,94 @@ user from Settings when SMTP is configured. If that is not the membership policy
 you want, an administrator can disable SMTP delivery so invitations are issued
 only from the Administrator Panel.
 
+## Single sign-on (OpenID Connect / authentik)
+
+NutriCore can sign people in through any OpenID Connect provider. It is written
+and documented against [authentik](https://goauthentik.io/), but uses nothing
+authentik-specific: discovery, the authorization-code flow with PKCE, a signed
+ID token, and optionally the userinfo and end-session endpoints.
+
+### Setting it up in authentik
+
+1. **Applications → Providers → Create → OAuth2/OpenID Provider.**
+   - Client type: *Confidential*.
+   - Redirect URIs: `https://nutricore.example.com/api/auth/oidc/callback`
+     (your `APP_URL` plus that path). For single logout also add
+     `https://nutricore.example.com/login`.
+   - Scopes: the default `openid`, `email` and `profile` mappings.
+   - Signing key: any certificate (RS256). Leaving it empty also works; authentik
+     then signs with the client secret (HS256), which NutriCore accepts.
+2. **Applications → Create**, slug e.g. `nutricore`, using that provider. Bind
+   users or groups to the application to decide who may sign in at all.
+3. In `.env`:
+
+   ```env
+   OIDC_ENABLED=true
+   OIDC_ISSUER=https://auth.example.com/application/o/nutricore/
+   OIDC_CLIENT_ID=<Client ID from the provider>
+   OIDC_CLIENT_SECRET=<Client Secret from the provider>
+   ```
+
+   The issuer is the provider's *OpenID Configuration Issuer*, shown on its
+   overview page. Restart the app; the sign-in page now has a
+   *Sign in with authentik* button.
+
+### How accounts are matched
+
+On a person's first single sign-on, the email the provider releases is matched,
+case-insensitively, against NutriCore's accounts. A match is then **bound to the
+provider's subject (`sub`)**: from then on the sign-in is recognised by that
+subject, so changing the email on either side does not move it onto a different
+account, and an account bound to one identity is never taken over by another.
+
+When no account has the email:
+
+| Situation | Result |
+| --- | --- |
+| An open invitation exists for the email | The account is created with the invitation's role, and the invitation is used up |
+| The instance has no account yet (and `REGISTRATION_MODE` is not `disabled`) | The account is created as the administrator, exactly like the first password registration |
+| `OIDC_AUTO_CREATE=true` | The account is created as a normal member |
+| Otherwise | Refused: *There is no account for your email address* |
+
+Accounts created this way have no usable password. Administrator rights stay
+managed inside NutriCore; provider groups do not change them.
+
+`OIDC_REQUIRE_VERIFIED_EMAIL` (default `true`) refuses to match or create an
+account from an email the provider does not mark `email_verified`. Email is the
+key that decides which account a sign-in reaches, so if users can edit their own
+email in authentik, an unverified one could claim somebody else's not-yet-linked
+account. If your authentik email mapping reports `email_verified: false` and only
+administrators can change emails there, set it to `false`, or adjust the
+`email` scope mapping to return `True`.
+
+### Single sign-on only
+
+`AUTH_PASSWORD_LOGIN=false` makes the provider the only way in:
+
+- the email + password form, the sign-up page and the password form on
+  invitation links disappear; an invitation link offers *Sign in with authentik*
+  instead and is honoured on the first sign-in with its email;
+- password sign-in is refused for everyone **except administrators**, who keep a
+  break-glass form at `/login?local=1` (not linked anywhere) for the day the
+  provider is down.
+
+The switch is ignored, with a warning in the log at start-up, while single sign-on
+is not fully configured, so a typo cannot lock everybody out.
+
+### Signing out
+
+With `OIDC_SINGLE_LOGOUT=true` (default), signing out of a single sign-on
+session also ends the authentik session through its end-session endpoint and
+returns to `/login`. Otherwise only the NutriCore session ends.
+
 ## Security considerations
 
 - Argon2id password hashing with OWASP-aligned parameters
 - Opaque session tokens; only SHA-256 hashes are stored
+- Optional OpenID Connect single sign-on: authorization-code flow with PKCE
+  (S256), state and nonce checked, ID token signature, issuer, audience and
+  expiry verified; accounts are matched by verified email once and then bound to
+  the provider's subject
 - Health sync tokens follow the same rule: 256 bits of entropy, only the SHA-256
   is stored, shown to the user once, revocable per device, and fixed at issue
   time to one platform so a token taken off one phone cannot write as the other

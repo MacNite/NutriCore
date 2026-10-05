@@ -18,6 +18,7 @@ import { ENRICHMENT_BATCH_LIMIT, ENRICHMENT_RETRY_MS, ENRICHMENT_SCAN_LIMIT, mis
 import { AI_JOB_OPERATIONS, AI_JOB_REQUEUE_DATA, AI_JOB_SELECTION_OPERATIONS, jobPriority, STUCK_RUNNING_MS, type AiJobOperation } from "./ai-types";
 import { discardMealInputImages } from "./meal-image";
 import { DATASET_KEYS, importAllDatasets } from "./food-datasets/import";
+import { passwordLoginEnabled } from "@/lib/oidc";
 
 /**
  * The token still travels back so an administrator can copy it when mail is
@@ -396,6 +397,8 @@ export async function acceptInvitationAction(formData: FormData) {
   if (!limit.allowed) redirect(`/invite/${encodeURIComponent(token)}?error=rateLimited`);
   const invitation = await redeemableInvitation(token);
   if (!invitation) redirect(`/invite/${encodeURIComponent(token)}?error=invalid`);
+  // Invitations are redeemed by signing in through the provider instead.
+  if (!passwordLoginEnabled()) redirect(`/invite/${encodeURIComponent(token)}`);
 
   const username = String(formData.get("username")).trim();
   const password = String(formData.get("password"));
