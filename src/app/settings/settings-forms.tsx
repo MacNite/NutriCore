@@ -6,6 +6,7 @@ import { ProfileFields, type ProfileValues } from "@/components/profile-fields";
 import type { BodyPanels } from "@/lib/body-visualization";
 import { NUTRIENTS } from "@/lib/nutrients";
 import {
+  changeEmailAction,
   deleteAccountAction,
   savePersonalizationAction,
   saveProfileAction,
@@ -38,8 +39,76 @@ function Feedback({ state, savedLabel }: { state: FormState; savedLabel: string 
   return null;
 }
 
+const EMAIL_ERRORS = ["wrongPassword", "emailTaken", "sameEmail", "ssoManaged", "rateLimited"] as const;
+type EmailError = (typeof EMAIL_ERRORS)[number];
+const isEmailError = (error: string | undefined): error is EmailError => EMAIL_ERRORS.includes(error as EmailError);
+
+/**
+ * The sign-in address. Read-only for single-sign-on accounts, whose address
+ * belongs to the identity provider and who have no password to confirm with.
+ */
+function EmailForm({ email, ssoManaged }: { email: string; ssoManaged: boolean }) {
+  const t = useTranslations("settings.email");
+  const errors = useTranslations("errors");
+  const common = useTranslations("common");
+  const [state, action, pending] = useActionState<FormState, FormData>(changeEmailAction, {});
+
+  if (ssoManaged) {
+    return (
+      <section className="card">
+        <h2>{t("title")}</h2>
+        <div className="field">
+          <label htmlFor="current-email">{t("current")}</label>
+          <input id="current-email" type="email" value={email} readOnly aria-describedby="email-sso-hint" />
+          <span className="hint" id="email-sso-hint">{t("ssoManaged")}</span>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="card">
+      <h2>{t("title")}</h2>
+      <p className="muted" style={{ marginTop: 0, fontSize: 13.5 }}>
+        {t("hint")}
+      </p>
+      {/* Keyed on the saved address so a successful change clears the inputs. */}
+      <form action={action} key={email}>
+        {state.ok ? (
+          <div className="notice" role="status" style={{ marginBottom: 14 }}>
+            <span className="notice-icon" aria-hidden="true">✓</span>
+            <span>{t("saved")}</span>
+          </div>
+        ) : state.error ? (
+          <div className="notice notice-error" role="alert" style={{ marginBottom: 14 }}>
+            <span className="notice-icon" aria-hidden="true">!</span>
+            <span>{isEmailError(state.error) ? t(`errors.${state.error}`) : errors("validation")}</span>
+          </div>
+        ) : null}
+        <div className="field">
+          <label htmlFor="current-email">{t("current")}</label>
+          <input id="current-email" type="email" value={email} readOnly />
+        </div>
+        <div className="field">
+          <label htmlFor="new-email">{t("new")}</label>
+          <input id="new-email" name="email" type="email" autoComplete="email" maxLength={254} required />
+        </div>
+        <div className="field">
+          <label htmlFor="email-password">{t("password")}</label>
+          <input id="email-password" name="password" type="password" autoComplete="current-password" maxLength={200} required />
+        </div>
+        <button type="submit" className="btn btn-primary" disabled={pending}>
+          {pending ? common("loading") : t("submit")}
+        </button>
+      </form>
+    </section>
+  );
+}
+
 export function SettingsForms({
   username,
+  email,
+  ssoManaged,
   values,
   overrideKcal,
   manualNutrients,
@@ -47,6 +116,8 @@ export function SettingsForms({
   addActivityCalories,
 }: {
   username: string;
+  email: string;
+  ssoManaged: boolean;
   values: ProfileValues;
   overrideKcal: number | null;
   manualNutrients: Record<string, number>;
@@ -76,6 +147,8 @@ export function SettingsForms({
           </button>
         </form>
       </section>
+
+      <EmailForm email={email} ssoManaged={ssoManaged} />
 
       <details className="card">
         <summary><h2>{targetT("override")}</h2></summary>

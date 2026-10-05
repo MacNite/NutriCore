@@ -63,6 +63,10 @@ export const RATE_LIMITS = {
      because ten wrong passwords for one account is already a lot. */
   loginAccount: scaled(8, 15 * 60 * 1000),
   register: scaled(5, 60 * 60 * 1000),
+  /* Changing the sign-in email checks the current password, so it is a
+     password oracle for whoever holds a session and is bounded per account
+     like a sign-in. */
+  emailChange: scaled(5, 15 * 60 * 1000),
   /* Single sign-on callbacks. Each one costs a token exchange with the
      provider, so they are bounded per address like a password attempt. */
   sso: scaled(20, 15 * 60 * 1000),

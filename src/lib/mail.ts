@@ -68,24 +68,53 @@ export async function getMailConfiguration(): Promise<MailConfiguration> {
   };
 }
 
-export async function sendInvitationMail(input: { to: string; name?: string | null; inviteUrl: string; expiresAt: Date }) {
+async function mailTransport() {
   const config = await getMailConfiguration();
-  if (!config.enabled) return { sent: false as const, reason: "disabled" as const };
+  if (!config.enabled) return null;
   if (!config.host || !config.fromEmail) throw new Error("SMTP host and sender address are required");
-
   const transport = nodemailer.createTransport({
     host: config.host,
     port: config.port,
     secure: config.secure,
     auth: config.username ? { user: config.username, pass: config.password } : undefined,
   });
+  return { transport, from: { name: config.fromName || "NutriCore", address: config.fromEmail } };
+}
+
+export async function sendInvitationMail(input: { to: string; name?: string | null; inviteUrl: string; expiresAt: Date }) {
+  const mail = await mailTransport();
+  if (!mail) return { sent: false as const, reason: "disabled" as const };
+
   const greeting = input.name ? `Hello ${input.name},` : "Hello,";
-  await transport.sendMail({
-    from: { name: config.fromName || "NutriCore", address: config.fromEmail },
+  await mail.transport.sendMail({
+    from: mail.from,
     to: input.to,
     subject: "Your NutriCore invitation",
     text: `${greeting}\n\nYou have been invited to NutriCore. Create your account here:\n${input.inviteUrl}\n\nThis link expires ${input.expiresAt.toISOString()}.`,
     html: `<p>${escapeHtml(greeting)}</p><p>You have been invited to NutriCore.</p><p><a href="${escapeHtml(input.inviteUrl)}">Create your account</a></p><p>This link expires ${escapeHtml(input.expiresAt.toISOString())}.</p>`,
+  });
+  return { sent: true as const };
+}
+
+/**
+ * Security notice to the address an account used to sign in with. The new
+ * address is deliberately left out: if the change was not the owner's doing,
+ * the notice must not hand the intruder's address to whoever reads it, and the
+ * owner needs only to know that it happened.
+ */
+export async function sendEmailChangedMail(input: { to: string; name?: string | null; changedAt: Date }) {
+  const mail = await mailTransport();
+  if (!mail) return { sent: false as const, reason: "disabled" as const };
+
+  const greeting = input.name ? `Hello ${input.name},` : "Hello,";
+  const body = `The sign-in email address of your NutriCore account was changed on ${input.changedAt.toISOString()}. This address will no longer be used for your account.`;
+  const advice = "If you did not make this change, contact your NutriCore administrator immediately.";
+  await mail.transport.sendMail({
+    from: mail.from,
+    to: input.to,
+    subject: "Your NutriCore email address was changed",
+    text: `${greeting}\n\n${body}\n\n${advice}`,
+    html: `<p>${escapeHtml(greeting)}</p><p>${escapeHtml(body)}</p><p>${escapeHtml(advice)}</p>`,
   });
   return { sent: true as const };
 }

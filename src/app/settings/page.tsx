@@ -14,6 +14,7 @@ import { TargetPanel } from "@/components/target-panel";
 import { inviteUserByUserAction } from "@/server/admin-actions";
 import { listDeviceTokens } from "@/server/health-device-tokens";
 import { env } from "@/lib/env";
+import { SSO_ONLY_PASSWORD_HASH } from "@/lib/oidc";
 
 export async function generateMetadata() {
   const t = await getTranslations("settings");
@@ -25,10 +26,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   if (!user) redirect("/login");
 
   const t = await getTranslations("settings");
-  const [profile, target, devices] = await Promise.all([
+  const [profile, target, devices, account] = await Promise.all([
     prisma.userProfile.findUnique({ where: { userId: user.id } }),
     getCurrentTarget(user.id),
     listDeviceTokens(user.id),
+    prisma.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } }),
   ]);
   const { invite } = await searchParams;
 
@@ -44,6 +46,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <div className="stack">
           <SettingsForms
             username={user.username}
+            email={user.email}
+            ssoManaged={account?.passwordHash === SSO_ONLY_PASSWORD_HASH}
             values={{
               displayName: profile?.displayName ?? user.displayName,
               language: profile?.language ?? "de",

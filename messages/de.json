@@ -773,7 +773,24 @@
       "rateLimited": "Zu viele Einladungen wurden angefordert. Bitte versuche es später erneut."
     },
     "autoApplyEnrichment": "Ergänzte Nährwerte ohne Prüfung übernehmen",
-    "autoApplyEnrichmentHint": "Standardmäßig aus: Nährwerte, die die KI aus einer Quelle liest, warten auf deine Freigabe. Einschalten, damit sie wie bisher sofort ins Lebensmittel geschrieben werden."
+    "autoApplyEnrichmentHint": "Standardmäßig aus: Nährwerte, die die KI aus einer Quelle liest, warten auf deine Freigabe. Einschalten, damit sie wie bisher sofort ins Lebensmittel geschrieben werden.",
+    "email": {
+      "title": "E-Mail-Adresse",
+      "hint": "Die Adresse, mit der du dich anmeldest. Bestätige die Änderung mit deinem aktuellen Passwort.",
+      "current": "Aktuelle E-Mail",
+      "new": "Neue E-Mail",
+      "password": "Aktuelles Passwort",
+      "submit": "E-Mail ändern",
+      "saved": "E-Mail-Adresse geändert. Melde dich beim nächsten Mal mit der neuen Adresse an.",
+      "ssoManaged": "Wird von deinem Single-Sign-on-Anbieter verwaltet. Ändere sie dort.",
+      "errors": {
+        "wrongPassword": "Das Passwort ist nicht korrekt.",
+        "emailTaken": "Diese E-Mail-Adresse wird bereits verwendet.",
+        "sameEmail": "Das ist bereits deine E-Mail-Adresse.",
+        "ssoManaged": "Diese Adresse wird von deinem Single-Sign-on-Anbieter verwaltet.",
+        "rateLimited": "Zu viele Versuche. Bitte später erneut versuchen."
+      }
+    }
   },
   "mealSplit": {
     "title": "Kalorien pro Mahlzeit",
