@@ -4,12 +4,17 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "./session";
 import { recalculateTarget } from "./targets";
 import { LOCALES } from "@/i18n/locales";
 import { logger } from "@/lib/logger";
-import { PASSWORD_CHANGE_COOKIE, SESSION_COOKIE } from "@/lib/auth";
+import { PASSWORD_CHANGE_COOKIE, SESSION_COOKIE, verifyPassword } from "@/lib/auth";
+import { SSO_ONLY_PASSWORD_HASH } from "@/lib/oidc";
+import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
+import { sendEmailChangedMail } from "@/lib/mail";
+import { durableRateLimitOrFallback } from "./durable-rate-limit";
 import { NUTRIENTS } from "@/lib/nutrients";
 import { MEAL_SPLIT_TOTAL, isValidMealSplit, type MealSplit } from "@/lib/meal-splits";
 
@@ -262,6 +267,59 @@ export async function saveBodyPanelsAction(_state: FormState, formData: FormData
   await prisma.userProfile.update({ where: { userId: user.id }, data: parsed.data });
 
   revalidatePath("/progress");
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+const emailChangeSchema = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email()),
+  password: z.string().min(1).max(200),
+});
+
+/**
+ * Changes the address the account signs in with, confirmed by the current
+ * password rather than a link to the new address, so it works on instances
+ * that never set up SMTP.
+ *
+ * Accounts created through single sign-on have no password to confirm with;
+ * their address belongs to the identity provider and is refused here. The
+ * previous address gets a notice when mail is configured, so a change made
+ * from a hijacked session does not go unnoticed by the owner.
+ */
+export async function changeEmailAction(_state: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+
+  const key = `email-change:${user.id}`;
+  const { limit, windowMs } = RATE_LIMITS.emailChange;
+  const allowed = await durableRateLimitOrFallback(key, limit, windowMs, rateLimit(key, limit, windowMs));
+  if (!allowed.allowed) return { error: "rateLimited" };
+
+  const parsed = emailChangeSchema.safeParse({ email: formData.get("email"), password: formData.get("password") });
+  if (!parsed.success) return { error: "validation" };
+
+  const account = await prisma.user.findUnique({ where: { id: user.id }, select: { email: true, passwordHash: true } });
+  if (!account) return { error: "validation" };
+  if (account.passwordHash === SSO_ONLY_PASSWORD_HASH) return { error: "ssoManaged" };
+  if (!(await verifyPassword(account.passwordHash, parsed.data.password))) {
+    logger.warn("Email change refused: wrong password", { userId: user.id });
+    return { error: "wrongPassword" };
+  }
+  if (parsed.data.email === account.email) return { error: "sameEmail" };
+
+  try {
+    await prisma.user.update({ where: { id: user.id }, data: { email: parsed.data.email } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { error: "emailTaken" };
+    throw error;
+  }
+  logger.info("Account email changed", { userId: user.id });
+
+  try {
+    await sendEmailChangedMail({ to: account.email, name: user.displayName, changedAt: new Date() });
+  } catch (error) {
+    logger.error("Email change notice failed", { userId: user.id, error: String(error) });
+  }
+
   revalidatePath("/settings");
   return { ok: true };
 }

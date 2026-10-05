@@ -773,7 +773,24 @@
       "rateLimited": "Too many invitations were requested. Please try again later."
     },
     "autoApplyEnrichment": "Apply backfilled nutrition without review",
-    "autoApplyEnrichmentHint": "Off by default: nutrition the AI reads off a source waits for you to approve it. Switch this on to have it written to the food straight away, the way it worked before."
+    "autoApplyEnrichmentHint": "Off by default: nutrition the AI reads off a source waits for you to approve it. Switch this on to have it written to the food straight away, the way it worked before.",
+    "email": {
+      "title": "Email address",
+      "hint": "The address you sign in with. Confirm the change with your current password.",
+      "current": "Current email",
+      "new": "New email",
+      "password": "Current password",
+      "submit": "Change email",
+      "saved": "Email address changed. Use the new address the next time you sign in.",
+      "ssoManaged": "Managed by your single sign-on provider. Change it there.",
+      "errors": {
+        "wrongPassword": "The password is not correct.",
+        "emailTaken": "This email address is already in use.",
+        "sameEmail": "That is already your email address.",
+        "ssoManaged": "This address is managed by your single sign-on provider.",
+        "rateLimited": "Too many attempts. Please try again later."
+      }
+    }
   },
   "mealSplit": {
     "title": "Calories per meal",
